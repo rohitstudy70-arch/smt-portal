@@ -12,9 +12,16 @@ connectDB();
 const app = express();
 
 // CORS - allow frontend origin
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:5173',
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173'],
+    origin: allowedOrigins,
     credentials: true,
   })
 );
