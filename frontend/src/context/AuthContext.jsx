@@ -1,5 +1,4 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 
 const AuthContext = createContext(null);
@@ -28,8 +27,66 @@ export const AuthProvider = ({ children }) => {
   });
 
   const [loading, setLoading] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(() => {
+    return !!localStorage.getItem('token');
+  });
 
   const isAuthenticated = !!token;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const validateStoredAuth = async () => {
+      const savedToken = localStorage.getItem('token');
+
+      if (!savedToken) {
+        setCheckingAuth(false);
+        return;
+      }
+
+      try {
+        const response = await api.get('/auth/me');
+        const userData = {
+          _id: response.data._id,
+          username: response.data.username,
+          role: response.data.role,
+          userType: response.data.userType || '',
+          displayName: response.data.displayName || '',
+          mobileNo: response.data.mobileNo || '',
+          companyName: response.data.companyName,
+          availableBalance: response.data.availableBalance,
+          overDrawnAmount: response.data.overDrawnAmount
+        };
+
+        if (!isMounted) {
+          return;
+        }
+
+        localStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
+        setToken(savedToken);
+      } catch {
+        if (!isMounted) {
+          return;
+        }
+
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setUser(null);
+        setToken(null);
+      } finally {
+        if (isMounted) {
+          setCheckingAuth(false);
+        }
+      }
+    };
+
+    validateStoredAuth();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const login = async (username, password) => {
     setLoading(true);
@@ -68,6 +125,7 @@ export const AuthProvider = ({ children }) => {
     user,
     token,
     loading,
+    checkingAuth,
     isAuthenticated,
     login,
     logout,

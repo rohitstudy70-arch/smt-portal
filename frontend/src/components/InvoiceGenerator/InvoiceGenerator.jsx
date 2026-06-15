@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { FaDownload, FaSpinner, FaFileInvoiceDollar, FaPlus, FaTrash } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
+import { FaDownload, FaSpinner, FaFileInvoiceDollar, FaPlus, FaTrash, FaEye } from 'react-icons/fa';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import './InvoiceGenerator.css';
@@ -314,466 +315,345 @@ const InvoiceGenerator = () => {
     
     const piDate = isAe01 ? '09.04.2026' : new Date(req.dateTime).toLocaleDateString('en-GB').replace(/\//g, '.');
     const piInvoiceNo = req.piNo || 'AE-01';
-    
+
+    const formatCurrencyIG = (val) => {
+      return new Intl.NumberFormat('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(val);
+    };
+
     let itemsHtml = '';
+    let subtotal = 0;
+    let sgstTotal = 0;
+    let cgstTotal = 0;
     let totalAmt = 0;
+    let itemCount = 0;
 
     if (req.items && req.items.length > 0) {
+      itemCount = req.items.length;
       itemsHtml = req.items.map((item, index) => {
         const unitPrice = parseFloat(item.unitPrice) || 0;
         const cgstRate = parseFloat(item.cgst) || 0;
         const sgstRate = parseFloat(item.sgst) || 0;
         const qty = parseInt(item.qty) || 0;
 
-        const cgstAmt = Math.round((unitPrice * cgstRate) / 100);
-        const sgstAmt = Math.round((unitPrice * sgstRate) / 100);
-        const priceWithGst = unitPrice + cgstAmt + sgstAmt;
-        const grossAmt = priceWithGst * qty;
+        const itemSubtotal = unitPrice * qty;
+        subtotal += itemSubtotal;
+        
+        const cgstAmt = (itemSubtotal * cgstRate) / 100;
+        const sgstAmt = (itemSubtotal * sgstRate) / 100;
+        cgstTotal += cgstAmt;
+        sgstTotal += sgstAmt;
+
+        const totalWithGst = Math.round(unitPrice + (unitPrice * cgstRate / 100) + (unitPrice * sgstRate / 100)) * qty;
 
         return `
           <tr>
-            <td>${index + 1}</td>
-            <td class="text-left">${item.description.replace(/\n/g, '<br/>')}</td>
-            <td>${item.validity || '--'}</td>
-            <td>${unitPrice}</td>
-            <td>${cgstAmt}</td>
-            <td>${sgstAmt}</td>
-            <td>${priceWithGst}</td>
-            <td>${qty}</td>
-            <td>${grossAmt.toFixed(2)}</td>
+            <td style="text-align:center">${index + 1}</td>
+            <td class="desc">${item.description.replace(/\n/g, '<br/>')}</td>
+            <td class="num">${qty}</td>
+            <td class="num">${formatCurrencyIG(unitPrice)}</td>
+            <td class="num">${cgstRate + sgstRate}%</td>
+            <td class="num">${formatCurrencyIG(totalWithGst)}</td>
           </tr>
         `;
       }).join('');
-      totalAmt = req.piValue || req.items.reduce((sum, item) => {
-        const unitPrice = parseFloat(item.unitPrice) || 0;
-        const cgstRate = parseFloat(item.cgst) || 0;
-        const sgstRate = parseFloat(item.sgst) || 0;
-        const qty = parseInt(item.qty) || 0;
-        const priceWithGst = unitPrice + Math.round((unitPrice * cgstRate) / 100) + Math.round((unitPrice * sgstRate) / 100);
-        return sum + (priceWithGst * qty);
-      }, 0);
+      
+      subtotal = Math.round(subtotal);
+      cgstTotal = Math.round(cgstTotal);
+      sgstTotal = Math.round(sgstTotal);
+      totalAmt = req.piValue || Math.round(subtotal + cgstTotal + sgstTotal);
     } else {
       const is2Years = req.validity === '2 Years' || req.validity === '24 Month';
       const is5Years = req.validity === '5 Years' || req.validity === '60 Month';
       
       let unitPrice = 4300;
-      let cgst = 387;
-      let sgst = 387;
-      let priceWithGst = 5074;
+      let cgstRate = 9;
+      let sgstRate = 9;
       let validityPeriod = '12 Month';
       
       if (is2Years) {
         unitPrice = 5600;
-        cgst = 504;
-        sgst = 504;
-        priceWithGst = 6608;
         validityPeriod = '24 Month';
       } else if (is5Years) {
         unitPrice = 10000;
-        cgst = 900;
-        sgst = 900;
-        priceWithGst = 11800;
         validityPeriod = '60 Month';
       }
       
+      // Item 1
+      const qty1 = 1;
+      const subtotal1 = unitPrice * qty1;
+      const cgstAmt1 = (subtotal1 * cgstRate) / 100;
+      const sgstAmt1 = (subtotal1 * sgstRate) / 100;
+      const totalWithGst1 = Math.round(unitPrice + (unitPrice * cgstRate / 100) + (unitPrice * sgstRate / 100)) * qty1;
+
+      // Item 2 (Installation)
+      const unitPrice2 = 400;
+      const qty2 = 1;
+      const subtotal2 = unitPrice2 * qty2;
+      const cgstAmt2 = (subtotal2 * cgstRate) / 100;
+      const sgstAmt2 = (subtotal2 * sgstRate) / 100;
+      const totalWithGst2 = Math.round(unitPrice2 + (unitPrice2 * cgstRate / 100) + (unitPrice2 * sgstRate / 100)) * qty2;
+
+      subtotal = Math.round(subtotal1 + subtotal2);
+      cgstTotal = Math.round(cgstAmt1 + cgstAmt2);
+      sgstTotal = Math.round(sgstAmt1 + sgstAmt2);
+      totalAmt = Math.round(totalWithGst1 + totalWithGst2);
+      itemCount = 2;
+
       itemsHtml = `
         <tr>
-          <td>1</td>
-          <td class="text-left">iTriangle (Bharat101 Plus) Ais140 ${is2Years ? '_2G' : is5Years ? '_5G' : '2G'}<br/><small style="color: #555;">VLTD Device with including Dual profile E-sim & Software + 01 Panic Switch</small></td>
-          <td>${validityPeriod}</td>
-          <td>${unitPrice}</td>
-          <td>${cgst}</td>
-          <td>${sgst}</td>
-          <td>${priceWithGst}</td>
-          <td>1</td>
-          <td>${priceWithGst.toFixed(2)}</td>
+          <td style="text-align:center">1</td>
+          <td class="desc">iTriangle (Bharat101 Plus) Ais140 ${is2Years ? '_2G' : is5Years ? '_5G' : '2G'}<br/><small style="color: #555;">VLTD Device including Dual profile E-sim & Software + 01 Panic Switch (Validity: ${validityPeriod})</small></td>
+          <td class="num">${qty1}</td>
+          <td class="num">${formatCurrencyIG(unitPrice)}</td>
+          <td class="num">${cgstRate + sgstRate}%</td>
+          <td class="num">${formatCurrencyIG(totalWithGst1)}</td>
         </tr>
         <tr>
-          <td>2</td>
-          <td class="text-left">Installation</td>
-          <td>One Time</td>
-          <td>400</td>
-          <td>36</td>
-          <td>36</td>
-          <td>472</td>
-          <td>1</td>
-          <td>472.00</td>
+          <td style="text-align:center">2</td>
+          <td class="desc">Installation<br/><small style="color: #555;">One Time Installation Charges</small></td>
+          <td class="num">${qty2}</td>
+          <td class="num">${formatCurrencyIG(unitPrice2)}</td>
+          <td class="num">${cgstRate + sgstRate}%</td>
+          <td class="num">${formatCurrencyIG(totalWithGst2)}</td>
         </tr>
       `;
-      totalAmt = priceWithGst + 472;
+    }
+
+    // Add empty rows if needed (minimum 4 rows)
+    const minRows = 4;
+    if (itemCount < minRows) {
+      for (let i = itemCount; i < minRows; i++) {
+        itemsHtml += `<tr class="empty-row"><td style="text-align:center">-</td><td class="desc">-</td><td class="num">-</td><td class="num">-</td><td class="num">-</td><td class="num">-</td></tr>`;
+      }
     }
 
     const amountInWords = numberToWords(totalAmt);
-    
+
     const printWindow = window.open('', '_blank', 'width=900,height=800');
     if (!printWindow) {
       alert('Popup blocker enabled. Please allow popups to download/print the invoice.');
       return;
     }
-    
+
     printWindow.document.write(`
       <!DOCTYPE html>
-      <html>
+      <html lang="en">
       <head>
-        <title>Proforma Invoice - ${piInvoiceNo}</title>
-        <style>
-          body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            margin: 10px;
-            color: #000;
-            font-size: 11px;
-            line-height: 1.35;
-          }
-          .invoice-box {
-            max-width: 820px;
-            margin: auto;
-            border: 1.5px solid #000;
-            padding: 15px;
-            background: #fff;
-          }
-          .invoice-header-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 5px;
-          }
-          .header-logo-cell {
-            width: 15%;
-            vertical-align: middle;
-            text-align: left;
-          }
-          .header-text-cell {
-            width: 70%;
-            text-align: center;
-            vertical-align: middle;
-          }
-          .header-logo-right-cell {
-            width: 15%;
-            vertical-align: middle;
-            text-align: right;
-          }
-          .brand-title {
-            font-family: 'Georgia', 'Times New Roman', serif;
-            font-size: 26px;
-            color: #b91c1c;
-            font-weight: 800;
-            margin: 0;
-            letter-spacing: 0.5px;
-          }
-          .brand-subtitle {
-            font-size: 13px;
-            font-weight: 700;
-            color: #000;
-            margin: 4px 0 2px 0;
-          }
-          .brand-contact {
-            font-size: 11px;
-            color: #00f;
-            text-decoration: underline;
-            margin: 0;
-            font-weight: 600;
-          }
-          .logo-circle-ae {
-            width: 55px;
-            height: 55px;
-            border: 2px solid #002060;
-            border-radius: 50%;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-          }
-          .logo-circle-ae::after {
-            content: 'AE';
-            font-family: 'Georgia', serif;
-            font-size: 22px;
-            color: #002060;
-            font-weight: 800;
-            font-style: italic;
-          }
-          .gps-logo-img {
-            width: 55px;
-            height: 55px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-            box-shadow: 0 4px 8px rgba(245, 158, 11, 0.2);
-            color: #fff;
-            font-weight: 800;
-            font-size: 10px;
-            text-align: center;
-            line-height: 1.1;
-          }
-          .invoice-title {
-            text-align: center;
-            color: #ef4444;
-            font-size: 15px;
-            font-weight: 800;
-            margin: 15px 0 10px 0;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-          }
-          .meta-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 10px;
-          }
-          .meta-table td {
-            font-size: 12px;
-            font-weight: bold;
-          }
-          .to-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 15px;
-          }
-          .to-table td {
-            border: 1px solid #000;
-            padding: 6px 10px;
-            font-size: 11.5px;
-          }
-          .to-label {
-            width: 120px;
-            font-weight: bold;
-            text-align: right;
-            padding-right: 15px;
-          }
-          .subject-line {
-            font-size: 11.5px;
-            font-weight: bold;
-            margin: 8px 0;
-          }
-          .items-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 12px;
-          }
-          .items-table th {
-            background-color: #0070c0;
-            color: #fff;
-            border: 1px solid #000;
-            padding: 8px;
-            font-size: 11px;
-            font-weight: bold;
-            text-align: center;
-            text-transform: uppercase;
-          }
-          .items-table td {
-            border: 1px solid #000;
-            padding: 10px 8px;
-            text-align: center;
-            font-size: 11px;
-            vertical-align: middle;
-          }
-          .items-table .text-left {
-            text-align: left;
-            font-weight: 500;
-          }
-          .items-table tr.total-row td {
-            font-weight: bold;
-            font-size: 11.5px;
-          }
-          .terms-section {
-            font-size: 10px;
-            margin-top: 15px;
-            line-height: 1.35;
-          }
-          .terms-title {
-            font-weight: bold;
-            margin-bottom: 4px;
-          }
-          .terms-list {
-            margin: 0;
-            padding-left: 15px;
-          }
-          .signatory-box {
-            float: right;
-            text-align: center;
-            width: 180px;
-            margin-top: 20px;
-            position: relative;
-            font-size: 11px;
-          }
-          .stamp-container {
-            position: absolute;
-            top: -45px;
-            left: 50px;
-            opacity: 0.65;
-            pointer-events: none;
-          }
-          .stamp-circle {
-            width: 80px;
-            height: 80px;
-            border: 2px dashed #1e3a8a;
-            border-radius: 50%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: #1e3a8a;
-            font-size: 8px;
-            font-weight: bold;
-            transform: rotate(-10deg);
-          }
-          .stamp-inner {
-            font-size: 8.5px;
-            border-top: 1px solid #1e3a8a;
-            border-bottom: 1px solid #1e3a8a;
-            padding: 1px 0;
-            margin: 2px 0;
-          }
-          .signature-txt {
-            font-family: 'Brush Script MT', cursive, sans-serif;
-            font-size: 26px;
-            color: #0b131f;
-            transform: rotate(-5deg);
-            display: inline-block;
-            margin-bottom: -5px;
-            position: absolute;
-            top: -25px;
-            left: 60px;
-          }
-          .footer-line {
-            margin-top: 140px;
-            border-top: 2px solid #b91c1c;
-            padding-top: 8px;
-            text-align: center;
-            font-size: 10px;
-            line-height: 1.4;
-            clear: both;
-          }
-          .footer-line .company-name {
-            font-weight: bold;
-            font-size: 11.5px;
-          }
-        </style>
+      <meta charset="UTF-8">
+      <title>Arshi GPS – Proforma Invoice</title>
+      <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+      <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        :root{
+          --teal:#007B8A;--teal-dark:#005a66;--teal-light:#E0F4F7;--teal-mid:#b2e4ec;
+          --accent:#f0a500;--bg:#eef4f6;--white:#ffffff;--text:#1a2a30;--muted:#5a7a82;--border:#cce4e8
+        }
+        body{font-family:'Nunito Sans',sans-serif;background:#fff;color:var(--text);padding:20px;min-height:100vh;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+
+        /* Page */
+        .page{background:var(--white);max-width:794px;margin:0 auto;border-radius:12px;overflow:hidden;border:1px solid var(--border)}
+
+        /* Header */
+        .header{background:var(--teal);padding:28px 36px 22px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px}
+        .brand-name{font-family:'Nunito',sans-serif;font-size:34px;font-weight:800;color:#fff;letter-spacing:-0.5px}
+        .brand-sub{color:rgba(255,255,255,0.75);font-size:13px;margin-top:4px;line-height:1.65}
+        .invoice-title-block{text-align:right;flex-shrink:0}
+        .inv-label{font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:#fff;letter-spacing:1px;text-transform:uppercase}
+        .inv-meta{color:rgba(255,255,255,0.80);font-size:12.5px;margin-top:7px;line-height:1.75}
+
+        /* Accent bar */
+        .accent-bar{height:5px;background:linear-gradient(90deg,var(--accent) 0%,#f5d26e 50%,var(--teal-mid) 100%)}
+
+        /* Info grid */
+        .info-grid{display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1.5px solid var(--border)}
+        .info-box{padding:16px 20px;border-right:1px solid var(--border)}
+        .info-box:last-child{border-right:none}
+        .info-box-head{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--teal);margin-bottom:9px;display:flex;align-items:center;gap:6px}
+        .info-box-head::before{content:'';display:inline-block;width:3px;height:12px;background:var(--accent);border-radius:2px}
+        .info-box p{font-size:12.5px;color:var(--text);line-height:1.65}
+        .co-name{font-weight:700;font-size:13px;color:var(--text);margin-bottom:3px}
+
+        /* Table */
+        .table-wrap{padding:0 28px}
+        table{width:100%;border-collapse:collapse;margin-top:22px}
+        thead tr{background:var(--teal)}
+        thead th{color:#fff;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;padding:11px 12px}
+        thead th:first-child{border-radius:6px 0 0 0;padding-left:16px}
+        thead th:last-child{border-radius:0 6px 0 0}
+        tbody tr{border-bottom:1px solid var(--border)}
+        td{padding:12px 12px;font-size:13px;vertical-align:top}
+        td:first-child{padding-left:16px}
+        td.desc{min-width:180px;word-break:break-word;text-align:left}
+        td.num{text-align:right}
+        .empty-row td{height:34px;color:transparent;user-select:none}
+        .sub-row td{background:var(--teal-light);font-weight:700;font-size:13px;color:var(--teal-dark);border-top:2px solid var(--teal-mid)}
+
+        /* Bottom */
+        .bottom{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-top:20px;padding:0 28px 26px;align-items:start}
+        .amount-words{font-size:12.5px;color:var(--text);margin-bottom:14px;line-height:1.6}
+        .amount-words strong{color:var(--teal-dark)}
+        .section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--teal);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+        .section-title::before{content:'';display:inline-block;width:3px;height:11px;background:var(--accent);border-radius:2px}
+        .tc-list{list-style:none;padding:0;margin-bottom:18px}
+        .tc-list li{font-size:11.5px;color:#2a4a52;line-height:1.65;padding:3px 0 3px 20px;position:relative}
+        .tc-list li::before{content:attr(data-n);position:absolute;left:0;font-weight:700;color:var(--teal);font-size:11px}
+        .bank-row{font-size:12px;color:var(--muted);padding:4px 0;display:flex;gap:8px;align-items:center}
+        .bank-row span:first-child{font-weight:600;color:var(--text);min-width:115px}
+        .bank-row input{border:none;border-bottom:1.5px dashed var(--border);background:transparent;font-size:12px;color:var(--text);width:160px;outline:none;font-family:inherit;padding:1px 2px}
+        .bank-row input:focus{border-color:var(--teal)}
+
+        /* Tax block */
+        .tax-block{padding-left:26px;border-left:1.5px solid var(--border)}
+        .tax-row{display:flex;justify-content:space-between;font-size:12.5px;padding:4.5px 0;border-bottom:1px solid #eef4f6;color:var(--text)}
+        .tax-row:last-child{border-bottom:none}
+        .tax-row.hl{color:var(--teal-dark);font-weight:700}
+        .total-box{background:var(--teal);border-radius:8px;padding:15px 18px;margin-top:14px;text-align:center}
+        .total-label{color:rgba(255,255,255,0.8);font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px}
+        .total-amount{color:#fff;font-family:'Nunito',sans-serif;font-size:23px;font-weight:800;letter-spacing:-0.5px}
+
+        /* Footer */
+        .footer{margin:16px 28px 22px;padding-top:14px;border-top:1.5px solid var(--border);text-align:center}
+        .footer p{font-size:11px;color:var(--muted);line-height:1.5;font-style:italic}
+
+        /* Print */
+        @media print{
+          body{background:#fff;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+          .page{box-shadow:none;border:none;border-radius:0;max-width:100%}
+          .bank-row input{border-bottom:1px dashed #aaa}
+          tbody tr:hover{background:transparent}
+        }
+      </style>
       </head>
       <body>
-        <div class="invoice-box">
-          <table class="invoice-header-table">
-            <tr>
-              <td class="header-logo-cell">
-                <div class="gps-logo-img">
-                  GPS<br/>TRACKER
-                </div>
-              </td>
-              <td class="header-text-cell">
-                <h1 class="brand-title">Arshi Enterprises</h1>
-                <div class="brand-subtitle">A Complete Security Solution Division</div>
-                <div class="brand-contact">Tel.-7782808063, e-mail:- arshiranjeet133@gmail.com</div>
-              </td>
-              <td class="header-logo-right-cell">
-                <div class="logo-circle-ae"></div>
-              </td>
-            </tr>
-          </table>
 
-          <div class="invoice-title">${req.invoiceNo ? 'TAX INVOICE' : 'PERFORMA INVOICE'}</div>
+      <div class="page" id="invoice">
 
-          <table class="meta-table">
-            <tr>
-              <td style="text-align: left;">
-                ${req.invoiceNo ? `Invoice No : ${req.invoiceNo} &nbsp;&nbsp;|&nbsp;&nbsp; ` : ''}PI No : ${piInvoiceNo}
-              </td>
-              <td style="text-align: right;">Date.- ${piDate}</td>
-            </tr>
-          </table>
+        <!-- Header -->
+        <div class="header">
+          <div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <div class="brand-name">Arshi GPS</div>
+            </div>
+            <div class="brand-sub">
+              Arshi Enterprises<br>
+              Near Brajesh Auto Mobile Maranga,<br>
+              Purnea, Bihar, 854304<br>
+              GST No: 10ATIPK1589P1ZA
+            </div>
+          </div>
+          <div class="invoice-title-block">
+            <div class="inv-label">Proforma Invoice</div>
+            <div class="inv-meta">
+              Date: ${piDate}<br>
+              PI Invoice #: ${piInvoiceNo}
+            </div>
+          </div>
+        </div>
 
-          <table class="to-table">
-            <tr>
-              <td class="to-label">Name.-</td>
-              <td><strong>${customerName}</strong></td>
-            </tr>
-            <tr>
-              <td class="to-label">Address.-</td>
-              <td>${customerAddress}</td>
-            </tr>
-            <tr>
-              <td class="to-label">Mob.-</td>
-              <td>${customerMob}</td>
-            </tr>
-            <tr>
-              <td class="to-label">GSTIN NO.-</td>
-              <td>${customerGstin}</td>
-            </tr>
-          </table>
+        <!-- Accent bar -->
+        <div class="accent-bar"></div>
 
-          <div class="subject-line">Subject. - Ais140 Vehicle Location Tracking Device (VLTD).</div>
-          <div style="font-size: 11.5px; margin-bottom: 10px;">We are pleased to submit you the quotation of <strong>Ais140 Vehicle Location Tracking Device</strong>.</div>
+        <!-- Customer / Ship To / Shipping -->
+        <div class="info-grid">
+          <div class="info-box">
+            <div class="info-box-head">Customer</div>
+            <p class="co-name">${customerName}</p>
+            <p>${customerAddress}</p>
+            <p>GSTIN: ${customerGstin}</p>
+          </div>
+          <div class="info-box">
+            <div class="info-box-head">Ship To</div>
+            <p class="co-name">${customerName}</p>
+            <p>${customerAddress}</p>
+            <p>GSTIN: ${customerGstin}</p>
+          </div>
+          <div class="info-box">
+            <div class="info-box-head">Shipping Details</div>
+            <p class="co-name">${customerName}</p>
+            <p>${customerAddress}</p>
+            <p>Mobile: ${customerMob}</p>
+            <p>GSTIN: ${customerGstin}</p>
+          </div>
+        </div>
 
-          <table class="items-table">
+        <!-- Items Table -->
+        <div class="table-wrap">
+          <table>
             <thead>
               <tr>
-                <th style="width: 5%;">Sr. No:</th>
-                <th style="width: 45%;">Item Description:</th>
-                <th style="width: 10%;">Validity</th>
-                <th style="width: 8%;">Unit Price</th>
-                <th style="width: 8%;">CGST 9%</th>
-                <th style="width: 8%;">SGST 9%</th>
-                <th style="width: 8%;">Price with GST</th>
-                <th style="width: 5%;">Qty</th>
-                <th style="width: 10%;">Gross Amt.</th>
+                <th style="width:42px;text-align:center">SL</th>
+                <th style="text-align:left">Description</th>
+                <th style="width:52px;text-align:right">QTY</th>
+                <th style="width:96px;text-align:right">Unit Price</th>
+                <th style="width:54px;text-align:right">GST</th>
+                <th style="width:104px;text-align:right">Total (Rs)</th>
               </tr>
             </thead>
             <tbody>
               ${itemsHtml}
-              <tr class="total-row">
-                <td colspan="2" class="text-left" style="border-bottom: none; font-size: 11.5px; font-weight: bold;">Rupees.- <span style="font-weight: 500; font-style: italic;">${amountInWords}</span></td>
-                <td colspan="5" style="border-right: none; border-bottom: none;"></td>
-                <td style="border-left: none; border-bottom: none; text-align: right; font-weight: bold; border-right: 1px solid #000;">Total Rs.</td>
-                <td style="font-weight: bold; border-bottom: none;">${totalAmt.toFixed(2)}</td>
-              </tr>
-              <tr>
-                <td colspan="9" class="text-left" style="font-size: 8.5px; padding: 4px 8px; border-top: 1px solid #000; line-height: 1.35; font-weight: normal; color: #000;">
-                  <strong>T&C.-</strong> (1) Multiple Mobile Accs (2) Real time Track your Vehicle Anywhere via your mob. & pc. (3) Direction /Speed & Ignition On/Off Detection. (4) Ignition Cut off Alarm (5) Multiple Geo Fence setup & alarm. (6) Back-up data from 45days to last 90days (7) Moving overview km Per day, Stoy Detail +/-3- Speed Detail's & Alarm Detail's and etc.
-                </td>
-              </tr>
             </tbody>
+            <tfoot>
+              <tr class="sub-row">
+                <td colspan="5" style="text-align:right;padding-right:16px;font-size:12px;letter-spacing:0.5px">SubTotal</td>
+                <td class="num">${formatCurrencyIG(subtotal)}</td>
+              </tr>
+            </tfoot>
           </table>
+        </div>
 
-          <div class="terms-section">
-            <div class="terms-title">Terms and Conditions:</div>
-            <ul class="terms-list">
-              <li>Payment 100% in Advance.</li>
-              <li>Goods once sold cannot be taken back.</li>
-              <li>Installation Charges (@INR500) is extra applicable per unit. (Installation Price are further negotiable if quantity increases and vehicles are received in Bulk at one location)</li>
-              <li>Warranty. - 12 Months from the date of Supply, Warranty applicable before 15days of due date.</li>
-              <li>Courier if any to be paid by customer.</li>
-              <li>Standard Force Majeure will apply. (No warranty of burnt damaged goods)</li>
-              <li>If any service is required during the year, then it's charges @INR500 per unit will be applicable.</li>
-            </ul>
-          </div>
-
-          <div class="signatory-box">
-            Thanking You
-            <div style="height: 35px; position: relative; margin-top: 10px;">
-              <span class="signature-txt">Sona</span>
-              <div class="stamp-container">
-                <div class="stamp-circle">
-                  <span>Arshi Ent.</span>
-                  <div class="stamp-inner">GPS Tracker</div>
-                  <span>7782808063</span>
-                </div>
-              </div>
+        <!-- Bottom: Terms + Tax -->
+        <div class="bottom">
+          <div>
+            <div class="amount-words">
+              <strong>Amount in Words:</strong> ${amountInWords}
             </div>
-            <strong>Arshi Enterprises</strong><br/>
-            <span style="font-size: 9.5px; opacity: 0.85;">(Authorized Signatory)</span>
+
+            <div class="section-title">Terms &amp; Conditions</div>
+            <ul class="tc-list">
+              <li data-n="1.">100% Advance payment required.</li>
+              <li data-n="2.">Goods once sold cannot be taken back.</li>
+              <li data-n="3.">Installation Charges (@INR 500) extra per unit. (Negotiable in bulk orders at one location.)</li>
+              <li data-n="4.">Courier charges to be paid by customer.</li>
+              <li data-n="5.">Warranty — 12 Months from date of Supply; applicable before 15 days of due date.</li>
+              <li data-n="6.">Standard Force Majeure will apply. No warranty on burnt/damaged goods.</li>
+              <li data-n="7.">Service during warranty year @INR 500 per unit will be applicable.</li>
+            </ul>
+
+            <div class="section-title">Bank Details</div>
+            <div class="bank-row"><span>Account Number</span><input type="text" placeholder="_______________"></div>
+            <div class="bank-row"><span>Bank &amp; Branch</span><input type="text" placeholder="_______________"></div>
+            <div class="bank-row"><span>IFSC Code</span><input type="text" placeholder="_______________"></div>
           </div>
 
-          <div class="footer-line">
-            <div class="company-name">M/s Arshi Enterprises</div>
-            A Channel Partner of "Arshi" GPS Tracker.<br/>
-            Supplier & Retailer of GPS Vehicle Tracker, CCTV Surveillance Systems, Mobile / Electronics & IT Equipments.<br/>
-            Office:- Shop No.-4, Near- Brajesh Automobiles, N. H.- 231, Maranga, Purnia 854 301. (BIHAR)
+          <div class="tax-block">
+            <div class="section-title">Tax Summary</div>
+            <div class="tax-row hl"><span>SGST @ 9%</span><span>${formatCurrencyIG(sgstTotal)}</span></div>
+            <div class="tax-row hl"><span>CGST @ 9%</span><span>${formatCurrencyIG(cgstTotal)}</span></div>
+            <div class="tax-row"><span>IGST @ 18%</span><span>0.00</span></div>
+            <div class="tax-row hl"><span>Tax Amount</span><span>${formatCurrencyIG(sgstTotal + cgstTotal)}</span></div>
+            
+            <div class="total-box">
+              <div class="total-label">Total Amount</div>
+              <div class="total-amount">INR ${formatCurrencyIG(totalAmt)}</div>
+            </div>
           </div>
         </div>
 
-        <script>
-          window.onload = function() {
-            window.print();
-          };
-        </script>
+        <!-- Footer -->
+        <div class="footer">
+          <p>This document is computer generated and does not require a signature or stamp to be considered valid.</p>
+        </div>
+
+      </div>
+
+      <script>
+        window.onload = function() {
+          window.print();
+        };
+      </script>
       </body>
       </html>
     `);

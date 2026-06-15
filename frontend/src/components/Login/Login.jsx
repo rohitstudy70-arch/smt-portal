@@ -9,8 +9,12 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const { login, loading, isAuthenticated } = useAuth();
+  const { login, loading, isAuthenticated, checkingAuth } = useAuth();
   const navigate = useNavigate();
+
+  if (checkingAuth) {
+    return <div style={{ padding: '20px', textAlign: 'center', fontSize: '14px', color: '#666' }}>Checking login session...</div>;
+  }
 
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;

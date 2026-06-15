@@ -16,10 +16,16 @@ import Config360 from './components/Config360/Config360';
 import SIMActivationPlans from './components/SubdealerPlans/SIMActivationPlans';
 import PaySubdealer from './components/PaySubdealer/PaySubdealer';
 import InvoiceGenerator from './components/InvoiceGenerator/InvoiceGenerator';
+import ProformaInvoice from './components/ProformaInvoice/ProformaInvoice';
 
 // Protected Route wrapper component
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, checkingAuth } = useAuth();
+
+  if (checkingAuth) {
+    return <div style={{ padding: '20px', textAlign: 'center', fontSize: '14px', color: '#666' }}>Checking login session...</div>;
+  }
+
   return isAuthenticated ? children : <Navigate to="/login" replace />;
 };
 
@@ -40,15 +46,26 @@ function App() {
           } 
         />
         
-        <Route 
-          path="/invoice-generator" 
+        <Route
+          path="/invoice-generator"
           element={
             <ProtectedRoute>
               <Layout>
                 <InvoiceGenerator />
               </Layout>
             </ProtectedRoute>
-          } 
+          }
+        />
+
+        <Route
+          path="/invoice/:invoiceId"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <ProformaInvoice />
+              </Layout>
+            </ProtectedRoute>
+          }
         />
         
         <Route 

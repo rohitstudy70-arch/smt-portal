@@ -20,7 +20,7 @@ const ActivationRequests = () => {
     requestType: 'Commercial Plan',
     plan: '1 Year',
     piNo: '',
-    amount: 1000,
+    amount: 1300,
     remarks: ''
   });
 
@@ -42,6 +42,26 @@ const ActivationRequests = () => {
 
     fetchRequests();
   }, [page, limit, search, refreshTrigger]);
+
+  useEffect(() => {
+    const qty = formData.quantity;
+    const type = formData.requestType;
+    const plan = formData.plan;
+
+    if (type === 'Commercial Plan') {
+      if (plan === '1 Year') {
+        setFormData(prev => ({ ...prev, amount: qty * 1300 }));
+      } else if (plan === '2 Years') {
+        setFormData(prev => ({ ...prev, amount: qty * 2600 }));
+      }
+    } else if (type === 'Recharge Plan') {
+      if (plan === 'recharge NIC') {
+        setFormData(prev => ({ ...prev, amount: qty * 1500 }));
+      } else if (plan === 'RENEWAL MINING') {
+        setFormData(prev => ({ ...prev, amount: qty * 1800 }));
+      }
+    }
+  }, [formData.quantity, formData.requestType, formData.plan]);
 
   const handleLimitChange = (e) => {
     setLimit(parseInt(e.target.value));
@@ -76,7 +96,7 @@ const ActivationRequests = () => {
         requestType: 'Commercial Plan',
         plan: '1 Year',
         piNo: '',
-        amount: 1000,
+        amount: 1300,
         remarks: ''
       });
       // Refresh list
@@ -165,11 +185,29 @@ const ActivationRequests = () => {
                 <label style={{ fontWeight: '600' }}>Request Type</label>
                 <select 
                   value={formData.requestType}
-                  onChange={(e) => setFormData({...formData, requestType: e.target.value})}
+                  onChange={(e) => {
+                    const type = e.target.value;
+                    let defaultPlan = '1 Year';
+                    let defaultAmt = 1300;
+                    if (type === 'Recharge Plan') {
+                      defaultPlan = 'recharge NIC';
+                      defaultAmt = 1500;
+                    } else if (type === 'Top-up') {
+                      defaultPlan = '1 Month';
+                      defaultAmt = 100;
+                    }
+                    setFormData({
+                      ...formData,
+                      requestType: type,
+                      plan: defaultPlan,
+                      amount: defaultAmt
+                    });
+                  }}
                   style={{ padding: '6px', border: '1px solid #ccc', borderRadius: '2px' }}
                 >
                   <option value="Commercial Plan">Commercial Plan</option>
                   <option value="Top-up">Top-up</option>
+                  <option value="Recharge Plan">Recharge Plan</option>
                 </select>
               </div>
 
@@ -180,9 +218,26 @@ const ActivationRequests = () => {
                   onChange={(e) => setFormData({...formData, plan: e.target.value})}
                   style={{ padding: '6px', border: '1px solid #ccc', borderRadius: '2px' }}
                 >
-                  <option value="1 Month">1 Month</option>
-                  <option value="1 Year">1 Year</option>
-                  <option value="2 Years">2 Years</option>
+                  {formData.requestType === 'Commercial Plan' && (
+                    <>
+                      <option value="1 Month">1 Month</option>
+                      <option value="1 Year">1 Year</option>
+                      <option value="2 Years">2 Years</option>
+                    </>
+                  )}
+                  {formData.requestType === 'Recharge Plan' && (
+                    <>
+                      <option value="recharge NIC">recharge NIC</option>
+                      <option value="RENEWAL MINING">RENEWAL MINING</option>
+                    </>
+                  )}
+                  {formData.requestType === 'Top-up' && (
+                    <>
+                      <option value="1 Month">1 Month</option>
+                      <option value="1 Year">1 Year</option>
+                      <option value="2 Years">2 Years</option>
+                    </>
+                  )}
                 </select>
               </div>
 
@@ -206,7 +261,14 @@ const ActivationRequests = () => {
                   step="0.01"
                   value={formData.amount}
                   onChange={(e) => setFormData({...formData, amount: parseFloat(e.target.value) || 0})}
-                  style={{ padding: '6px', border: '1px solid #ccc', borderRadius: '2px' }}
+                  readOnly={(formData.requestType === 'Commercial Plan' && (formData.plan === '1 Year' || formData.plan === '2 Years')) || (formData.requestType === 'Recharge Plan' && (formData.plan === 'recharge NIC' || formData.plan === 'RENEWAL MINING'))}
+                  style={{ 
+                    padding: '6px', 
+                    border: '1px solid #ccc', 
+                    borderRadius: '2px',
+                    backgroundColor: ((formData.requestType === 'Commercial Plan' && (formData.plan === '1 Year' || formData.plan === '2 Years')) || (formData.requestType === 'Recharge Plan' && (formData.plan === 'recharge NIC' || formData.plan === 'RENEWAL MINING'))) ? '#f1f5f9' : 'white',
+                    cursor: ((formData.requestType === 'Commercial Plan' && (formData.plan === '1 Year' || formData.plan === '2 Years')) || (formData.requestType === 'Recharge Plan' && (formData.plan === 'recharge NIC' || formData.plan === 'RENEWAL MINING'))) ? 'not-allowed' : 'default'
+                  }}
                   required
                 />
               </div>

@@ -29,11 +29,11 @@ const activationRequestSchema = new mongoose.Schema({
   },
   requestType: {
     type: String,
-    enum: ['Commercial Plan', 'Top-up'],
+    enum: ['Commercial Plan', 'Top-up', 'Recharge Plan'],
   },
   plan: {
     type: String,
-    enum: ['1 Month', '1 Year', '2 Years'],
+    enum: ['1 Month', '1 Year', '2 Years', 'recharge NIC', 'RENEWAL MINING'],
   },
   piNo: {
     type: String,
