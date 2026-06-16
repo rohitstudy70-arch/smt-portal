@@ -11,20 +11,35 @@ connectDB();
 
 const app = express();
 
-// CORS - allow frontend origin
+// CORS - allow frontend origins
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
   'http://localhost:5173',
+  'https://smt-portal-i5pm.vercel.app',
+  'https://smt-portal-teal.vercel.app',
   process.env.FRONTEND_URL
 ].filter(Boolean);
 
+// Remove duplicates
+const uniqueOrigins = [...new Set(allowedOrigins)];
+
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: uniqueOrigins,
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   })
 );
+
+// Explicitly handle preflight OPTIONS requests for all routes
+app.options('*', cors({
+  origin: uniqueOrigins,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 
 // Parse JSON bodies
 app.use(express.json());
