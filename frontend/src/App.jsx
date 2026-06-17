@@ -13,6 +13,7 @@ import AddDevice from './components/DeviceManagement/AddDevice';
 import Certificates from './components/Certificates/Certificates';
 import InvoiceGenerator from './components/InvoiceGenerator/InvoiceGenerator';
 import ProformaInvoice from './components/ProformaInvoice/ProformaInvoice';
+import IccidSearch from './components/IccidSearch/IccidSearch';
 
 const getRole = (user) => {
   if (user?.role === 'partner') return 'ADMIN';
@@ -166,6 +167,16 @@ function App() {
             <ProtectedRoute>
               <Layout>
                 <Certificates />
+              </Layout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/iccid-search" 
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <IccidSearch />
               </Layout>
             </ProtectedRoute>
           } 

@@ -1,0 +1,219 @@
+.iccid-search-container {
+  padding: 20px;
+  background-color: #f4f6f9;
+  min-height: 100vh;
+}
+
+.search-results-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.device-details-card {
+  border: 1px solid #c2c2c2;
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  background-color: #fff;
+}
+
+.card-header-teal {
+  background-color: #00897b; /* Solid dark teal as shown in the screenshot */
+  color: #fff;
+  font-weight: bold;
+  padding: 10px 15px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: uppercase;
+}
+
+.header-icon {
+  font-size: 14px;
+}
+
+.card-body-table {
+  padding: 0;
+  background-color: #fff;
+}
+
+.device-details-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.device-details-table td {
+  border: 1px solid #e2e8f0;
+  padding: 10px 12px;
+  vertical-align: middle;
+}
+
+.device-details-table td.cell-label {
+  background-color: #f8fafc;
+  color: #475569;
+  width: 16%;
+  font-weight: 600;
+}
+
+.device-details-table td.center-text {
+  text-align: center;
+  background-color: #f8fafc;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.device-details-table td.cell-val {
+  color: #0f172a;
+  width: 17.33%;
+  font-weight: 500;
+}
+
+.device-details-table td.bold-text {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* History Cards Layout */
+.history-grid-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 900px) {
+  .history-grid-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+.history-card {
+  border: 1px solid #c2c2c2;
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.history-header {
+  background-color: #00897b;
+  color: #fff;
+  font-weight: bold;
+  padding: 10px 15px;
+  font-size: 13px;
+}
+
+.history-body {
+  padding: 0;
+  overflow-x: auto;
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.history-table th {
+  border-bottom: 2px solid #cbd5e1;
+  padding: 8px 10px;
+  text-align: left;
+  color: #475569;
+  font-weight: 700;
+  background-color: #f8fafc;
+}
+
+.history-table td {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 8px 10px;
+  color: #334155;
+}
+
+.history-table td.blue-bold-link {
+  color: #00897b;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.history-table td.blue-bold-link:hover {
+  text-decoration: underline;
+}
+
+.empty-history-cell {
+  text-align: center;
+  padding: 20px !important;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+/* Status Badges */
+.status-badge-mini {
+  display: inline-block;
+  padding: 2px 6px;
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: 2px;
+  text-align: center;
+  color: white;
+}
+
+.status-badge-mini.completed,
+.status-badge-mini.activated {
+  background: #5cb85c;
+}
+
+.status-badge-mini.processing {
+  background: #f0ad4e;
+}
+
+.status-badge-mini.rejected {
+  background: #d9534f;
+}
+
+.status-badge-mini.requested {
+  background: #5bc0de;
+}
+
+/* Loading, Error and Prompt states */
+.search-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 80px;
+  font-size: 13px;
+  color: #475569;
+  gap: 10px;
+  background: #fff;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+}
+
+.search-error-msg {
+  padding: 15px;
+  background-color: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.search-prompt-msg {
+  padding: 80px;
+  text-align: center;
+  font-size: 14px;
+  color: #64748b;
+  border: 2px dashed #cbd5e1;
+  border-radius: 4px;
+  background-color: #f8fafc;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

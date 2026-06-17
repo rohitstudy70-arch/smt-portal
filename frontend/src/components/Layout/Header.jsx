@@ -118,6 +118,16 @@ const Header = () => {
       );
     }
 
+    if (path === '/iccid-search') {
+      return (
+        <div className="breadcrumbs">
+          <Link to="/dashboard">Home</Link>
+          <span>/</span>
+          <span className="active-crumb">ICCID Search</span>
+        </div>
+      );
+    }
+
     if (path === '/certificates') {
       return (
         <div className="breadcrumbs">
@@ -141,7 +151,7 @@ const Header = () => {
   const handleGlobalSearchSubmit = (e) => {
     e.preventDefault();
     if (globalSearch.trim()) {
-      navigate(`/dashboard?view=devices&search=${encodeURIComponent(globalSearch.trim())}`);
+      navigate(`/iccid-search?search=${encodeURIComponent(globalSearch.trim())}`);
       setGlobalSearch('');
     }
   };
