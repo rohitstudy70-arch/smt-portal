@@ -482,6 +482,15 @@ const ActivationRequests = () => {
                         placeholder="Auto-filled"
                       />
                     </div>
+                    <div className="form-group-custom">
+                      <label>ITR No</label>
+                      <input 
+                        type="text" 
+                        value={formData.itrNo}
+                        onChange={(e) => setFormData({...formData, itrNo: e.target.value})}
+                        placeholder="Enter ITR Number"
+                      />
+                    </div>
                   </div>
 
                   <h4 className="column-section-title" style={{ marginTop: '20px' }}>Billing & Plan</h4>
@@ -567,16 +576,6 @@ const ActivationRequests = () => {
                         readOnly={(formData.requestType === 'Commercial Plan' && (formData.plan === '1 Year' || formData.plan === '2 Years')) || (formData.requestType === 'Recharge Plan' && (formData.plan === 'recharge NIC' || formData.plan === 'RENEWAL MINING'))}
                         className={((formData.requestType === 'Commercial Plan' && (formData.plan === '1 Year' || formData.plan === '2 Years')) || (formData.requestType === 'Recharge Plan' && (formData.plan === 'recharge NIC' || formData.plan === 'RENEWAL MINING'))) ? 'readonly-input' : ''}
                         required
-                      />
-                    </div>
-
-                    <div className="form-group-custom">
-                      <label>ITR No</label>
-                      <input 
-                        type="text" 
-                        value={formData.itrNo}
-                        onChange={(e) => setFormData({...formData, itrNo: e.target.value})}
-                        placeholder="Enter ITR Number"
                       />
                     </div>
 
@@ -787,6 +786,9 @@ const ActivationRequests = () => {
               </div>
 
               <div className="modal-footer-actions">
+                <div className="bill-amt-badge">
+                  BILL AMT: <span>₹{formData.amount}</span>
+                </div>
                 <button 
                   type="button" 
                   onClick={() => setShowModal(false)}
