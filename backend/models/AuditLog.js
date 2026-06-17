@@ -9,7 +9,7 @@ const auditLogSchema = new mongoose.Schema({
   action: {
     type: String,
     required: true,
-    default: 'EXPORT_COMMON_LAYER_REPORT',
+    default: 'AUDIT_EVENT',
   },
   ipAddress: {
     type: String,

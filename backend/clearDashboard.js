@@ -3,7 +3,7 @@ const dotenv = require('dotenv');
 const User = require('./models/User');
 const Device = require('./models/Device');
 const ActivationRequest = require('./models/ActivationRequest');
-const CommonLayerRequest = require('./models/CommonLayerRequest');
+const Invoice = require('./models/Invoice');
 const Transaction = require('./models/Transaction');
 
 dotenv.config();
@@ -16,12 +16,12 @@ const clearDashboardData = async () => {
     // Delete all records from the collections that populate the dashboard
     const deleteDevices = await Device.deleteMany({});
     const deleteActivationRequests = await ActivationRequest.deleteMany({});
-    const deleteCommonLayerRequests = await CommonLayerRequest.deleteMany({});
+    const deleteInvoices = await Invoice.deleteMany({});
     const deleteTransactions = await Transaction.deleteMany({});
 
     console.log(`Deleted ${deleteDevices.deletedCount} devices.`);
     console.log(`Deleted ${deleteActivationRequests.deletedCount} activation requests.`);
-    console.log(`Deleted ${deleteCommonLayerRequests.deletedCount} common layer requests.`);
+    console.log(`Deleted ${deleteInvoices.deletedCount} invoices.`);
     console.log(`Deleted ${deleteTransactions.deletedCount} transactions.`);
 
     // Reset user balances/overdraws to 0

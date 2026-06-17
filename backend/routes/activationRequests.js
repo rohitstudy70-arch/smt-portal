@@ -1,8 +1,18 @@
 const express = require('express');
 const ActivationRequest = require('../models/ActivationRequest');
 const { protect } = require('../middleware/auth');
+const {
+  PORTAL_ROLES,
+  attachHierarchyScope,
+  buildScopedOwnerQuery,
+  requireRoles,
+} = require('../middleware/hierarchy');
 
 const router = express.Router();
+
+router.use(protect, attachHierarchyScope);
+
+const operationsRoles = [PORTAL_ROLES.ADMIN, PORTAL_ROLES.DEALER, PORTAL_ROLES.SUB_DEALER];
 
 // Generate a unique request ID like REQUEST36613
 const generateRequestId = async () => {
@@ -24,14 +34,13 @@ const generateRequestId = async () => {
 // @route   GET /api/activation-requests
 // @desc    List activation requests with pagination and search
 // @access  Protected
-router.get('/', protect, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const userId = req.user._id;
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
     const search = req.query.search || '';
 
-    const query = { userId };
+    const query = buildScopedOwnerQuery(req.hierarchyScope);
 
     if (search) {
       query.$or = [
@@ -67,7 +76,7 @@ router.get('/', protect, async (req, res) => {
 // @route   POST /api/activation-requests
 // @desc    Create a new activation request
 // @access  Protected
-router.post('/', protect, async (req, res) => {
+router.post('/', requireRoles(...operationsRoles), async (req, res) => {
   try {
     const {
       isSubDealer,
@@ -78,12 +87,38 @@ router.post('/', protect, async (req, res) => {
       piNo,
       amount,
       remarks,
+      // Activation form fields
+      dealerName,
+      dealerAddress,
+      imei,
+      iccid,
+      serialNo,
+      msisdn1,
+      msisdn2,
+      validity,
+      expiryDate,
+      itrNo,
+      installationDate,
+      activationMode,
+      vehicleCondition,
+      vehicleMake,
+      vehicleModel,
+      registrationYear,
+      vehicleNo,
+      rto,
+      engineNo,
+      chassisNo,
+      regMobNo,
+      regMobNo2,
+      customerName,
+      aadharNo,
+      address,
     } = req.body;
 
-    if (!quantity || !amount) {
+    if (!imei) {
       return res
         .status(400)
-        .json({ message: 'Quantity and amount are required' });
+        .json({ message: 'IMEI is required. Please select a device.' });
     }
 
     const requestId = await generateRequestId();
@@ -93,13 +128,39 @@ router.post('/', protect, async (req, res) => {
       userId: req.user._id,
       isSubDealer: isSubDealer || false,
       subDealerName: subDealerName || '',
-      quantity,
-      requestType,
-      plan,
+      quantity: quantity || 1,
+      requestType: requestType || 'Commercial Plan',
+      plan: plan || '',
       piNo: piNo || '',
-      amount,
+      amount: amount || 0,
       remarks: remarks || '',
       status: 'Requested',
+      // Activation form fields
+      dealerName: dealerName || '',
+      dealerAddress: dealerAddress || '',
+      imei: imei || '',
+      iccid: iccid || '',
+      serialNo: serialNo || '',
+      msisdn1: msisdn1 || '',
+      msisdn2: msisdn2 || '',
+      validity: validity || '',
+      expiryDate: expiryDate || null,
+      itrNo: itrNo || '',
+      installationDate: installationDate || null,
+      activationMode: activationMode || '',
+      vehicleCondition: vehicleCondition || '',
+      vehicleMake: vehicleMake || '',
+      vehicleModel: vehicleModel || '',
+      registrationYear: registrationYear || '',
+      vehicleNo: vehicleNo || '',
+      rto: rto || '',
+      engineNo: engineNo || '',
+      chassisNo: chassisNo || '',
+      regMobNo: regMobNo || '',
+      regMobNo2: regMobNo2 || '',
+      customerName: customerName || '',
+      aadharNo: aadharNo || '',
+      address: address || '',
     });
 
     res.status(201).json(activationRequest);
@@ -112,11 +173,11 @@ router.post('/', protect, async (req, res) => {
 // @route   GET /api/activation-requests/:id
 // @desc    Get a single activation request
 // @access  Protected
-router.get('/:id', protect, async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
     const request = await ActivationRequest.findOne({
       _id: req.params.id,
-      userId: req.user._id,
+      ...buildScopedOwnerQuery(req.hierarchyScope),
     });
 
     if (!request) {

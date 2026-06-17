@@ -1,15 +1,26 @@
 const express = require('express');
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
+const { getPortalRole, getDescendantUsers } = require('../middleware/hierarchy');
 
 const router = express.Router();
 
 // @route   GET /api/users/sub-users
-// @desc    Get sub-users of current user
+// @desc    Get sub-users and dealers of current user
 // @access  Protected
 router.get('/sub-users', protect, async (req, res) => {
   try {
-    const subUsers = await User.find({ parentId: req.user._id }).select('-password');
+    const role = getPortalRole(req.user);
+    if (role === 'CUSTOMER') {
+      return res.status(403).json({ message: 'Access denied: Customers cannot access user management.' });
+    }
+
+    let subUsers;
+    if (role === 'ADMIN') {
+      subUsers = await User.find({}).select('-password');
+    } else {
+      subUsers = await getDescendantUsers(req.user._id);
+    }
     res.json(subUsers);
   } catch (error) {
     console.error('Get sub users error:', error.message);
@@ -22,10 +33,24 @@ router.get('/sub-users', protect, async (req, res) => {
 // @access  Protected
 router.post('/sub-user', protect, async (req, res) => {
   try {
-    const { userType, displayName, mobileNo, email, username, password } = req.body;
+    const role = getPortalRole(req.user);
+    if (role === 'CUSTOMER') {
+      return res.status(403).json({ message: 'Access denied: Customers cannot access user management.' });
+    }
+
+    const { userType, displayName, mobileNo, email, username, password, parentId } = req.body;
+    const allowedUserTypesByRole = {
+      ADMIN: ['Dealer', 'Sub Dealer', 'End Customer'],
+      DEALER: ['Sub Dealer', 'End Customer'],
+      SUB_DEALER: ['End Customer'],
+    };
 
     if (!userType || !displayName || !username || !password) {
       return res.status(400).json({ message: 'Please fill in all required fields' });
+    }
+
+    if (!allowedUserTypesByRole[role]?.includes(userType)) {
+      return res.status(403).json({ message: 'Access denied: You cannot create this user type.' });
     }
 
     // Check if user already exists
@@ -34,12 +59,31 @@ router.post('/sub-user', protect, async (req, res) => {
       return res.status(400).json({ message: 'Username is already taken' });
     }
 
+    // Determine parentId based on role
+    let finalParentId = req.user._id;
+    if (role === 'ADMIN') {
+      if (userType === 'Dealer') {
+        finalParentId = null;
+      } else if (parentId) {
+        finalParentId = parentId;
+      }
+    } else if (role === 'DEALER') {
+      if (parentId) {
+        const descendants = await getDescendantUsers(req.user._id);
+        const descendantIds = descendants.map((d) => d._id.toString());
+        if (!descendantIds.includes(parentId.toString()) && parentId.toString() !== req.user._id.toString()) {
+          return res.status(403).json({ message: 'Access denied: Parent user must belong to your hierarchy.' });
+        }
+        finalParentId = parentId;
+      }
+    }
+
     // Create sub-user
     const subUser = await User.create({
       username,
       password, // will be hashed by pre-save hook
       role: 'customer',
-      parentId: req.user._id,
+      parentId: finalParentId,
       userType,
       displayName,
       mobileNo: mobileNo || '',
@@ -48,7 +92,6 @@ router.post('/sub-user', protect, async (req, res) => {
     });
 
     const returnedUser = await User.findById(subUser._id).select('-password');
-
     res.status(201).json(returnedUser);
   } catch (error) {
     console.error('Create sub user error:', error.message);
@@ -61,15 +104,37 @@ router.post('/sub-user', protect, async (req, res) => {
 // @access  Protected
 router.put('/sub-user/:id', protect, async (req, res) => {
   try {
+    const role = getPortalRole(req.user);
+    if (role === 'CUSTOMER') {
+      return res.status(403).json({ message: 'Access denied: Customers cannot access user management.' });
+    }
+
     const { userType, displayName, mobileNo, email, status } = req.body;
 
-    const subUser = await User.findOne({ _id: req.params.id, parentId: req.user._id });
-
+    const subUser = await User.findById(req.params.id);
     if (!subUser) {
       return res.status(404).json({ message: 'Sub-user not found' });
     }
 
-    if (userType) subUser.userType = userType;
+    // Hierarchy check
+    if (role !== 'ADMIN') {
+      const descendants = await getDescendantUsers(req.user._id);
+      const descendantIds = descendants.map((d) => d._id.toString());
+      if (!descendantIds.includes(subUser._id.toString())) {
+        return res.status(403).json({ message: 'Access denied: User is not in your hierarchy.' });
+      }
+    }
+
+    if (userType) {
+      if (role === 'SUB_DEALER' && userType !== 'End Customer') {
+        return res.status(403).json({ message: 'Access denied: Sub Dealers can only manage End Customers.' });
+      }
+      if (role === 'DEALER' && userType === 'Dealer') {
+        return res.status(403).json({ message: 'Access denied: Dealers cannot manage Dealers.' });
+      }
+      subUser.userType = userType;
+    }
+
     if (displayName) subUser.displayName = displayName;
     if (mobileNo !== undefined) subUser.mobileNo = mobileNo;
     if (email !== undefined) subUser.email = email;
@@ -88,10 +153,23 @@ router.put('/sub-user/:id', protect, async (req, res) => {
 // @access  Protected
 router.delete('/sub-user/:id', protect, async (req, res) => {
   try {
-    const subUser = await User.findOne({ _id: req.params.id, parentId: req.user._id });
+    const role = getPortalRole(req.user);
+    if (role === 'CUSTOMER') {
+      return res.status(403).json({ message: 'Access denied: Customers cannot access user management.' });
+    }
 
+    const subUser = await User.findById(req.params.id);
     if (!subUser) {
       return res.status(404).json({ message: 'Sub-user not found' });
+    }
+
+    // Hierarchy check
+    if (role !== 'ADMIN') {
+      const descendants = await getDescendantUsers(req.user._id);
+      const descendantIds = descendants.map((d) => d._id.toString());
+      if (!descendantIds.includes(subUser._id.toString())) {
+        return res.status(403).json({ message: 'Access denied: User is not in your hierarchy.' });
+      }
     }
 
     subUser.status = subUser.status === 'Active' ? 'Inactive' : 'Active';
@@ -104,114 +182,38 @@ router.delete('/sub-user/:id', protect, async (req, res) => {
   }
 });
 
-const Transaction = require('../models/Transaction');
-
-// @route   POST /api/users/transfer
-// @desc    Pay to subdealer (purchase plan on behalf of subdealer)
+// @route   GET /api/users/dealers
+// @desc    Get list of dealers/customers for dropdown
 // @access  Protected
-router.post('/transfer', protect, async (req, res) => {
+router.get('/dealers', protect, async (req, res) => {
   try {
-    const { subUserId, type, plan, quantity, piNo, remarks } = req.body;
+    const role = getPortalRole(req.user);
+    let query = {};
 
-    if (!subUserId || !type || !plan || !quantity || !piNo) {
-      return res.status(400).json({ message: 'All required fields must be filled' });
-    }
-
-    const subUser = await User.findOne({ _id: subUserId, parentId: req.user._id });
-    if (!subUser) {
-      return res.status(404).json({ message: 'Selected subdealer not found' });
-    }
-
-    // Calculate unit cost based on type and plan
-    let unitCost = 472; // default 1 Year commercial
-    if (type === 'Commercial Plan' && plan === '2 Years') unitCost = 394;
-    else if (type === 'Top-up') unitCost = 70.8;
-    else if (type === 'Common Layer') unitCost = 100;
-
-    const amount = unitCost * Number(quantity);
-
-    const parentUser = await User.findById(req.user._id);
-    if (parentUser.availableBalance < amount) {
-      return res.status(400).json({ message: 'Insufficient available balance to make this payment' });
-    }
-
-    // Deduct parent balance
-    parentUser.availableBalance -= amount;
-    await parentUser.save();
-
-    // Create Activation Request or Common Layer Request
-    if (type === 'Common Layer') {
-      const CommonLayerRequest = require('../models/CommonLayerRequest');
-      
-      const lastRequest = await CommonLayerRequest.findOne().sort({ requestId: -1 });
-      let requestId = `CL-REQ${10000 + Math.floor(Math.random() * 90000)}`;
-      if (lastRequest && lastRequest.requestId) {
-        const numPart = parseInt(lastRequest.requestId.replace('CL-REQ', ''), 10);
-        if (!isNaN(numPart)) requestId = `CL-REQ${numPart + 1}`;
+    if (role === 'ADMIN') {
+      query = {
+        role: 'customer',
+        userType: { $nin: ['Sub Dealer', 'End Customer'] },
+      };
+    } else if (role === 'DEALER') {
+      query = { _id: req.user._id };
+    } else if (role === 'SUB_DEALER') {
+      if (req.user.parentId) {
+        query = { _id: req.user.parentId };
+      } else {
+        query = { _id: req.user._id };
       }
-
-      await CommonLayerRequest.create({
-        requestId,
-        userId: parentUser._id,
-        isSubDealer: true,
-        subDealerName: subUser.displayName || subUser.username,
-        quantity: Number(quantity),
-        commonLayer: plan,
-        piNo,
-        piValue: amount,
-        remarks: remarks || '',
-        status: 'Completed'
-      });
     } else {
-      const ActivationRequest = require('../models/ActivationRequest');
-      
-      const lastRequest = await ActivationRequest.findOne().sort({ requestId: -1 });
-      let requestId = `REQUEST${10000 + Math.floor(Math.random() * 90000)}`;
-      if (lastRequest && lastRequest.requestId) {
-        const numPart = parseInt(lastRequest.requestId.replace('REQUEST', ''), 10);
-        if (!isNaN(numPart)) requestId = `REQUEST${numPart + 1}`;
-      }
-
-      await ActivationRequest.create({
-        requestId,
-        userId: parentUser._id,
-        isSubDealer: true,
-        subDealerName: subUser.displayName || subUser.username,
-        quantity: Number(quantity),
-        requestType: type,
-        plan,
-        piNo,
-        amount,
-        remarks: remarks || '',
-        status: 'Completed'
-      });
+      return res.status(403).json({ message: 'Access denied: Customers cannot access dealer lists.' });
     }
 
-    // Create Transaction history entry
-    const randomNum = Math.floor(10000 + Math.random() * 90000);
-    const date = new Date();
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    const dd = String(date.getDate()).padStart(2, '0');
-
-    await Transaction.create({
-      userId: parentUser._id,
-      transactionId: `ITR_${mm}_${dd}_${randomNum}`,
-      paymentId: piNo,
-      paymentFor: type === 'Common Layer' ? 'Common Layer' : 'Sim Activation',
-      referenceNo: `TRF-${subUser.username.toUpperCase()}`,
-      payMode: 'Itwallet',
-      transactionType: 'Debit',
-      status: 'Success',
-      remarks: remarks || `Paid for Subdealer (${subUser.displayName || subUser.username})`,
-      transactedAmt: amount
-    });
-
-    res.json({
-      message: `Successfully paid ₹${amount.toFixed(2)} on behalf of ${subUser.displayName || subUser.username}`,
-      availableBalance: parentUser.availableBalance
-    });
+    const dealers = await User.find(
+      query,
+      { _id: 1, displayName: 1, companyName: 1, username: 1, userType: 1, parentId: 1 }
+    ).sort({ displayName: 1 });
+    res.json(dealers);
   } catch (error) {
-    console.error('Pay to subdealer error:', error.message);
+    console.error('Get dealers error:', error.message);
     res.status(500).json({ message: 'Server error' });
   }
 });

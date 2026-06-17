@@ -148,13 +148,25 @@
   max-height: 200px;
 }
 
+.sidebar-submenu.portal-submenu.open {
+  max-height: 360px;
+}
+
 .sidebar-submenu li a {
   padding: 10px 15px 10px 48px;
   font-size: 12.5px;
   color: rgba(255, 255, 255, 0.55);
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   transition: all 0.2s;
   border-radius: 4px;
+}
+
+.sidebar-submenu li a .submenu-icon {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
 }
 
 .sidebar-submenu li a:hover {
@@ -167,4 +179,3 @@
   background: rgba(245, 158, 11, 0.05);
   font-weight: 600;
 }
-

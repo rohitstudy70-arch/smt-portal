@@ -1,9 +1,19 @@
-import { useState, useEffect } from 'react';
-import { FaSyncAlt, FaPlus, FaCheck, FaTimes, FaSpinner } from 'react-icons/fa';
+import { useState, useEffect, useRef } from 'react';
+import { FaSyncAlt, FaPlus, FaTimes, FaSpinner, FaSearch, FaChevronDown } from 'react-icons/fa';
 import api from '../../utils/api';
+import { useAuth } from '../../context/AuthContext';
 import './ActivationRequests.css';
 
+const getRole = (user) => {
+  if (user?.role === 'partner') return 'ADMIN';
+  if (user?.userType === 'Sub Dealer') return 'SUB_DEALER';
+  if (user?.userType === 'End Customer') return 'CUSTOMER';
+  return 'DEALER';
+};
+
 const ActivationRequests = () => {
+  const { user } = useAuth();
+  const role = getRole(user);
   const [requests, setRequests] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -12,18 +22,56 @@ const ActivationRequests = () => {
   const [search, setSearch] = useState('');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  // New Request Simulation State
-  const [showModal, setShowModal] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
+  // Initial Form State
+  const initialFormState = {
     quantity: 1,
     requestType: 'Commercial Plan',
     plan: '1 Year',
     piNo: '',
     amount: 1300,
-    remarks: ''
-  });
+    remarks: '',
+    dealerName: '',
+    dealerAddress: '',
+    imei: '',
+    iccid: '',
+    serialNo: '',
+    msisdn1: '',
+    msisdn2: '',
+    validity: '',
+    expiryDate: null,
+    itrNo: '',
+    installationDate: '',
+    activationMode: 'NIC',
+    vehicleCondition: 'New',
+    vehicleMake: '',
+    vehicleModel: '',
+    registrationYear: '',
+    vehicleNo: '',
+    rto: '',
+    engineNo: '',
+    chassisNo: '',
+    regMobNo: '',
+    regMobNo2: '',
+    customerName: '',
+    aadharNo: '',
+    address: '',
+    isSubDealer: false,
+    subDealerName: ''
+  };
 
+  const [showModal, setShowModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [formData, setFormData] = useState(initialFormState);
+
+  // Device dropdown list state
+  const [availableDevices, setAvailableDevices] = useState([]);
+  const [loadingDevices, setLoadingDevices] = useState(false);
+  const [deviceSearch, setDeviceSearch] = useState('');
+  const [deviceDropdownOpen, setDeviceDropdownOpen] = useState(false);
+
+  const deviceDropdownRef = useRef(null);
+
+  // Fetch Requests
   useEffect(() => {
     const fetchRequests = async () => {
       try {
@@ -43,8 +91,9 @@ const ActivationRequests = () => {
     fetchRequests();
   }, [page, limit, search, refreshTrigger]);
 
+  // Amount Auto-calculation
   useEffect(() => {
-    const qty = formData.quantity;
+    const qty = formData.quantity || 1;
     const type = formData.requestType;
     const plan = formData.plan;
 
@@ -53,6 +102,8 @@ const ActivationRequests = () => {
         setFormData(prev => ({ ...prev, amount: qty * 1300 }));
       } else if (plan === '2 Years') {
         setFormData(prev => ({ ...prev, amount: qty * 2600 }));
+      } else if (plan === '1 Month') {
+        setFormData(prev => ({ ...prev, amount: qty * 110 }));
       }
     } else if (type === 'Recharge Plan') {
       if (plan === 'recharge NIC') {
@@ -60,8 +111,96 @@ const ActivationRequests = () => {
       } else if (plan === 'RENEWAL MINING') {
         setFormData(prev => ({ ...prev, amount: qty * 1800 }));
       }
+    } else if (type === 'Top-up') {
+      if (plan === '1 Month') {
+        setFormData(prev => ({ ...prev, amount: qty * 100 }));
+      } else if (plan === '1 Year') {
+        setFormData(prev => ({ ...prev, amount: qty * 1200 }));
+      } else if (plan === '2 Years') {
+        setFormData(prev => ({ ...prev, amount: qty * 2400 }));
+      }
     }
   }, [formData.quantity, formData.requestType, formData.plan]);
+
+  // Load Devices on Modal Open
+  useEffect(() => {
+    if (showModal) {
+      const fetchAvailableDevices = async () => {
+        try {
+          setLoadingDevices(true);
+          const response = await api.get('/devices', {
+            params: { limit: 1000, page: 1 }
+          });
+          setAvailableDevices(response.data.devices || []);
+        } catch (err) {
+          console.error('Error fetching devices:', err);
+        } finally {
+          setLoadingDevices(false);
+        }
+      };
+      fetchAvailableDevices();
+    }
+  }, [showModal]);
+
+  // Click Outside Listener for Device Selector Dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (deviceDropdownRef.current && !deviceDropdownRef.current.contains(event.target)) {
+        setDeviceDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSelectDevice = (device) => {
+    // Construct address
+    const dealerObj = device.dealerId;
+    let dealerAddressStr = '';
+    let dName = device.dealerName || '';
+    
+    if (dealerObj) {
+      const parts = [
+        dealerObj.address,
+        dealerObj.city,
+        dealerObj.state,
+        dealerObj.pincode
+      ].filter(Boolean);
+      dealerAddressStr = parts.join(', ');
+      dName = dealerObj.displayName || dealerObj.companyName || dealerObj.username || dName;
+    } else {
+      // Fallback to logged-in user if they are dealer/admin
+      if (role === 'ADMIN' || role === 'DEALER') {
+        const parts = [
+          user?.address,
+          user?.city,
+          user?.state,
+          user?.pincode
+        ].filter(Boolean);
+        dealerAddressStr = parts.join(', ');
+        dName = user?.displayName || user?.companyName || user?.username || dName;
+      }
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      imei: device.imei || '',
+      iccid: device.iccid || '',
+      serialNo: device.serialNo || '',
+      msisdn1: device.msisdn1 || '',
+      msisdn2: device.msisdn2 || '',
+      validity: device.validity || '1 Year',
+      expiryDate: device.expiryDate || null,
+      dealerName: dName || '',
+      dealerAddress: dealerAddressStr || '',
+      isSubDealer: !!device.subDealerId,
+      subDealerName: device.subDealerName || '',
+      plan: device.validity === '2 Years' ? '2 Years' : '1 Year'
+    }));
+    setDeviceDropdownOpen(false);
+    setDeviceSearch('');
+  };
 
   const handleLimitChange = (e) => {
     setLimit(parseInt(e.target.value));
@@ -83,7 +222,6 @@ const ActivationRequests = () => {
     }
   };
 
-  // Handle raise request form submission
   const handleSubmitRequest = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -91,14 +229,7 @@ const ActivationRequests = () => {
       await api.post('/activation-requests', formData);
       setShowModal(false);
       setSubmitting(false);
-      setFormData({
-        quantity: 1,
-        requestType: 'Commercial Plan',
-        plan: '1 Year',
-        piNo: '',
-        amount: 1300,
-        remarks: ''
-      });
+      setFormData(initialFormState);
       // Refresh list
       handleRefresh();
       alert('Activation Request raised successfully!');
@@ -142,6 +273,26 @@ const ActivationRequests = () => {
     return pages;
   };
 
+  const formatDateString = (value) => {
+    if (!value) return '';
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  const filteredDevices = availableDevices.filter(device => {
+    const searchLower = deviceSearch.toLowerCase();
+    return (
+      (device.imei || '').toLowerCase().includes(searchLower) ||
+      (device.serialNo || '').toLowerCase().includes(searchLower) ||
+      (device.iccid || '').toLowerCase().includes(searchLower)
+    );
+  });
+
   return (
     <div className="requests-panel">
       <div className="requests-header">
@@ -149,154 +300,506 @@ const ActivationRequests = () => {
           <FaSyncAlt style={{ cursor: 'pointer' }} onClick={handleRefresh} />
           LATEST UPLOADED REQUESTS
         </span>
-        <button className="btn-raise" onClick={() => setShowModal(true)}>
-          <FaPlus /> Raise Request
-        </button>
+        {role !== 'CUSTOMER' && (
+          <button className="btn-raise" onClick={() => setShowModal(true)}>
+            <FaPlus /> Raise Request
+          </button>
+        )}
       </div>
 
       {showModal && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center',
-          alignItems: 'center', zIndex: 2000
-        }}>
-          <div style={{
-            background: 'white', padding: '25px', borderRadius: '4px',
-            width: '450px', boxShadow: '0 5px 15px rgba(0,0,0,0.3)'
-          }}>
-            <h3 style={{ marginBottom: '15px', color: '#00897b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>Raise Activation Request</span>
-              <FaTimes style={{ cursor: 'pointer', fontSize: '16px', color: '#888' }} onClick={() => setShowModal(false)} />
-            </h3>
-            <form onSubmit={handleSubmitRequest} style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontWeight: '600' }}>Quantity</label>
-                <input 
-                  type="number" 
-                  min="1" 
-                  value={formData.quantity}
-                  onChange={(e) => setFormData({...formData, quantity: parseInt(e.target.value) || 1})}
-                  style={{ padding: '6px', border: '1px solid #ccc', borderRadius: '2px' }}
-                  required
-                />
+        <div className="modal-overlay">
+          <div className="modal-container">
+            <div className="modal-header">
+              <h3>Raise Activation Request</h3>
+              <FaTimes className="modal-close-icon" onClick={() => setShowModal(false)} />
+            </div>
+
+            <form onSubmit={handleSubmitRequest} className="activation-form">
+              <div className="form-columns-container">
+                
+                {/* COLUMN 1: DEVICE DETAILS (AUTO-FILLED) */}
+                <div className="form-column">
+                  <h4 className="column-section-title">Device & Partner Details</h4>
+                  
+                  <div className="form-group-custom" ref={deviceDropdownRef}>
+                    <label>Select Device (IMEI / Serial) <span className="required-star">*</span></label>
+                    <div className="searchable-dropdown-custom">
+                      <div 
+                        className="dropdown-trigger-custom"
+                        onClick={() => setDeviceDropdownOpen(!deviceDropdownOpen)}
+                      >
+                        <span className={formData.imei ? 'selected-value' : 'placeholder-value'}>
+                          {formData.imei ? `${formData.imei} (SN: ${formData.serialNo})` : 'Search & Select Device...'}
+                        </span>
+                        <FaChevronDown className={`dropdown-arrow-custom ${deviceDropdownOpen ? 'open' : ''}`} />
+                      </div>
+                      
+                      {deviceDropdownOpen && (
+                        <div className="dropdown-menu-custom">
+                          <div className="dropdown-search-custom">
+                            <FaSearch className="search-icon-custom" />
+                            <input 
+                              type="text"
+                              placeholder="Search by IMEI, Serial, ICCID..."
+                              value={deviceSearch}
+                              onChange={(e) => setDeviceSearch(e.target.value)}
+                              autoFocus
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                          
+                          <ul className="dropdown-list-custom">
+                            {loadingDevices ? (
+                              <li className="dropdown-info-custom">Loading devices...</li>
+                            ) : filteredDevices.length > 0 ? (
+                              filteredDevices.map(dev => (
+                                <li key={dev._id} onClick={() => handleSelectDevice(dev)} className="dropdown-item-custom">
+                                  <div className="dropdown-item-title">IMEI: {dev.imei}</div>
+                                  <div className="dropdown-item-subtitle">
+                                    SN: {dev.serialNo} | ICCID: {dev.iccid || 'N/A'}
+                                  </div>
+                                </li>
+                              ))
+                            ) : (
+                              <li className="dropdown-info-custom">No devices found</li>
+                            )}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="form-row-grid">
+                    <div className="form-group-custom">
+                      <label>Dealer Name</label>
+                      <input 
+                        type="text" 
+                        value={formData.dealerName} 
+                        className="readonly-input" 
+                        readOnly 
+                        placeholder="Auto-filled"
+                      />
+                    </div>
+
+                    {formData.isSubDealer && (
+                      <div className="form-group-custom">
+                        <label>Sub Dealer Name</label>
+                        <input 
+                          type="text" 
+                          value={formData.subDealerName} 
+                          className="readonly-input" 
+                          readOnly 
+                          placeholder="Auto-filled"
+                        />
+                      </div>
+                    )}
+
+                    <div className="form-group-custom">
+                      <label>Dealer Address</label>
+                      <input 
+                        type="text" 
+                        value={formData.dealerAddress} 
+                        className="readonly-input" 
+                        readOnly 
+                        placeholder="Auto-filled"
+                      />
+                    </div>
+
+                    <div className="form-group-custom">
+                      <label>IMEI No</label>
+                      <input 
+                        type="text" 
+                        value={formData.imei} 
+                        className="readonly-input" 
+                        readOnly 
+                        placeholder="Auto-filled"
+                      />
+                    </div>
+
+                    <div className="form-group-custom">
+                      <label>ICCID No</label>
+                      <input 
+                        type="text" 
+                        value={formData.iccid} 
+                        className="readonly-input" 
+                        readOnly 
+                        placeholder="Auto-filled"
+                      />
+                    </div>
+
+                    <div className="form-group-custom">
+                      <label>Serial No</label>
+                      <input 
+                        type="text" 
+                        value={formData.serialNo} 
+                        className="readonly-input" 
+                        readOnly 
+                        placeholder="Auto-filled"
+                      />
+                    </div>
+
+                    <div className="form-group-custom">
+                      <label>MSISDN 1</label>
+                      <input 
+                        type="text" 
+                        value={formData.msisdn1} 
+                        className="readonly-input" 
+                        readOnly 
+                        placeholder="Auto-filled"
+                      />
+                    </div>
+
+                    <div className="form-group-custom">
+                      <label>MSISDN 2</label>
+                      <input 
+                        type="text" 
+                        value={formData.msisdn2} 
+                        className="readonly-input" 
+                        readOnly 
+                        placeholder="Auto-filled"
+                      />
+                    </div>
+
+                    <div className="form-group-custom">
+                      <label>Validity</label>
+                      <input 
+                        type="text" 
+                        value={formData.validity} 
+                        className="readonly-input" 
+                        readOnly 
+                        placeholder="Auto-filled"
+                      />
+                    </div>
+
+                    <div className="form-group-custom">
+                      <label>Exp. Date</label>
+                      <input 
+                        type="text" 
+                        value={formatDateString(formData.expiryDate)} 
+                        className="readonly-input" 
+                        readOnly 
+                        placeholder="Auto-filled"
+                      />
+                    </div>
+                  </div>
+
+                  <h4 className="column-section-title" style={{ marginTop: '20px' }}>Billing & Plan</h4>
+                  
+                  <div className="form-row-grid">
+                    <div className="form-group-custom">
+                      <label>Request Type</label>
+                      <select 
+                        value={formData.requestType}
+                        onChange={(e) => {
+                          const type = e.target.value;
+                          let defaultPlan = '1 Year';
+                          let defaultAmt = 1300;
+                          if (type === 'Recharge Plan') {
+                            defaultPlan = 'recharge NIC';
+                            defaultAmt = 1500;
+                          } else if (type === 'Top-up') {
+                            defaultPlan = '1 Month';
+                            defaultAmt = 100;
+                          }
+                          setFormData({
+                            ...formData,
+                            requestType: type,
+                            plan: defaultPlan,
+                            amount: defaultAmt
+                          });
+                        }}
+                      >
+                        <option value="Commercial Plan">Commercial Plan</option>
+                        <option value="Top-up">Top-up</option>
+                        <option value="Recharge Plan">Recharge Plan</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group-custom">
+                      <label>Plan</label>
+                      <select 
+                        value={formData.plan}
+                        onChange={(e) => setFormData({...formData, plan: e.target.value})}
+                      >
+                        {formData.requestType === 'Commercial Plan' && (
+                          <>
+                            <option value="1 Month">1 Month</option>
+                            <option value="1 Year">1 Year</option>
+                            <option value="2 Years">2 Years</option>
+                          </>
+                        )}
+                        {formData.requestType === 'Recharge Plan' && (
+                          <>
+                            <option value="recharge NIC">recharge NIC</option>
+                            <option value="RENEWAL MINING">RENEWAL MINING</option>
+                          </>
+                        )}
+                        {formData.requestType === 'Top-up' && (
+                          <>
+                            <option value="1 Month">1 Month</option>
+                            <option value="1 Year">1 Year</option>
+                            <option value="2 Years">2 Years</option>
+                          </>
+                        )}
+                      </select>
+                    </div>
+
+                    <div className="form-group-custom">
+                      <label>PI No <span className="required-star">*</span></label>
+                      <input 
+                        type="text" 
+                        value={formData.piNo}
+                        onChange={(e) => setFormData({...formData, piNo: e.target.value})}
+                        placeholder="e.g. iTR_PI_0626_43466"
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group-custom">
+                      <label>Amount (₹) <span className="required-star">*</span></label>
+                      <input 
+                        type="number" 
+                        min="0.01" 
+                        step="0.01"
+                        value={formData.amount}
+                        onChange={(e) => setFormData({...formData, amount: parseFloat(e.target.value) || 0})}
+                        readOnly={(formData.requestType === 'Commercial Plan' && (formData.plan === '1 Year' || formData.plan === '2 Years')) || (formData.requestType === 'Recharge Plan' && (formData.plan === 'recharge NIC' || formData.plan === 'RENEWAL MINING'))}
+                        className={((formData.requestType === 'Commercial Plan' && (formData.plan === '1 Year' || formData.plan === '2 Years')) || (formData.requestType === 'Recharge Plan' && (formData.plan === 'recharge NIC' || formData.plan === 'RENEWAL MINING'))) ? 'readonly-input' : ''}
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group-custom">
+                      <label>ITR No</label>
+                      <input 
+                        type="text" 
+                        value={formData.itrNo}
+                        onChange={(e) => setFormData({...formData, itrNo: e.target.value})}
+                        placeholder="Enter ITR Number"
+                      />
+                    </div>
+
+                    <div className="form-group-custom full-width-group">
+                      <label>Remarks</label>
+                      <textarea 
+                        value={formData.remarks}
+                        onChange={(e) => setFormData({...formData, remarks: e.target.value})}
+                        placeholder="Enter remarks"
+                        rows="2"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* COLUMN 2: VEHICLE & CUSTOMER DETAILS (MANUAL) */}
+                <div className="form-column">
+                  <h4 className="column-section-title">Vehicle & Installation Details</h4>
+                  
+                  <div className="form-row-grid">
+                    <div className="form-group-custom">
+                      <label>Installation Date <span className="required-star">*</span></label>
+                      <input 
+                        type="date" 
+                        value={formData.installationDate}
+                        onChange={(e) => setFormData({...formData, installationDate: e.target.value})}
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group-custom">
+                      <label>Activation Mode <span className="required-star">*</span></label>
+                      <select 
+                        value={formData.activationMode}
+                        onChange={(e) => setFormData({...formData, activationMode: e.target.value})}
+                      >
+                        <option value="NIC">NIC</option>
+                        <option value="Mining">Mining</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group-custom">
+                      <label>Vehicle Condition <span className="required-star">*</span></label>
+                      <select 
+                        value={formData.vehicleCondition}
+                        onChange={(e) => setFormData({...formData, vehicleCondition: e.target.value})}
+                      >
+                        <option value="New">New</option>
+                        <option value="Old">Old</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group-custom">
+                      <label>Vehicle Make <span className="required-star">*</span></label>
+                      <select
+                        value={formData.vehicleMake}
+                        onChange={(e) => setFormData({...formData, vehicleMake: e.target.value})}
+                        required
+                      >
+                        <option value="">Select Make</option>
+                        <option value="Tata Motors">Tata Motors</option>
+                        <option value="Mahindra">Mahindra</option>
+                        <option value="Ashok Leyland">Ashok Leyland</option>
+                        <option value="Eicher Motors">Eicher Motors</option>
+                        <option value="Maruti Suzuki">Maruti Suzuki</option>
+                        <option value="Hyundai">Hyundai</option>
+                        <option value="Honda">Honda</option>
+                        <option value="Toyota">Toyota</option>
+                        <option value="BharatBenz">BharatBenz</option>
+                        <option value="Force Motors">Force Motors</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group-custom">
+                      <label>Vehicle Model <span className="required-star">*</span></label>
+                      <input 
+                        type="text" 
+                        value={formData.vehicleModel}
+                        onChange={(e) => setFormData({...formData, vehicleModel: e.target.value})}
+                        placeholder="e.g. Bolero, LPT 1613"
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group-custom">
+                      <label>Registration Year <span className="required-star">*</span></label>
+                      <select
+                        value={formData.registrationYear}
+                        onChange={(e) => setFormData({...formData, registrationYear: e.target.value})}
+                        required
+                      >
+                        <option value="">Select Year</option>
+                        {Array.from({ length: 25 }, (_, i) => {
+                          const year = new Date().getFullYear() - i;
+                          return <option key={year} value={year}>{year}</option>;
+                        })}
+                      </select>
+                    </div>
+
+                    <div className="form-group-custom">
+                      <label>Vehicle Number <span className="required-star">*</span></label>
+                      <input 
+                        type="text" 
+                        value={formData.vehicleNo}
+                        onChange={(e) => setFormData({...formData, vehicleNo: e.target.value})}
+                        placeholder="e.g. RJ14-GA-1234"
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group-custom">
+                      <label>RTO <span className="required-star">*</span></label>
+                      <input 
+                        type="text" 
+                        value={formData.rto}
+                        onChange={(e) => setFormData({...formData, rto: e.target.value})}
+                        placeholder="e.g. Jaipur RJ14"
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group-custom">
+                      <label>Engine Number <span className="required-star">*</span></label>
+                      <input 
+                        type="text" 
+                        value={formData.engineNo}
+                        onChange={(e) => setFormData({...formData, engineNo: e.target.value})}
+                        placeholder="Enter engine number"
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group-custom">
+                      <label>Chassis Number <span className="required-star">*</span></label>
+                      <input 
+                        type="text" 
+                        value={formData.chassisNo}
+                        onChange={(e) => setFormData({...formData, chassisNo: e.target.value})}
+                        placeholder="Enter chassis number"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <h4 className="column-section-title" style={{ marginTop: '20px' }}>Customer Details</h4>
+
+                  <div className="form-row-grid">
+                    <div className="form-group-custom">
+                      <label>Customer Name <span className="required-star">*</span></label>
+                      <input 
+                        type="text" 
+                        value={formData.customerName}
+                        onChange={(e) => setFormData({...formData, customerName: e.target.value})}
+                        placeholder="Enter customer name"
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group-custom">
+                      <label>Aadhar Number <span className="required-star">*</span></label>
+                      <input 
+                        type="text" 
+                        value={formData.aadharNo}
+                        onChange={(e) => setFormData({...formData, aadharNo: e.target.value})}
+                        placeholder="Enter 12-digit Aadhar"
+                        maxLength={12}
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group-custom">
+                      <label>Reg. Mobile No <span className="required-star">*</span></label>
+                      <input 
+                        type="text" 
+                        value={formData.regMobNo}
+                        onChange={(e) => setFormData({...formData, regMobNo: e.target.value})}
+                        placeholder="Enter mobile number"
+                        maxLength={10}
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group-custom">
+                      <label>Reg. Mobile No 2</label>
+                      <input 
+                        type="text" 
+                        value={formData.regMobNo2}
+                        onChange={(e) => setFormData({...formData, regMobNo2: e.target.value})}
+                        placeholder="Alternative contact"
+                        maxLength={10}
+                      />
+                    </div>
+
+                    <div className="form-group-custom full-width-group">
+                      <label>Customer Address <span className="required-star">*</span></label>
+                      <textarea 
+                        value={formData.address}
+                        onChange={(e) => setFormData({...formData, address: e.target.value})}
+                        placeholder="Enter customer address"
+                        rows="2"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontWeight: '600' }}>Request Type</label>
-                <select 
-                  value={formData.requestType}
-                  onChange={(e) => {
-                    const type = e.target.value;
-                    let defaultPlan = '1 Year';
-                    let defaultAmt = 1300;
-                    if (type === 'Recharge Plan') {
-                      defaultPlan = 'recharge NIC';
-                      defaultAmt = 1500;
-                    } else if (type === 'Top-up') {
-                      defaultPlan = '1 Month';
-                      defaultAmt = 100;
-                    }
-                    setFormData({
-                      ...formData,
-                      requestType: type,
-                      plan: defaultPlan,
-                      amount: defaultAmt
-                    });
-                  }}
-                  style={{ padding: '6px', border: '1px solid #ccc', borderRadius: '2px' }}
-                >
-                  <option value="Commercial Plan">Commercial Plan</option>
-                  <option value="Top-up">Top-up</option>
-                  <option value="Recharge Plan">Recharge Plan</option>
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontWeight: '600' }}>Plan</label>
-                <select 
-                  value={formData.plan}
-                  onChange={(e) => setFormData({...formData, plan: e.target.value})}
-                  style={{ padding: '6px', border: '1px solid #ccc', borderRadius: '2px' }}
-                >
-                  {formData.requestType === 'Commercial Plan' && (
-                    <>
-                      <option value="1 Month">1 Month</option>
-                      <option value="1 Year">1 Year</option>
-                      <option value="2 Years">2 Years</option>
-                    </>
-                  )}
-                  {formData.requestType === 'Recharge Plan' && (
-                    <>
-                      <option value="recharge NIC">recharge NIC</option>
-                      <option value="RENEWAL MINING">RENEWAL MINING</option>
-                    </>
-                  )}
-                  {formData.requestType === 'Top-up' && (
-                    <>
-                      <option value="1 Month">1 Month</option>
-                      <option value="1 Year">1 Year</option>
-                      <option value="2 Years">2 Years</option>
-                    </>
-                  )}
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontWeight: '600' }}>PI No</label>
-                <input 
-                  type="text" 
-                  value={formData.piNo}
-                  onChange={(e) => setFormData({...formData, piNo: e.target.value})}
-                  placeholder="e.g. iTR_PI_0626_43466"
-                  style={{ padding: '6px', border: '1px solid #ccc', borderRadius: '2px' }}
-                  required
-                />
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontWeight: '600' }}>Amount (₹)</label>
-                <input 
-                  type="number" 
-                  min="0.01" 
-                  step="0.01"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({...formData, amount: parseFloat(e.target.value) || 0})}
-                  readOnly={(formData.requestType === 'Commercial Plan' && (formData.plan === '1 Year' || formData.plan === '2 Years')) || (formData.requestType === 'Recharge Plan' && (formData.plan === 'recharge NIC' || formData.plan === 'RENEWAL MINING'))}
-                  style={{ 
-                    padding: '6px', 
-                    border: '1px solid #ccc', 
-                    borderRadius: '2px',
-                    backgroundColor: ((formData.requestType === 'Commercial Plan' && (formData.plan === '1 Year' || formData.plan === '2 Years')) || (formData.requestType === 'Recharge Plan' && (formData.plan === 'recharge NIC' || formData.plan === 'RENEWAL MINING'))) ? '#f1f5f9' : 'white',
-                    cursor: ((formData.requestType === 'Commercial Plan' && (formData.plan === '1 Year' || formData.plan === '2 Years')) || (formData.requestType === 'Recharge Plan' && (formData.plan === 'recharge NIC' || formData.plan === 'RENEWAL MINING'))) ? 'not-allowed' : 'default'
-                  }}
-                  required
-                />
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontWeight: '600' }}>Remarks</label>
-                <textarea 
-                  value={formData.remarks}
-                  onChange={(e) => setFormData({...formData, remarks: e.target.value})}
-                  placeholder="Device serial numbers or remarks"
-                  style={{ padding: '6px', border: '1px solid #ccc', borderRadius: '2px', height: '60px', resize: 'none' }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+              <div className="modal-footer-actions">
                 <button 
                   type="button" 
                   onClick={() => setShowModal(false)}
-                  style={{ padding: '6px 15px', border: '1px solid #ccc', background: 'white', borderRadius: '2px', cursor: 'pointer' }}
+                  className="btn-cancel-custom"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit" 
-                  disabled={submitting}
-                  style={{ padding: '6px 15px', border: 'none', background: '#00897b', color: 'white', borderRadius: '2px', cursor: 'pointer' }}
+                  disabled={submitting || !formData.imei}
+                  className="btn-submit-custom"
                 >
-                  {submitting ? 'Submitting...' : 'Submit'}
+                  {submitting ? 'Submitting...' : 'Submit Request'}
                 </button>
               </div>
             </form>

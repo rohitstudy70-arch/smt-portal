@@ -1,32 +1,45 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './components/Login/Login';
-import Dashboard from './components/Dashboard/Dashboard';
+import CustomerDevicePortal from './components/Portal/CustomerDevicePortal';
 import ActivationRequests from './components/ServiceRequests/ActivationRequests';
-import CommonLayerRequests from './components/ServiceRequests/CommonLayerRequests';
 import Layout from './components/Layout/Layout';
 import EditProfile from './components/AccountSettings/EditProfile';
 import ChangePassword from './components/AccountSettings/ChangePassword';
 import WalletSystem from './components/WalletSystem/WalletSystem';
 import UserManagement from './components/UserManagement/UserManagement';
 import DeviceManagement from './components/DeviceManagement/DeviceManagement';
-import IccidSearch from './components/IccidSearch/IccidSearch';
+import AddDevice from './components/DeviceManagement/AddDevice';
 import Certificates from './components/Certificates/Certificates';
-import Config360 from './components/Config360/Config360';
-import SIMActivationPlans from './components/SubdealerPlans/SIMActivationPlans';
-import PaySubdealer from './components/PaySubdealer/PaySubdealer';
 import InvoiceGenerator from './components/InvoiceGenerator/InvoiceGenerator';
 import ProformaInvoice from './components/ProformaInvoice/ProformaInvoice';
 
+const getRole = (user) => {
+  if (user?.role === 'partner') return 'ADMIN';
+  if (user?.userType === 'Sub Dealer') return 'SUB_DEALER';
+  if (user?.userType === 'End Customer') return 'CUSTOMER';
+  return 'DEALER';
+};
+
+const operationsRoles = ['ADMIN', 'DEALER', 'SUB_DEALER'];
+
 // Protected Route wrapper component
-const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, checkingAuth } = useAuth();
+const ProtectedRoute = ({ children, allowedRoles }) => {
+  const { isAuthenticated, checkingAuth, user } = useAuth();
 
   if (checkingAuth) {
     return <div style={{ padding: '20px', textAlign: 'center', fontSize: '14px', color: '#666' }}>Checking login session...</div>;
   }
 
-  return isAuthenticated ? children : <Navigate to="/login" replace />;
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (allowedRoles && !allowedRoles.includes(getRole(user))) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
 };
 
 function App() {
@@ -40,16 +53,16 @@ function App() {
           element={
             <ProtectedRoute>
               <Layout>
-                <Dashboard />
+                <CustomerDevicePortal />
               </Layout>
             </ProtectedRoute>
           } 
         />
-        
+
         <Route
           path="/invoice-generator"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={operationsRoles}>
               <Layout>
                 <InvoiceGenerator />
               </Layout>
@@ -80,17 +93,6 @@ function App() {
         />
         
         <Route 
-          path="/service-requests/common-layer" 
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <CommonLayerRequests />
-              </Layout>
-            </ProtectedRoute>
-          } 
-        />
-
-        <Route 
           path="/account/edit-profile" 
           element={
             <ProtectedRoute>
@@ -115,7 +117,7 @@ function App() {
         <Route 
           path="/wallet-system" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={operationsRoles}>
               <Layout>
                 <WalletSystem />
               </Layout>
@@ -126,7 +128,7 @@ function App() {
         <Route 
           path="/user-management" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={operationsRoles}>
               <Layout>
                 <UserManagement />
               </Layout>
@@ -137,7 +139,7 @@ function App() {
         <Route 
           path="/device-management" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={operationsRoles}>
               <Layout>
                 <DeviceManagement />
               </Layout>
@@ -146,15 +148,17 @@ function App() {
         />
 
         <Route 
-          path="/iccid-search" 
+          path="/add-device" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={operationsRoles}>
               <Layout>
-                <IccidSearch />
+                <AddDevice />
               </Layout>
             </ProtectedRoute>
           } 
         />
+
+
 
         <Route 
           path="/certificates" 
@@ -167,49 +171,7 @@ function App() {
           } 
         />
         
-        <Route 
-          path="/config-360" 
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <Config360 />
-              </Layout>
-            </ProtectedRoute>
-          } 
-        />
-        
-        <Route 
-          path="/subdealer-plans/sim-activation" 
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <SIMActivationPlans mode="sim" />
-              </Layout>
-            </ProtectedRoute>
-          } 
-        />
-        
-        <Route 
-          path="/subdealer-plans/cla-plans" 
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <SIMActivationPlans mode="cla" />
-              </Layout>
-            </ProtectedRoute>
-          } 
-        />
-        
-        <Route 
-          path="/pay-subdealer" 
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <PaySubdealer />
-              </Layout>
-            </ProtectedRoute>
-          } 
-        />
+
 
         {/* Fallback routes */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />

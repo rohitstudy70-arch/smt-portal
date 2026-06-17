@@ -50,6 +50,26 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  contactPerson: {
+    type: String,
+    default: '',
+  },
+  address: {
+    type: String,
+    default: '',
+  },
+  city: {
+    type: String,
+    default: '',
+  },
+  state: {
+    type: String,
+    default: '',
+  },
+  pincode: {
+    type: String,
+    default: '',
+  },
   status: {
     type: String,
     default: 'Active',

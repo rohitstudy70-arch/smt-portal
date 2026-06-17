@@ -22,7 +22,6 @@ const InvoiceGenerator = () => {
   const [rmn, setRmn] = useState('');
   const [address, setAddress] = useState('');
   const [poaNo, setPoaNo] = useState(''); // GSTIN/PAN/Aadhaar
-  const [commonLayer, setCommonLayer] = useState('BSNL CL');
   const [vehicleType, setVehicleType] = useState('Truck');
   const [validity, setValidity] = useState('1 Year');
   const [searchImei, setSearchImei] = useState('');
@@ -129,7 +128,7 @@ const InvoiceGenerator = () => {
 
   const fetchNextPiNo = async () => {
     try {
-      const response = await api.get('/common-layer-requests/next-pi-no');
+      const response = await api.get('/invoices/next-pi-no');
       setPiNo(response.data.nextPiNo);
       if (response.data.nextInvoiceNo) {
         setInvoiceNo(response.data.nextInvoiceNo);
@@ -147,14 +146,14 @@ const InvoiceGenerator = () => {
     const fetchRequests = async () => {
       try {
         setLoading(true);
-        const response = await api.get('/common-layer-requests', {
+        const response = await api.get('/invoices', {
           params: { page, limit, search }
         });
         setRequests(response.data.requests);
         setTotalCount(response.data.total);
         setLoading(false);
       } catch (err) {
-        console.error('Error fetching CL requests:', err);
+        console.error('Error fetching invoices:', err);
         setLoading(false);
       }
     };
@@ -199,8 +198,7 @@ const InvoiceGenerator = () => {
 
     setSingleSubmitting(true);
     try {
-      const response = await api.post('/common-layer-requests', {
-        commonLayer,
+      const response = await api.post('/invoices', {
         vehicleType,
         validity,
         imei: searchImei || 'N/A',
@@ -306,14 +304,12 @@ const InvoiceGenerator = () => {
   };
 
   const handleDownloadInvoice = (req) => {
-    const isAe01 = req.requestId === 'CL-REQ-AE-01';
+    const customerName = req.endCustomerName || 'JYOTI CONSTRUCTION AND ENGINEERING Pvt. Ltd';
+    const customerAddress = req.address || 'PAPRAUR, Begusarai, Bihar, 851210';
+    const customerMob = req.rmn || '9031622921';
+    const customerGstin = req.poaNo || '10AAECJ5132H1Z3';
     
-    const customerName = isAe01 ? 'JYOTI CONSTRUCTION AND ENGINEERING Pvt. Ltd' : (req.endCustomerName || 'JYOTI CONSTRUCTION AND ENGINEERING Pvt. Ltd');
-    const customerAddress = isAe01 ? 'PAPRAUR, Begusarai, Bihar, 851210' : (req.address || 'PAPRAUR, Begusarai, Bihar, 851210');
-    const customerMob = isAe01 ? '9031622921' : (req.rmn || '9031622921');
-    const customerGstin = isAe01 ? '10AAECJ5132H1Z3' : (req.poaNo || '10AAECJ5132H1Z3');
-    
-    const piDate = isAe01 ? '09.04.2026' : new Date(req.dateTime).toLocaleDateString('en-GB').replace(/\//g, '.');
+    const piDate = new Date(req.dateTime).toLocaleDateString('en-GB').replace(/\//g, '.');
     const piInvoiceNo = req.piNo || 'AE-01';
 
     const formatCurrencyIG = (val) => {

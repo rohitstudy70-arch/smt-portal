@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const commonLayerRequestSchema = new mongoose.Schema({
+const invoiceSchema = new mongoose.Schema({
   requestId: {
     type: String,
     required: true,
@@ -15,10 +15,6 @@ const commonLayerRequestSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     default: null,
-  },
-  commonLayer: {
-    type: String,
-    default: '',
   },
   vehicleType: {
     type: String,
@@ -134,9 +130,9 @@ const commonLayerRequestSchema = new mongoose.Schema({
       sgst: { type: Number, default: 0 },
       priceWithGst: { type: Number, default: 0 },
       qty: { type: Number, default: 1 },
-      grossAmt: { type: Number, default: 0 }
-    }
-  ]
+      grossAmt: { type: Number, default: 0 },
+    },
+  ],
 });
 
-module.exports = mongoose.model('CommonLayerRequest', commonLayerRequestSchema);
+module.exports = mongoose.model('Invoice', invoiceSchema);

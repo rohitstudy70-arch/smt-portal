@@ -1,35 +1,51 @@
 import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { 
-  FaTachometerAlt, 
-  FaClipboardList, 
-  FaCog, 
-  FaWallet, 
-  FaUsers, 
-  FaMobileAlt, 
-  FaCertificate, 
-  FaTools, 
-  FaStore, 
-  FaMoneyBillWave,
+import {
+  FaCertificate,
   FaChevronRight,
-  FaSearch,
-  FaFileInvoiceDollar
+  FaClipboardList,
+  FaCog,
+  FaFileInvoiceDollar,
+  FaKey,
+  FaMobileAlt,
+  FaPlusCircle,
+  FaTachometerAlt,
+  FaUserEdit,
+  FaUsers,
+  FaWallet,
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import './Sidebar.css';
 
+const getRole = (user) => {
+  if (user?.role === 'partner') return 'ADMIN';
+  if (user?.userType === 'Sub Dealer') return 'SUB_DEALER';
+  if (user?.userType === 'End Customer') return 'CUSTOMER';
+  return 'DEALER';
+};
+
 const Sidebar = () => {
   const { user } = useAuth();
-  const [serviceRequestsOpen, setServiceRequestsOpen] = useState(true);
-  const [accountSettingsOpen, setAccountSettingsOpen] = useState(true);
-  const [subdealerPlansOpen, setSubdealerPlansOpen] = useState(true);
   const location = useLocation();
+  const [serviceRequestsOpen, setServiceRequestsOpen] = useState(
+    location.pathname.startsWith('/service-requests')
+  );
+  const [accountSettingsOpen, setAccountSettingsOpen] = useState(
+    location.pathname.startsWith('/account')
+  );
+  const role = getRole(user);
+  const allRoles = ['ADMIN', 'DEALER', 'SUB_DEALER', 'CUSTOMER'];
+  const operationsRoles = ['ADMIN', 'DEALER', 'SUB_DEALER'];
+  const currentPortalView = new URLSearchParams(location.search).get('view') || 'dashboard';
 
-  const toggleServiceRequests = () => {
-    setServiceRequestsOpen(!serviceRequestsOpen);
-  };
-
+  const canShow = (roles = allRoles) => roles.includes(role);
   const isServiceRequestsActive = location.pathname.startsWith('/service-requests');
+  const isAccountSettingsActive = location.pathname.startsWith('/account');
+  const isDashboardActive = location.pathname === '/dashboard' && currentPortalView === 'dashboard';
+  const isDeviceViewActive = (
+    location.pathname === '/device-management'
+    || (location.pathname === '/dashboard' && ['devices', 'mydevices'].includes(currentPortalView))
+  );
 
   return (
     <div className="sidebar">
@@ -39,149 +55,107 @@ const Sidebar = () => {
         </div>
         <div className="brand-title-group">
           <h2>Arshi Enterprises</h2>
-          <span>CUSTOMER SELF SERVICE</span>
+          <span>Customer Device Portal</span>
         </div>
       </div>
 
       <ul className="sidebar-menu">
-        <li className={`sidebar-menu-item ${location.pathname === '/dashboard' ? 'active' : ''}`}>
-          <NavLink to="/dashboard">
+        <li className={`sidebar-menu-item ${isDashboardActive ? 'active' : ''}`}>
+          <NavLink to="/dashboard?view=dashboard">
             <FaTachometerAlt className="menu-icon" />
             <span className="menu-text">Dashboard</span>
           </NavLink>
         </li>
 
-        {user?.userType === 'End Customer' ? (
-          <>
-            <li className={`sidebar-menu-item ${location.pathname === '/service-requests/common-layer' ? 'active' : ''}`}>
-              <NavLink to="/service-requests/common-layer">
-                <FaFileInvoiceDollar className="menu-icon" />
-                <span className="menu-text">My Invoices</span>
+        {canShow(operationsRoles) && (
+          <li className={`sidebar-menu-item ${location.pathname === '/invoice-generator' ? 'active' : ''}`}>
+            <NavLink to="/invoice-generator">
+              <FaFileInvoiceDollar className="menu-icon" />
+              <span className="menu-text">Invoice Generator</span>
+            </NavLink>
+          </li>
+        )}
+
+        {canShow(allRoles) && (
+          <li className={`sidebar-menu-item ${isServiceRequestsActive ? 'active' : ''}`}>
+            <div className="menu-link" onClick={() => setServiceRequestsOpen(!serviceRequestsOpen)}>
+              <FaClipboardList className="menu-icon" />
+              <span className="menu-text">Service Requests</span>
+              <FaChevronRight className={`menu-arrow ${serviceRequestsOpen || isServiceRequestsActive ? 'open' : ''}`} />
+            </div>
+            <ul className={`sidebar-submenu ${serviceRequestsOpen || isServiceRequestsActive ? 'open' : ''}`}>
+              <li className={location.pathname === '/service-requests/activation' ? 'active' : ''}>
+                <NavLink to="/service-requests/activation">Activation Requests</NavLink>
+              </li>
+            </ul>
+          </li>
+        )}
+
+        <li className={`sidebar-menu-item ${isAccountSettingsActive ? 'active' : ''}`}>
+          <div className="menu-link" onClick={() => setAccountSettingsOpen(!accountSettingsOpen)}>
+            <FaCog className="menu-icon" />
+            <span className="menu-text">Account Settings</span>
+            <FaChevronRight className={`menu-arrow ${accountSettingsOpen || isAccountSettingsActive ? 'open' : ''}`} />
+          </div>
+          <ul className={`sidebar-submenu ${accountSettingsOpen || isAccountSettingsActive ? 'open' : ''}`}>
+            <li className={location.pathname === '/account/edit-profile' ? 'active' : ''}>
+              <NavLink to="/account/edit-profile">
+                <FaUserEdit className="submenu-icon" />
+                Edit Profile
               </NavLink>
             </li>
-
-            <li className={`sidebar-menu-item ${location.pathname.startsWith('/account') ? 'active' : ''}`}>
-              <div className="menu-link" onClick={() => setAccountSettingsOpen(!accountSettingsOpen)}>
-                <FaCog className="menu-icon" />
-                <span className="menu-text">Account Settings</span>
-                <FaChevronRight className={`menu-arrow ${accountSettingsOpen ? 'open' : ''}`} />
-              </div>
-              <ul className={`sidebar-submenu ${accountSettingsOpen ? 'open' : ''}`}>
-                <li className={location.pathname === '/account/edit-profile' ? 'active' : ''}>
-                  <NavLink to="/account/edit-profile">Edit Profile</NavLink>
-                </li>
-                <li className={location.pathname === '/account/change-password' ? 'active' : ''}>
-                  <NavLink to="/account/change-password">Change Password</NavLink>
-                </li>
-              </ul>
-            </li>
-          </>
-        ) : (
-          <>
-            <li className={`sidebar-menu-item ${location.pathname === '/invoice-generator' ? 'active' : ''}`}>
-              <NavLink to="/invoice-generator">
-                <FaFileInvoiceDollar className="menu-icon" />
-                <span className="menu-text">Invoice Generator</span>
+            <li className={location.pathname === '/account/change-password' ? 'active' : ''}>
+              <NavLink to="/account/change-password">
+                <FaKey className="submenu-icon" />
+                Change Password
               </NavLink>
             </li>
+          </ul>
+        </li>
 
-            <li className={`sidebar-menu-item ${isServiceRequestsActive ? 'active' : ''}`}>
-              <div className="menu-link" onClick={toggleServiceRequests}>
-                <FaClipboardList className="menu-icon" />
-                <span className="menu-text">Service Requests</span>
-                <FaChevronRight className={`menu-arrow ${serviceRequestsOpen ? 'open' : ''}`} />
-              </div>
-              <ul className={`sidebar-submenu ${serviceRequestsOpen ? 'open' : ''}`}>
-                <li className={location.pathname === '/service-requests/activation' ? 'active' : ''}>
-                  <NavLink to="/service-requests/activation">Activation Requests</NavLink>
-                </li>
-                <li className={location.pathname === '/service-requests/common-layer' ? 'active' : ''}>
-                  <NavLink to="/service-requests/common-layer">Common Layer Requests</NavLink>
-                </li>
-              </ul>
-            </li>
+        {canShow(operationsRoles) && (
+          <li className={`sidebar-menu-item ${location.pathname === '/wallet-system' ? 'active' : ''}`}>
+            <NavLink to="/wallet-system">
+              <FaWallet className="menu-icon" />
+              <span className="menu-text">Wallet System</span>
+            </NavLink>
+          </li>
+        )}
 
-            <li className={`sidebar-menu-item ${location.pathname.startsWith('/account') ? 'active' : ''}`}>
-              <div className="menu-link" onClick={() => setAccountSettingsOpen(!accountSettingsOpen)}>
-                <FaCog className="menu-icon" />
-                <span className="menu-text">Account Settings</span>
-                <FaChevronRight className={`menu-arrow ${accountSettingsOpen ? 'open' : ''}`} />
-              </div>
-              <ul className={`sidebar-submenu ${accountSettingsOpen ? 'open' : ''}`}>
-                <li className={location.pathname === '/account/edit-profile' ? 'active' : ''}>
-                  <NavLink to="/account/edit-profile">Edit Profile</NavLink>
-                </li>
-                <li className={location.pathname === '/account/change-password' ? 'active' : ''}>
-                  <NavLink to="/account/change-password">Change Password</NavLink>
-                </li>
-              </ul>
-            </li>
+        {canShow(operationsRoles) && (
+          <li className={`sidebar-menu-item ${location.pathname === '/user-management' ? 'active' : ''}`}>
+            <NavLink to="/user-management">
+              <FaUsers className="menu-icon" />
+              <span className="menu-text">User Management</span>
+            </NavLink>
+          </li>
+        )}
 
-            <li className={`sidebar-menu-item ${location.pathname === '/wallet-system' ? 'active' : ''}`}>
-              <NavLink to="/wallet-system">
-                <FaWallet className="menu-icon" />
-                <span className="menu-text">Wallet System</span>
-              </NavLink>
-            </li>
+        {canShow(allRoles) && (
+          <li className={`sidebar-menu-item ${isDeviceViewActive ? 'active' : ''}`}>
+            <NavLink to={role === 'CUSTOMER' ? '/dashboard?view=mydevices' : '/device-management'}>
+              <FaMobileAlt className="menu-icon" />
+              <span className="menu-text">Device Management</span>
+            </NavLink>
+          </li>
+        )}
 
-            <li className={`sidebar-menu-item ${location.pathname === '/user-management' ? 'active' : ''}`}>
-              <NavLink to="/user-management">
-                <FaUsers className="menu-icon" />
-                <span className="menu-text">User Management</span>
-              </NavLink>
-            </li>
+        {canShow(operationsRoles) && (
+          <li className={`sidebar-menu-item ${location.pathname === '/add-device' ? 'active' : ''}`}>
+            <NavLink to="/add-device">
+              <FaPlusCircle className="menu-icon" />
+              <span className="menu-text">Add Device</span>
+            </NavLink>
+          </li>
+        )}
 
-            <li className={`sidebar-menu-item ${location.pathname === '/device-management' ? 'active' : ''}`}>
-              <NavLink to="/device-management">
-                <FaMobileAlt className="menu-icon" />
-                <span className="menu-text">Device Management</span>
-              </NavLink>
-            </li>
-
-            <li className={`sidebar-menu-item ${location.pathname === '/iccid-search' ? 'active' : ''}`}>
-              <NavLink to="/iccid-search">
-                <FaSearch className="menu-icon" />
-                <span className="menu-text">ICCID Search</span>
-              </NavLink>
-            </li>
-
-            <li className={`sidebar-menu-item ${location.pathname === '/certificates' ? 'active' : ''}`}>
-              <NavLink to="/certificates">
-                <FaCertificate className="menu-icon" />
-                <span className="menu-text">Certificates</span>
-              </NavLink>
-            </li>
-
-            <li className={`sidebar-menu-item ${location.pathname === '/config-360' ? 'active' : ''}`}>
-              <NavLink to="/config-360">
-                <FaTools className="menu-icon" />
-                <span className="menu-text">Config 360v2</span>
-              </NavLink>
-            </li>
-
-            <li className={`sidebar-menu-item ${location.pathname.startsWith('/subdealer-plans') ? 'active' : ''}`}>
-              <div className="menu-link" onClick={() => setSubdealerPlansOpen(!subdealerPlansOpen)}>
-                <FaStore className="menu-icon" />
-                <span className="menu-text">Subdealers Plans</span>
-                <FaChevronRight className={`menu-arrow ${subdealerPlansOpen ? 'open' : ''}`} />
-              </div>
-              <ul className={`sidebar-submenu ${subdealerPlansOpen ? 'open' : ''}`}>
-                <li className={location.pathname === '/subdealer-plans/sim-activation' ? 'active' : ''}>
-                  <NavLink to="/subdealer-plans/sim-activation">SIM Activation Plans</NavLink>
-                </li>
-                <li className={location.pathname === '/subdealer-plans/cla-plans' ? 'active' : ''}>
-                  <NavLink to="/subdealer-plans/cla-plans">CLA Plans</NavLink>
-                </li>
-              </ul>
-            </li>
-
-            <li className={`sidebar-menu-item ${location.pathname === '/pay-subdealer' ? 'active' : ''}`}>
-              <NavLink to="/pay-subdealer">
-                <FaMoneyBillWave className="menu-icon" />
-                <span className="menu-text">Pay to Subdealer</span>
-              </NavLink>
-            </li>
-          </>
+        {canShow(allRoles) && (
+          <li className={`sidebar-menu-item ${location.pathname === '/certificates' ? 'active' : ''}`}>
+            <NavLink to="/certificates">
+              <FaCertificate className="menu-icon" />
+              <span className="menu-text">Certificates</span>
+            </NavLink>
+          </li>
         )}
       </ul>
     </div>

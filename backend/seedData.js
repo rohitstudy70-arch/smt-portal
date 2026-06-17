@@ -3,7 +3,7 @@ const dotenv = require('dotenv');
 const User = require('./models/User');
 const Device = require('./models/Device');
 const ActivationRequest = require('./models/ActivationRequest');
-const CommonLayerRequest = require('./models/CommonLayerRequest');
+const Invoice = require('./models/Invoice');
 const Transaction = require('./models/Transaction');
 
 dotenv.config();
@@ -17,7 +17,7 @@ const seedData = async () => {
     await User.deleteMany({});
     await Device.deleteMany({});
     await ActivationRequest.deleteMany({});
-    await CommonLayerRequest.deleteMany({});
+    await Invoice.deleteMany({});
     await Transaction.deleteMany({});
     console.log('All collections cleared.');
 
@@ -25,7 +25,7 @@ const seedData = async () => {
     const arshiUser = await User.create({
       username: 'ArshiEnterprises',
       password: 'admin123',
-      role: 'customer',
+      role: 'partner',
       companyName: 'Arshi Enterprises',
       availableBalance: 43195,
       overDrawnAmount: 0,
@@ -83,21 +83,6 @@ const seedData = async () => {
         simExpiryDate = expiryDate;
       }
 
-      // Common layer for some devices
-      let commonLayer = '';
-      let clExpiryDate = null;
-      if (i <= 200) {
-        commonLayer = `CL-${String(i).padStart(4, '0')}`;
-        const clExpiry = new Date(now);
-        if (i <= 20) {
-          // 20 devices with CL expiring in next 2 months
-          clExpiry.setDate(clExpiry.getDate() + Math.floor(Math.random() * 60));
-        } else {
-          clExpiry.setMonth(clExpiry.getMonth() + 3 + Math.floor(Math.random() * 21));
-        }
-        clExpiryDate = clExpiry;
-      }
-
       const msisdnIndex = i;
       devices.push({
         userId: arshiUser._id,
@@ -107,8 +92,6 @@ const seedData = async () => {
         hasSim,
         isTaisys,
         simExpiryDate,
-        commonLayer,
-        clExpiryDate,
         msisdn1: `575421${String(msisdnIndex).padStart(7, '0')}`,
         tsp1: 'Airtel',
         msisdn2: `575205${String(msisdnIndex).padStart(7, '0')}`,
@@ -126,8 +109,6 @@ const seedData = async () => {
       hasSim: true,
       isTaisys: true,
       simExpiryDate: new Date('2028-02-27'),
-      commonLayer: 'BSNL CL',
-      clExpiryDate: new Date('2028-02-27'),
       msisdn1: '9876543210',
       tsp1: 'Airtel',
       msisdn2: '9876543211',
@@ -305,21 +286,20 @@ const seedData = async () => {
       `${activationRequests.length} activation requests created.`
     );
 
-    // Seed sample common layer requests with full vehicle details for report generation
-    const mockCommonLayerRequests = [
+    // Seed sample invoices with full vehicle details
+    const mockInvoices = [
       {
-        requestId: 'CL-REQ10001',
+        requestId: 'INV-REQ10001',
         userId: arshiUser._id,
-        commonLayer: 'BSNL CL',
         vehicleType: 'Truck',
         validity: '1 Year',
         imei: '350000000000001',
         iccid: '89910000000000000001F',
         isSubDealer: false,
         subDealerName: '',
-        piNo: 'iTR_PI_CL_001',
+        piNo: 'AE-01',
         piValue: 120,
-        invoiceNo: 'INV_CL_001',
+        invoiceNo: 'INV-01',
         status: 'Completed',
         dateTime: new Date('2026-05-15T10:00:00'),
         engineNo: 'ENG1234567',
@@ -339,18 +319,17 @@ const seedData = async () => {
         vehicleNo: 'RJ14-GA-1234'
       },
       {
-        requestId: 'CL-REQ10002',
+        requestId: 'INV-REQ10002',
         userId: arshiUser._id,
-        commonLayer: 'Airtel CL',
         vehicleType: 'Car',
         validity: '2 Years',
         imei: '350000000000002',
         iccid: '89910000000000000002F',
         isSubDealer: true,
         subDealerName: 'Link Birds',
-        piNo: 'iTR_PI_CL_002',
+        piNo: 'AE-02',
         piValue: 240,
-        invoiceNo: 'INV_CL_002',
+        invoiceNo: 'INV-02',
         status: 'Completed',
         dateTime: new Date('2026-05-20T14:30:00'),
         engineNo: 'ENG4455667',
@@ -370,16 +349,15 @@ const seedData = async () => {
         vehicleNo: 'UP32-FN-8888'
       },
       {
-        requestId: 'CL-REQ10003',
+        requestId: 'INV-REQ10003',
         userId: arshiUser._id,
-        commonLayer: 'Jio CL',
         vehicleType: 'Bus',
         validity: '1 Year',
         imei: '350000000000003',
         iccid: '89910000000000000003F',
         isSubDealer: false,
         subDealerName: '',
-        piNo: 'iTR_PI_CL_003',
+        piNo: 'AE-03',
         piValue: 120,
         invoiceNo: '',
         status: 'Processing',
@@ -401,18 +379,17 @@ const seedData = async () => {
         vehicleNo: 'DL1C-AB-9999'
       },
       {
-        requestId: 'CL-REQ10004',
+        requestId: 'INV-REQ10004',
         userId: arshiUser._id,
-        commonLayer: 'BSNL CL',
         vehicleType: 'Bike',
         validity: '5 Years',
         imei: '350000000000004',
         iccid: '89910000000000000004F',
         isSubDealer: true,
         subDealerName: 'Link Birds',
-        piNo: 'iTR_PI_CL_004',
+        piNo: 'AE-04',
         piValue: 600,
-        invoiceNo: 'INV_CL_004',
+        invoiceNo: 'INV-04',
         status: 'Completed',
         dateTime: new Date('2026-06-01T09:00:00'),
         engineNo: 'ENG3322110',
@@ -433,8 +410,8 @@ const seedData = async () => {
       }
     ];
 
-    await CommonLayerRequest.insertMany(mockCommonLayerRequests);
-    console.log(`${mockCommonLayerRequests.length} common layer requests seeded with vehicle details.`);
+    await Invoice.insertMany(mockInvoices);
+    console.log(`${mockInvoices.length} invoices seeded with vehicle details.`);
 
     // Create wallet transactions
     const transactions = [
@@ -533,7 +510,7 @@ const seedData = async () => {
     console.log(
       `  - Rejected: ${activationRequests.filter((r) => r.status === 'Rejected').length}`
     );
-    console.log(`Common Layer Requests: 0`);
+    console.log(`Invoices: ${mockInvoices.length}`);
     console.log('\nSeed data inserted successfully!');
 
     process.exit(0);

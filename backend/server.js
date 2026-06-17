@@ -47,13 +47,12 @@ app.use(express.urlencoded({ extended: true }));
 
 // Mount routes
 app.use('/api/auth', require('./routes/auth'));
-app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/activation-requests', require('./routes/activationRequests'));
-app.use('/api/common-layer-requests', require('./routes/commonLayerRequests'));
+app.use('/api/invoices', require('./routes/invoices'));
 app.use('/api/wallet', require('./routes/wallet'));
 app.use('/api/users', require('./routes/subUsers'));
 app.use('/api/devices', require('./routes/devices'));
-app.use('/api/reports', require('./routes/reports'));
+app.use('/api/portal', require('./routes/portal'));
 
 // Health check route
 app.get('/api/health', (req, res) => {

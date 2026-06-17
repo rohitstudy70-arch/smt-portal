@@ -2,13 +2,22 @@ const express = require('express');
 const Transaction = require('../models/Transaction');
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
+const {
+  PORTAL_ROLES,
+  attachHierarchyScope,
+  requireRoles,
+} = require('../middleware/hierarchy');
 
 const router = express.Router();
+
+router.use(protect, attachHierarchyScope);
+
+const operationsRoles = [PORTAL_ROLES.ADMIN, PORTAL_ROLES.DEALER, PORTAL_ROLES.SUB_DEALER];
 
 // @route   GET /api/wallet/transactions
 // @desc    Get transactions of current user
 // @access  Protected
-router.get('/transactions', protect, async (req, res) => {
+router.get('/transactions', requireRoles(...operationsRoles), async (req, res) => {
   try {
     const { fromDate, toDate, search, limit = 10, page = 1 } = req.query;
 
@@ -61,7 +70,7 @@ router.get('/transactions', protect, async (req, res) => {
 // @route   POST /api/wallet/add
 // @desc    Add funds (Credit) or spend (Debit)
 // @access  Protected
-router.post('/add', protect, async (req, res) => {
+router.post('/add', requireRoles(...operationsRoles), async (req, res) => {
   try {
     const {
       amount,

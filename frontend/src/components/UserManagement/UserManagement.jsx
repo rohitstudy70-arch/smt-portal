@@ -1,16 +1,33 @@
 import { useState, useEffect } from 'react';
 import { FaUserPlus, FaUser, FaList, FaEdit, FaCheck, FaTimes, FaSearch } from 'react-icons/fa';
 import api from '../../utils/api';
+import { useAuth } from '../../context/AuthContext';
 import './UserManagement.css';
 
+const getRole = (user) => {
+  if (user?.role === 'partner') return 'ADMIN';
+  if (user?.userType === 'Sub Dealer') return 'SUB_DEALER';
+  if (user?.userType === 'End Customer') return 'CUSTOMER';
+  return 'DEALER';
+};
+
+const userTypesByRole = {
+  ADMIN: ['Dealer', 'Sub Dealer', 'End Customer'],
+  DEALER: ['Sub Dealer', 'End Customer'],
+  SUB_DEALER: ['End Customer'],
+};
+
 const UserManagement = () => {
+  const { user } = useAuth();
+  const role = getRole(user);
+  const allowedUserTypes = userTypesByRole[role] || [];
   const [subUsers, setSubUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   
   // Form State
-  const [userType, setUserType] = useState('View Access User');
+  const [userType, setUserType] = useState(allowedUserTypes[0] || 'End Customer');
   const [displayName, setDisplayName] = useState('');
   const [mobileNo, setMobileNo] = useState('');
   const [email, setEmail] = useState('');
@@ -41,6 +58,12 @@ const UserManagement = () => {
   useEffect(() => {
     fetchSubUsers();
   }, []);
+
+  useEffect(() => {
+    if (allowedUserTypes.length > 0 && !allowedUserTypes.includes(userType)) {
+      setUserType(allowedUserTypes[0]);
+    }
+  }, [allowedUserTypes, userType]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -109,7 +132,7 @@ const UserManagement = () => {
   const resetForm = () => {
     setIsEditMode(false);
     setEditingUserId(null);
-    setUserType('View Access User');
+    setUserType(allowedUserTypes[0] || 'End Customer');
     setDisplayName('');
     setMobileNo('');
     setEmail('');
@@ -153,9 +176,9 @@ const UserManagement = () => {
                       value={userType}
                       onChange={(e) => setUserType(e.target.value)}
                     >
-                      <option value="View Access User">View Access User</option>
-                      <option value="Sub Dealer">Sub Dealer</option>
-                      <option value="End Customer">End Customer</option>
+                      {allowedUserTypes.map((type) => (
+                        <option value={type} key={type}>{type}</option>
+                      ))}
                     </select>
                   </div>
                 </div>

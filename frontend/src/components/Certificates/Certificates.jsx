@@ -1,8 +1,18 @@
 import { useState } from 'react';
 import { FaCertificate, FaDownload, FaSearch, FaPlus } from 'react-icons/fa';
+import { useAuth } from '../../context/AuthContext';
 import './Certificates.css';
 
+const getRole = (user) => {
+  if (user?.role === 'partner') return 'ADMIN';
+  if (user?.userType === 'Sub Dealer') return 'SUB_DEALER';
+  if (user?.userType === 'End Customer') return 'CUSTOMER';
+  return 'DEALER';
+};
+
 const Certificates = () => {
+  const { user } = useAuth();
+  const role = getRole(user);
   const [search, setSearch] = useState('');
   const [certificates, setCertificates] = useState([
     { id: 1, imei: '350000000000001', type: 'BSNL Activation Certificate', approvedDate: '2026-05-15', expiryDate: '2027-05-15', status: 'Approved' },
@@ -21,11 +31,13 @@ const Certificates = () => {
       <div className="certificates-actions-row">
         <h1 className="page-heading">Device <span className="subtitle">Certificates</span></h1>
         
-        <div className="button-group">
-          <button className="btn-upload-cert" onClick={() => alert('Opening certificate upload dialog...')}>
-            <FaPlus /> Upload Certificate
-          </button>
-        </div>
+        {role !== 'CUSTOMER' && (
+          <div className="button-group">
+            <button className="btn-upload-cert" onClick={() => alert('Opening certificate upload dialog...')}>
+              <FaPlus /> Upload Certificate
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="card-panel">

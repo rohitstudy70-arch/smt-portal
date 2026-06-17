@@ -16,12 +16,35 @@ const Header = () => {
   // Generate breadcrumbs based on pathname
   const getBreadcrumbs = () => {
     const path = location.pathname;
+    const view = new URLSearchParams(location.search).get('view') || 'dashboard';
+    const portalLabels = {
+      dashboard: 'Dashboard',
+      dealers: 'Dealer Management',
+      subdealers: 'Sub Dealer Management',
+      users: 'User Management',
+      devices: 'Device Management',
+      customers: 'Customer Database',
+      reports: 'Reports',
+      profile: 'My Profile',
+      mydevices: 'My Devices',
+      renewals: 'Renewal Requests',
+    };
+
     if (path === '/dashboard') {
       return (
         <div className="breadcrumbs">
           <Link to="/dashboard">Home</Link>
           <span>/</span>
-          <span className="active-crumb">Dashboard</span>
+          <span className="active-crumb">{portalLabels[view] || 'Dashboard'}</span>
+        </div>
+      );
+    }
+    if (path === '/invoice-generator') {
+      return (
+        <div className="breadcrumbs">
+          <Link to="/dashboard">Home</Link>
+          <span>/</span>
+          <span className="active-crumb">Invoice Generator</span>
         </div>
       );
     }
@@ -33,17 +56,6 @@ const Header = () => {
           <span>Activation Request</span>
           <span>/</span>
           <span className="active-crumb">Activation Requests List</span>
-        </div>
-      );
-    }
-    if (path === '/service-requests/common-layer') {
-      return (
-        <div className="breadcrumbs">
-          <Link to="/dashboard">Home</Link>
-          <span>/</span>
-          <span>Common Layer Request</span>
-          <span>/</span>
-          <span className="active-crumb">Customer Common Layer Request</span>
         </div>
       );
     }
@@ -95,15 +107,17 @@ const Header = () => {
         </div>
       );
     }
-    if (path === '/iccid-search') {
+
+    if (path === '/add-device') {
       return (
         <div className="breadcrumbs">
           <Link to="/dashboard">Home</Link>
           <span>/</span>
-          <span className="active-crumb">ICCID Search</span>
+          <span className="active-crumb">Add Device</span>
         </div>
       );
     }
+
     if (path === '/certificates') {
       return (
         <div className="breadcrumbs">
@@ -113,34 +127,7 @@ const Header = () => {
         </div>
       );
     }
-    if (path === '/config-360') {
-      return (
-        <div className="breadcrumbs">
-          <Link to="/dashboard">Home</Link>
-          <span>/</span>
-          <span className="active-crumb">Config 360v2</span>
-        </div>
-      );
-    }
-    if (path === '/subdealer-plans/sim-activation' || path === '/subdealer-plans/cla-plans') {
-      return (
-        <div className="breadcrumbs">
-          <Link to="/dashboard">Home</Link>
-          <span>/</span>
-          <span className="active-crumb">Assign Plans & CLA</span>
-          <span>/</span>
-        </div>
-      );
-    }
-    if (path === '/pay-subdealer') {
-      return (
-        <div className="breadcrumbs">
-          <Link to="/dashboard">Home</Link>
-          <span>/</span>
-          <span className="active-crumb">Pay to Subdealer</span>
-        </div>
-      );
-    }
+
     return (
       <div className="breadcrumbs">
         <Link to="/dashboard">Home</Link>
@@ -154,13 +141,13 @@ const Header = () => {
   const handleGlobalSearchSubmit = (e) => {
     e.preventDefault();
     if (globalSearch.trim()) {
-      navigate(`/iccid-search?search=${encodeURIComponent(globalSearch.trim())}`);
+      navigate(`/dashboard?view=devices&search=${encodeURIComponent(globalSearch.trim())}`);
       setGlobalSearch('');
     }
   };
 
   // Determine if file upload bar should be shown (matches screenshot for userdashboard page)
-  const showUpload = location.pathname === '/dashboard';
+  const showUpload = false;
 
   return (
     <div className="header-wrapper">
@@ -181,7 +168,7 @@ const Header = () => {
           <form className="search-box" onSubmit={handleGlobalSearchSubmit}>
             <input 
               type="text" 
-              placeholder="ICCID No/ IMEI No /Serial No" 
+              placeholder="Customer / IMEI / ICCID / Serial No" 
               value={globalSearch}
               onChange={(e) => setGlobalSearch(e.target.value)}
             />

@@ -14,7 +14,7 @@ const ProformaInvoice = () => {
     const fetchInvoice = async () => {
       try {
         setLoading(true);
-        const response = await api.get(`/common-layer-requests/${invoiceId}`);
+        const response = await api.get(`/invoices/${invoiceId}`);
         setInvoice(response.data);
         setError(null);
       } catch (err) {

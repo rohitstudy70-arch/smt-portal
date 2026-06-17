@@ -1,6 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const AuditLog = require('../models/AuditLog');
 const { protect } = require('../middleware/auth');
 
 const router = express.Router();
@@ -29,6 +30,12 @@ router.post('/login', async (req, res) => {
     const user = await User.findOne({ username });
 
     if (!user) {
+      await AuditLog.create({
+        userId: null,
+        action: 'LOGIN_FAILED',
+        ipAddress: req.ip || '',
+        details: { username, reason: 'User not found' },
+      }).catch(() => {});
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
@@ -36,16 +43,36 @@ router.post('/login', async (req, res) => {
     const isMatch = await user.matchPassword(password);
 
     if (!isMatch) {
+      await AuditLog.create({
+        userId: user._id,
+        action: 'LOGIN_FAILED',
+        ipAddress: req.ip || '',
+        details: { username, reason: 'Invalid password' },
+      }).catch(() => {});
       return res.status(401).json({ message: 'Invalid credentials' });
     }
+
+    await AuditLog.create({
+      userId: user._id,
+      action: 'LOGIN_SUCCESS',
+      ipAddress: req.ip || '',
+      details: { username },
+    }).catch(() => {});
 
     const responsePayload = {
       _id: user._id,
       username: user.username,
       role: user.role,
+      parentId: user.parentId,
       userType: user.userType || '',
       displayName: user.displayName || '',
       mobileNo: user.mobileNo || '',
+      email: user.email || '',
+      contactPerson: user.contactPerson || '',
+      address: user.address || '',
+      city: user.city || '',
+      state: user.state || '',
+      pincode: user.pincode || '',
       companyName: user.companyName,
       availableBalance: user.availableBalance,
       overDrawnAmount: user.overDrawnAmount,
@@ -55,9 +82,16 @@ router.post('/login', async (req, res) => {
       _id: user._id,
       username: user.username,
       role: user.role,
+      parentId: user.parentId,
       userType: user.userType || '',
       displayName: user.displayName || '',
       mobileNo: user.mobileNo || '',
+      email: user.email || '',
+      contactPerson: user.contactPerson || '',
+      address: user.address || '',
+      city: user.city || '',
+      state: user.state || '',
+      pincode: user.pincode || '',
       companyName: user.companyName,
       availableBalance: user.availableBalance,
       overDrawnAmount: user.overDrawnAmount,
@@ -144,6 +178,7 @@ router.put('/update-profile', protect, async (req, res) => {
       _id: updatedUser._id,
       username: updatedUser.username,
       role: updatedUser.role,
+      parentId: updatedUser.parentId,
       companyName: updatedUser.companyName,
       availableBalance: updatedUser.availableBalance,
       overDrawnAmount: updatedUser.overDrawnAmount,
