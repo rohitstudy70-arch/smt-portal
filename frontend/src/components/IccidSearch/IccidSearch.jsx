@@ -99,6 +99,7 @@ const IccidSearch = () => {
 IMEI No: ${device.imei || '-'}
 Serial No: ${device.serialNo || '-'}
 ICCID No: ${device.iccid || '-'}
+ITR No: ${device.itrNo || '-'}
 Invoice Date: ${formatDate(device.presentDate)}
 Warranty Expiry: ${formatDate(device.expiryDate)}
 
@@ -185,8 +186,8 @@ Address No: ${latestRequest?.aadharNo || 'NA'}`;
                     <td className="cell-val bold-text">{device.iccid || '-'}</td>
                   </tr>
                   <tr>
-                    <td className="cell-label">Firmware Version:</td>
-                    <td className="cell-val">-</td>
+                    <td className="cell-label">ITR No:</td>
+                    <td className="cell-val bold-text">{device.itrNo || '-'}</td>
                     <td className="cell-label">Invoice Date:</td>
                     <td className="cell-val">{formatDate(device.presentDate)}</td>
                     <td className="cell-label">Warranty Expiry:</td>
