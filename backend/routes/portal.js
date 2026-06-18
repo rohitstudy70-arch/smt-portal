@@ -623,6 +623,8 @@ router.post('/devices/bulk', protect, async (req, res) => {
         serialNumber: serialNo,
         msisdn1: rawDevice.msisdn1 || '',
         msisdn2: rawDevice.msisdn2 || '',
+        itrNo: String(rawDevice.itrNo || '').trim(),
+        vendor: String(rawDevice.vendor || 'iTriangle').trim(),
         validity,
         presentDate,
         expiryDate,

@@ -158,7 +158,7 @@ const parseBulkDevices = (rawText) => {
   const hasHeader = firstCells.some((cell) => /imei|iccid|serial/i.test(cell));
   const headers = hasHeader
     ? firstCells.map((cell) => cell.trim())
-    : ['imei', 'iccid', 'serialNo', 'msisdn1', 'msisdn2', 'dealerName', 'validity', 'status'];
+    : ['imei', 'iccid', 'serialNo', 'msisdn1', 'msisdn2', 'dealerName', 'validity', 'status', 'itrNo', 'vendor'];
 
   return rows.slice(hasHeader ? 1 : 0).map((row) => {
     const cells = row.split(',').map((cell) => cell.trim());
@@ -1113,7 +1113,7 @@ const CustomerDevicePortal = () => {
             <form className="portal-form" onSubmit={bulkUploadDevices}>
               <label className="portal-textarea-label">
                 <span>CSV Data</span>
-                <textarea value={bulkText} onChange={(event) => setBulkText(event.target.value)} rows={7} placeholder="imei,iccid,serialNo,msisdn1,msisdn2,dealerName,validity,status" />
+                <textarea value={bulkText} onChange={(event) => setBulkText(event.target.value)} rows={7} placeholder="imei,iccid,serialNo,msisdn1,msisdn2,dealerName,validity,status,itrNo,vendor" />
               </label>
               <div className="portal-actions">
                 <button className="portal-primary" type="submit"><FaCloudUploadAlt /> Upload</button>
