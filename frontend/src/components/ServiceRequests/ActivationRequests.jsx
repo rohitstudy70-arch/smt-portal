@@ -594,17 +594,7 @@ const ActivationRequests = () => {
                   
                   <div className="form-row-grid">
                     <div className="form-group-custom">
-                      <label>Activation Date <span className="required-star">*</span></label>
-                      <input 
-                        type="date" 
-                        value={formData.installationDate}
-                        onChange={(e) => setFormData({...formData, installationDate: e.target.value})}
-                        required
-                      />
-                    </div>
-
-                    <div className="form-group-custom">
-                      <label>Activation Mode <span className="required-star">*</span></label>
+                      <label>Activation Type <span className="required-star">*</span></label>
                       <select 
                         value={formData.activationMode}
                         onChange={(e) => setFormData({...formData, activationMode: e.target.value})}
@@ -649,13 +639,17 @@ const ActivationRequests = () => {
 
                     <div className="form-group-custom">
                       <label>Vehicle Model <span className="required-star">*</span></label>
-                      <input 
-                        type="text" 
+                      <select 
                         value={formData.vehicleModel}
                         onChange={(e) => setFormData({...formData, vehicleModel: e.target.value})}
-                        placeholder="e.g. Bolero, LPT 1613"
                         required
-                      />
+                      >
+                        <option value="">Select Model</option>
+                        <option value="Goods carrier">Goods carrier</option>
+                        <option value="Bus">Bus</option>
+                        <option value="Cab">Cab</option>
+                        <option value="Other">Other</option>
+                      </select>
                     </div>
 
                     <div className="form-group-custom">
