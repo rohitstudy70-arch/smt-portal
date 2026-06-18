@@ -230,6 +230,7 @@ const AddDevice = () => {
     if (!formData.imei) nextErrors.imei = 'IMEI is required';
     else if (!/^\d{15}$/.test(formData.imei)) nextErrors.imei = 'IMEI must be exactly 15 digits';
     if (!formData.iccid) nextErrors.iccid = 'ICCID is required';
+    if (!formData.serialNo) nextErrors.serialNo = 'Serial No is required';
 
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -465,6 +466,18 @@ const AddDevice = () => {
                 placeholder="Enter ICCID"
               />
               {errors.iccid && <span className="error-text">{errors.iccid}</span>}
+            </div>
+
+            <div className={`form-group ${errors.serialNo ? 'has-error' : ''}`}>
+              <label>Serial No. <span className="required">*</span></label>
+              <input
+                type="text"
+                name="serialNo"
+                value={formData.serialNo}
+                onChange={(event) => updateFormField('serialNo', event.target.value)}
+                placeholder="Enter Serial Number"
+              />
+              {errors.serialNo && <span className="error-text">{errors.serialNo}</span>}
             </div>
 
 
