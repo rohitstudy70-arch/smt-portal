@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaUserPlus, FaUser, FaList, FaEdit, FaCheck, FaTimes, FaSearch } from 'react-icons/fa';
+import { FaUserPlus, FaUser, FaList, FaEdit, FaCheck, FaTimes, FaSearch, FaTrash } from 'react-icons/fa';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import './UserManagement.css';
@@ -126,6 +126,33 @@ const UserManagement = () => {
     } catch (err) {
       console.error(err);
       alert('Failed to update status. Please try again.');
+    }
+  };
+
+  const canDeleteUser = (targetUser) => {
+    const targetUserType = targetUser.userType || 'Dealer';
+    if (targetUserType === 'Dealer') {
+      return role === 'ADMIN';
+    }
+    if (targetUserType === 'Sub Dealer') {
+      return role === 'ADMIN' || role === 'DEALER';
+    }
+    if (targetUserType === 'End Customer') {
+      return role === 'ADMIN' || role === 'DEALER' || role === 'SUB_DEALER';
+    }
+    return false;
+  };
+
+  const handleDeleteUser = async (userId, displayName) => {
+    if (window.confirm(`Are you sure you want to permanently delete user "${displayName}"? This will also unassign their devices.`)) {
+      try {
+        const res = await api.delete(`/users/sub-user/${userId}/permanent`);
+        setSuccess(res.data.message || 'User deleted successfully.');
+        fetchSubUsers();
+      } catch (err) {
+        console.error(err);
+        setError(err.response?.data?.message || 'Failed to delete user. Please try again.');
+      }
     }
   };
 
@@ -337,6 +364,15 @@ const UserManagement = () => {
                               >
                                 {user.status === 'Active' ? <FaCheck /> : <FaTimes />}
                               </button>
+                              {canDeleteUser(user) && (
+                                <button 
+                                  className="btn-action delete" 
+                                  title="Delete User"
+                                  onClick={() => handleDeleteUser(user._id, user.displayName || user.username)}
+                                >
+                                  <FaTrash />
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>

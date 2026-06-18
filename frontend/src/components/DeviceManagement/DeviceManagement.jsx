@@ -1,10 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { FaMobileAlt, FaCloudUploadAlt, FaDownload, FaSearch } from 'react-icons/fa';
+import { FaMobileAlt, FaCloudUploadAlt, FaDownload, FaSearch, FaTrash } from 'react-icons/fa';
 import api from '../../utils/api';
+import { useAuth } from '../../context/AuthContext';
 import './DeviceManagement.css';
 
 const DeviceManagement = () => {
+  const { user } = useAuth();
+  const getRole = (u) => {
+    if (u?.role === 'partner') return 'ADMIN';
+    if (u?.userType === 'Sub Dealer') return 'SUB_DEALER';
+    if (u?.userType === 'End Customer') return 'CUSTOMER';
+    return 'DEALER';
+  };
+  const role = getRole(user);
+
   const [subUsers, setSubUsers] = useState([]);
   const [devices, setDevices] = useState([]);
   const [total, setTotal] = useState(0);
@@ -128,6 +138,47 @@ const DeviceManagement = () => {
     setAssignType('Assign');
     setFileName('');
     setImeisText('');
+  };
+
+  const canDeleteDevice = (device) => {
+    let targetOwnerRole = 'DEALER';
+    if (device.assignedTo) {
+      const assigneeType = device.assignedTo.userType || 'End Customer';
+      if (assigneeType === 'Sub Dealer') {
+        targetOwnerRole = 'SUB_DEALER';
+      } else if (assigneeType === 'End Customer') {
+        targetOwnerRole = 'CUSTOMER';
+      } else {
+        targetOwnerRole = 'DEALER';
+      }
+    } else if (device.subDealerId) {
+      targetOwnerRole = 'SUB_DEALER';
+    }
+
+    if (targetOwnerRole === 'DEALER') {
+      return role === 'ADMIN';
+    }
+    if (targetOwnerRole === 'SUB_DEALER') {
+      return role === 'ADMIN' || role === 'DEALER';
+    }
+    if (targetOwnerRole === 'CUSTOMER') {
+      return role === 'ADMIN' || role === 'DEALER' || role === 'SUB_DEALER';
+    }
+    return false;
+  };
+
+  const handleDeleteDevice = async (deviceId, imei) => {
+    if (window.confirm(`Are you sure you want to permanently delete device with IMEI "${imei}"?`)) {
+      try {
+        const res = await api.delete(`/devices/${deviceId}`);
+        setSuccess(res.data.message || 'Device deleted successfully.');
+        alert(res.data.message || 'Device deleted successfully.');
+        fetchDevices();
+      } catch (err) {
+        console.error(err);
+        setError(err.response?.data?.message || 'Failed to delete device. Please try again.');
+      }
+    }
   };
 
   const handleDownloadFormat = () => {
@@ -389,12 +440,13 @@ const DeviceManagement = () => {
                   <th>TSP 2</th>
                   {(activeTab === 'Assigned' || search) && <th>Assigned To (Customer)</th>}
                   <th>Status</th>
+                  <th style={{ width: '80px' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={(activeTab === 'Assigned' || search) ? 13 : 12} className="text-center">
+                    <td colSpan={(activeTab === 'Assigned' || search) ? 14 : 13} className="text-center">
                       Loading devices list...
                     </td>
                   </tr>
@@ -420,11 +472,27 @@ const DeviceManagement = () => {
                       <td>
                         <span className="badge-activated">{d.status}</span>
                       </td>
+                      <td>
+                        <div className="action-buttons">
+                          {canDeleteDevice(d) ? (
+                            <button 
+                              className="btn-action delete" 
+                              title="Delete Device"
+                              onClick={() => handleDeleteDevice(d._id, d.imei)}
+                              style={{ background: '#d32f2f', color: '#fff', border: 'none', padding: '6px', borderRadius: '3px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                            >
+                              <FaTrash />
+                            </button>
+                          ) : (
+                            <span style={{ color: '#666' }}>-</span>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={(activeTab === 'Assigned' || search) ? 13 : 12} className="text-center">
+                    <td colSpan={(activeTab === 'Assigned' || search) ? 14 : 13} className="text-center">
                       No device records found.
                     </td>
                   </tr>

@@ -604,4 +604,45 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
   }
 });
 
+// @route   DELETE /api/devices/:id
+// @desc    Permanently delete a device
+// @access  Protected
+router.delete('/:id', async (req, res) => {
+  try {
+    const scopeQuery = buildDeviceScopeQuery(req.hierarchyScope);
+    const device = await Device.findOne(combineQueries(scopeQuery, { _id: req.params.id }));
+    if (!device) {
+      return res.status(404).json({ message: 'Device not found or access denied.' });
+    }
+
+    const { portalRole: role } = req;
+
+    let targetOwnerRole = 'DEALER';
+    if (device.assignedTo) {
+      const assignee = await User.findById(device.assignedTo);
+      if (assignee) {
+        targetOwnerRole = getPortalRole(assignee);
+      }
+    } else if (device.subDealerId) {
+      targetOwnerRole = 'SUB_DEALER';
+    }
+
+    if (targetOwnerRole === 'DEALER') {
+      if (role !== 'ADMIN') {
+        return res.status(403).json({ message: 'Access denied: Only Admins can delete Dealer devices.' });
+      }
+    } else if (targetOwnerRole === 'SUB_DEALER') {
+      if (role !== 'ADMIN' && role !== 'DEALER') {
+        return res.status(403).json({ message: 'Access denied: Only Admins and Dealers can delete Sub Dealer devices.' });
+      }
+    }
+
+    await Device.findByIdAndDelete(device._id);
+    res.json({ message: 'Device deleted successfully.' });
+  } catch (error) {
+    console.error('Delete device error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;

@@ -182,6 +182,62 @@ router.delete('/sub-user/:id', protect, async (req, res) => {
   }
 });
 
+// @route   DELETE /api/users/sub-user/:id/permanent
+// @desc    Permanently delete a sub-user
+// @access  Protected
+router.delete('/sub-user/:id/permanent', protect, async (req, res) => {
+  try {
+    const role = getPortalRole(req.user);
+    if (role === 'CUSTOMER') {
+      return res.status(403).json({ message: 'Access denied: Customers cannot access user management.' });
+    }
+
+    const subUser = await User.findById(req.params.id);
+    if (!subUser) {
+      return res.status(404).json({ message: 'Sub-user not found' });
+    }
+
+    const targetRole = getPortalRole(subUser);
+
+    // Enforce role-based deletion authority
+    if (targetRole === 'DEALER') {
+      if (role !== 'ADMIN') {
+        return res.status(403).json({ message: 'Access denied: Only Admins can delete Dealers.' });
+      }
+    } else if (targetRole === 'SUB_DEALER') {
+      if (role !== 'ADMIN' && role !== 'DEALER') {
+        return res.status(403).json({ message: 'Access denied: Only Admins and Dealers can delete Sub Dealers.' });
+      }
+    }
+
+    // Hierarchy check
+    if (role !== 'ADMIN') {
+      const descendants = await getDescendantUsers(req.user._id);
+      const descendantIds = descendants.map((d) => d._id.toString());
+      if (!descendantIds.includes(subUser._id.toString())) {
+        return res.status(403).json({ message: 'Access denied: User is not in your hierarchy.' });
+      }
+    }
+
+    // Cleanup device assignments/references
+    const Device = require('../models/Device');
+    if (targetRole === 'DEALER') {
+      await Device.updateMany({ dealerId: subUser._id }, { $set: { dealerId: null, dealerName: '', assignedTo: null } });
+    } else if (targetRole === 'SUB_DEALER') {
+      await Device.updateMany({ subDealerId: subUser._id }, { $set: { subDealerId: null, subDealerName: '', assignedTo: null } });
+    } else {
+      await Device.updateMany({ assignedTo: subUser._id }, { $set: { assignedTo: null } });
+    }
+
+    await User.findByIdAndDelete(req.params.id);
+
+    res.json({ message: 'User permanently deleted successfully.' });
+  } catch (error) {
+    console.error('Delete sub user permanent error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // @route   GET /api/users/dealers
 // @desc    Get list of dealers/customers for dropdown
 // @access  Protected
