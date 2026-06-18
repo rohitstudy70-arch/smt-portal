@@ -268,6 +268,7 @@ const ActivationRequests = () => {
       isSubDealer: !!device.subDealerId,
       subDealerName: device.subDealerName || '',
       vendor: device.vendor || '',
+      itrNo: device.itrNo || '',
       plan: device.validity === '2 Years' ? '2 Years' : '1 Year',
       amount: device.billAmount || 0,
       deviceBillAmount: device.billAmount || null
