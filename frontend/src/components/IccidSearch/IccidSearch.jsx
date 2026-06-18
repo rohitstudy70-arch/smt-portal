@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FaTabletAlt, FaSpinner, FaSimCard, FaCar, FaUserAlt, FaHistory, FaFolderOpen, FaCopy } from 'react-icons/fa';
+import { FaSpinner } from 'react-icons/fa';
 import api from '../../utils/api';
 import './IccidSearch.css';
 
@@ -8,7 +8,6 @@ const IccidSearch = () => {
   const [device, setDevice] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [activationHistory, setActivationHistory] = useState([]);
   const [latestRequest, setLatestRequest] = useState(null);
   const location = useLocation();
   const navigate = useNavigate();
@@ -23,7 +22,6 @@ const IccidSearch = () => {
   useEffect(() => {
     if (!searchQuery) {
       setDevice(null);
-      setActivationHistory([]);
       setLatestRequest(null);
       return;
     }
@@ -48,9 +46,8 @@ const IccidSearch = () => {
           });
           
           const history = historyRes.data.requests || [];
-          setActivationHistory(history);
 
-          // Get the most recent activation request to populate vehicle & custodian info
+          // Get the most recent activation request to populate vehicle & customer info
           if (history.length > 0) {
             // Sort by dateTime descending (newest first)
             const sortedHistory = [...history].sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime));
@@ -61,7 +58,6 @@ const IccidSearch = () => {
 
         } else {
           setDevice(null);
-          setActivationHistory([]);
           setLatestRequest(null);
           setError('No device found matching the search term.');
         }
@@ -77,54 +73,44 @@ const IccidSearch = () => {
   }, [searchQuery]);
 
   const formatDate = (dateStr) => {
-    if (!dateStr) return '-';
+    if (!dateStr) return '00/00/0000';
     const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return '-';
+    if (isNaN(date.getTime())) return '00/00/0000';
     return date.toLocaleDateString('en-GB'); // DD/MM/YYYY
-  };
-
-  // Add one month helper for Bootstrap Expiry
-  const formatBootstrapExpiry = (dateStr) => {
-    if (!dateStr) return '-';
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return '-';
-    date.setMonth(date.getMonth() + 1);
-    return date.toLocaleDateString('en-GB');
   };
 
   const handleCopyDetails = () => {
     if (!device) return;
     
     const details = `--- DEVICE DETAILS ---
-IMEI No: ${device.imei || '-'}
-Serial No: ${device.serialNo || '-'}
-ICCID No: ${device.iccid || '-'}
-ITR No: ${device.itrNo || '-'}
-Invoice Date: ${formatDate(device.presentDate)}
-Warranty Expiry: ${formatDate(device.expiryDate)}
-
---- SIM DETAILS ---
-Vendor Name: ${device.vendor || '-'}
-MSISDN 1: ${device.msisdn1 || '-'}
-TSP 1: ${device.tsp1 || '-'}
-MSISDN 2: ${device.msisdn2 || '-'}
-TSP 2: ${device.tsp2 || '-'}
-Bootstrap Activation: ${formatDate(device.presentDate)}
-Bootstrap Expiry: ${formatBootstrapExpiry(device.presentDate)}
-SIM Activation: ${formatDate(device.presentDate)}
-SIM Expiry: ${formatDate(device.simExpiryDate || device.expiryDate)}
+IMEI No: ${device.imei || '—'}
+Serial No: ${device.serialNo || '—'}
+ICCID No: ${device.iccid || '—'}
+MSISDN 1: ${device.msisdn1 || '—'}
+MSISDN 2: ${device.msisdn2 || '—'}
+ITR No: ${device.itrNo || '—'}
+Validity: ${device.validity || '—'}
+Activation Date: ${formatDate(device.presentDate)}
+Expiry Date: ${formatDate(device.expiryDate)}
 
 --- VEHICLE DETAILS ---
-Engine No: ${latestRequest?.engineNo || 'NA'}
-Chassis No: ${latestRequest?.chassisNo || 'NA'}
-VRN No: ${latestRequest?.vehicleNo || 'NA'}
+Vehicle Reg. Year: ${latestRequest?.registrationYear || '—'}
+Activation Type: ${latestRequest?.activationMode || '—'}
+Vehicle Condition: ${latestRequest?.vehicleCondition || '—'}
+Vehicle Make: ${latestRequest?.vehicleMake || '—'}
+Vehicle Model: ${latestRequest?.vehicleModel || '—'}
+RTO: ${latestRequest?.rto || '—'}
+Vehicle No: ${latestRequest?.vehicleNo || '—'}
+Engine No: ${latestRequest?.engineNo || '—'}
+Chassis No: ${latestRequest?.chassisNo || '—'}
 
---- CUSTODIAN DETAILS ---
-End Customer: ${latestRequest?.customerName || 'NA'}
-Identity Proof: ${latestRequest?.aadharNo ? 'ADHAR' : 'NA'}
-Identity No: ${latestRequest?.aadharNo || 'NA'}
-Address Proof: ${latestRequest?.aadharNo ? 'ADHAR' : 'NA'}
-Address No: ${latestRequest?.aadharNo || 'NA'}`;
+--- CUSTOMER DETAILS ---
+Customer Name: ${latestRequest?.customerName || '—'}
+Mobile No 1: ${latestRequest?.regMobNo || '—'}
+Mobile No 2: ${latestRequest?.regMobNo2 || '—'}
+Aadhar No: ${latestRequest?.aadharNo || '—'}
+Address: ${latestRequest?.address || '—'}
+State: ${latestRequest?.userId?.state || device.dealerId?.state || '—'}`;
 
     navigator.clipboard.writeText(details)
       .then(() => {
@@ -147,229 +133,173 @@ Address No: ${latestRequest?.aadharNo || 'NA'}`;
       ) : device ? (
         <div className="search-results-wrapper">
           
-          {/* 1. DEVICE DETAILS CARD */}
-          <div className="device-details-card">
-            <div className="card-header-teal" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FaTabletAlt className="header-icon" /> DEVICE DETAILS
-              </span>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button 
-                  className="btn-activate-device"
-                  onClick={handleCopyDetails}
-                  style={{ background: '#0284c7' }}
-                >
-                  <FaCopy style={{ marginRight: '6px' }} /> Copy All Details
-                </button>
-                <button 
-                  className="btn-activate-device"
-                  onClick={() => navigate('/service-requests/activation', { 
-                    state: { 
-                      prefillDevice: device, 
-                      prefillRequest: latestRequest 
-                    } 
-                  })}
-                >
-                  Raise Activation Request
-                </button>
-              </div>
+          {/* Top Info and Action Buttons */}
+          <div className="top-info-container">
+            <div className="vendor-dealer-info">
+              <div>Vendor Name: <strong>{device.vendor || '—'}</strong></div>
+              <div>Dealer Name: <strong>{device.dealerName || device.dealerId?.displayName || device.dealerId?.companyName || '—'}</strong></div>
             </div>
-            <div className="card-body-table">
-              <table className="device-details-table">
-                <tbody>
-                  <tr>
-                    <td className="cell-label">IMEI No:</td>
-                    <td className="cell-val bold-text">{device.imei}</td>
-                    <td className="cell-label">Serial No:</td>
-                    <td className="cell-val bold-text">{device.serialNo}</td>
-                    <td className="cell-label">ICCID No:</td>
-                    <td className="cell-val bold-text">{device.iccid || '-'}</td>
-                  </tr>
-                  <tr>
-                    <td className="cell-label">ITR No:</td>
-                    <td className="cell-val bold-text">{device.itrNo || '-'}</td>
-                    <td className="cell-label">Invoice Date:</td>
-                    <td className="cell-val">{formatDate(device.presentDate)}</td>
-                    <td className="cell-label">Warranty Expiry:</td>
-                    <td className="cell-val">{formatDate(device.expiryDate)}</td>
-                  </tr>
-                </tbody>
-              </table>
+            <div className="top-actions">
+              <button className="btn-copy-all" onClick={handleCopyDetails}>
+                Copy All Details
+              </button>
+              <button 
+                className="btn-raise-req"
+                onClick={() => navigate('/service-requests/activation', { 
+                  state: { 
+                    prefillDevice: device, 
+                    prefillRequest: latestRequest 
+                  } 
+                })}
+              >
+                Raise Request
+              </button>
             </div>
           </div>
 
-          {/* 2. SIM DETAILS CARD */}
-          <div className="device-details-card">
-            <div className="card-header-teal">
-              <FaSimCard className="header-icon" /> SIM DETAILS
-            </div>
+          {/* 1. Device Details */}
+          <div className="search-section-card">
+            <div className="section-header-teal">Device Details</div>
             <div className="card-body-table">
-              <table className="device-details-table">
+              <table className="details-grid-table">
                 <tbody>
                   <tr>
-                    <td className="cell-label center-text" colSpan="3">
-                      <FaUserAlt style={{ marginRight: '6px', fontSize: '11px', color: '#00897b' }} /> 
-                      Vendor Name: <strong style={{ marginLeft: '4px', color: '#333' }}>{device.vendor || '-'}</strong>
+                    <td>
+                      <div className="grid-cell-label">IMEI No</div>
+                      <div className="grid-cell-value bold">{device.imei || '—'}</div>
+                    </td>
+                    <td>
+                      <div className="grid-cell-label">Serial No</div>
+                      <div className="grid-cell-value bold">{device.serialNo || '—'}</div>
+                    </td>
+                    <td>
+                      <div className="grid-cell-label">ICCID No</div>
+                      <div className="grid-cell-value bold">{device.iccid || '—'}</div>
                     </td>
                   </tr>
                   <tr>
-                    <td className="cell-label">MSISDN 1:</td>
-                    <td className="cell-val">{device.msisdn1 || '-'}</td>
-                    <td className="cell-label">TSP 1:</td>
-                    <td className="cell-val">{device.tsp1 || '-'}</td>
-                    <td className="cell-label">Data Usage:</td>
-                    <td className="cell-val">(-)</td>
-                  </tr>
-                  <tr>
-                    <td className="cell-label">MSISDN 2:</td>
-                    <td className="cell-val">{device.msisdn2 || '-'}</td>
-                    <td className="cell-label">TSP 2:</td>
-                    <td className="cell-val">{device.tsp2 || '-'}</td>
-                    <td className="cell-label"></td>
-                    <td className="cell-val"></td>
-                  </tr>
-                  <tr>
-                    <td className="cell-label">Bootstrap Activation:</td>
-                    <td className="cell-val">{formatDate(device.presentDate)}</td>
-                    <td className="cell-label">Bootstrap Expiry:</td>
-                    <td className="cell-val">{formatBootstrapExpiry(device.presentDate)}</td>
-                    <td className="cell-label"></td>
-                    <td className="cell-val"></td>
-                  </tr>
-                  <tr>
-                    <td className="cell-label">SIM Activation:</td>
-                    <td className="cell-val">{formatDate(device.presentDate)}</td>
-                    <td className="cell-label">SIM Expiry:</td>
-                    <td className="cell-val">{formatDate(device.simExpiryDate || device.expiryDate)}</td>
-                    <td className="cell-label"></td>
-                    <td className="cell-val"></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* 3. VEHICLE DETAILS CARD */}
-          <div className="device-details-card">
-            <div className="card-header-teal">
-              <FaCar className="header-icon" /> VEHICLE DETAILS
-            </div>
-            <div className="card-body-table">
-              <table className="device-details-table">
-                <tbody>
-                  <tr>
-                    <td className="cell-label">Engine No:</td>
-                    <td className="cell-val bold-text">{latestRequest?.engineNo || 'NA'}</td>
-                    <td className="cell-label">Chassis No:</td>
-                    <td className="cell-val bold-text">{latestRequest?.chassisNo || 'NA'}</td>
-                    <td className="cell-label">VRN No:</td>
-                    <td className="cell-val bold-text">{latestRequest?.vehicleNo || 'NA'}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* 4. CUSTODIAN DETAILS CARD */}
-          <div className="device-details-card">
-            <div className="card-header-teal">
-              <FaUserAlt className="header-icon" /> CUSTODIAN DETAILS
-            </div>
-            <div className="card-body-table">
-              <table className="device-details-table">
-                <tbody>
-                  <tr>
-                    <td className="cell-label center-text" colSpan="3">
-                      <FaUserAlt style={{ marginRight: '6px', fontSize: '11px', color: '#00897b' }} /> 
-                      End Customer: <strong style={{ marginLeft: '4px', color: '#333' }}>{latestRequest?.customerName || 'NA'}</strong>
+                    <td>
+                      <div className="grid-cell-label">MSISDN 1</div>
+                      <div className="grid-cell-value">{device.msisdn1 || '—'}</div>
+                    </td>
+                    <td>
+                      <div className="grid-cell-label">MSISDN 2</div>
+                      <div className="grid-cell-value">{device.msisdn2 || '—'}</div>
+                    </td>
+                    <td>
+                      <div className="grid-cell-label">ITR No</div>
+                      <div className="grid-cell-value">{device.itrNo || '—'}</div>
                     </td>
                   </tr>
                   <tr>
-                    <td className="cell-label">Identity Proof:</td>
-                    <td className="cell-val bold-text">{latestRequest?.aadharNo ? 'ADHAR' : 'NA'}</td>
-                    <td className="cell-label">Identity No:</td>
-                    <td className="cell-val bold-text">{latestRequest?.aadharNo || 'NA'}</td>
-                  </tr>
-                  <tr>
-                    <td className="cell-label">Address Proof:</td>
-                    <td className="cell-val bold-text">{latestRequest?.aadharNo ? 'ADHAR' : 'NA'}</td>
-                    <td className="cell-label">Address No:</td>
-                    <td className="cell-val bold-text">{latestRequest?.aadharNo || 'NA'}</td>
+                    <td>
+                      <div className="grid-cell-label">Validity</div>
+                      <div className="grid-cell-value">{device.validity || '—'}</div>
+                    </td>
+                    <td>
+                      <div className="grid-cell-label">Activation Date</div>
+                      <div className="grid-cell-value">{formatDate(device.presentDate)}</div>
+                    </td>
+                    <td>
+                      <div className="grid-cell-label">Expiry Date</div>
+                      <div className="grid-cell-value">{formatDate(device.expiryDate)}</div>
+                    </td>
                   </tr>
                 </tbody>
               </table>
             </div>
           </div>
 
-          {/* 5. Sim Activation History & 6. Common Layer History Side-by-Side Grid */}
-          <div className="history-grid-container">
-            
-            {/* Sim Activation History */}
-            <div className="history-card">
-              <div className="history-header">
-                Sim Activation History
-              </div>
-              <div className="history-body">
-                <table className="history-table">
-                  <thead>
-                    <tr>
-                      <th>Req ID</th>
-                      <th>Req Date</th>
-                      <th>Service</th>
-                      <th>Req Period</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activationHistory.length > 0 ? (
-                      activationHistory.map(req => (
-                        <tr key={req._id}>
-                          <td className="blue-bold-link">{req.requestId}</td>
-                          <td>{formatDate(req.dateTime)}</td>
-                          <td>{req.requestType}</td>
-                          <td>{req.plan}</td>
-                          <td>
-                            <span className={`status-badge-mini ${req.status.toLowerCase()}`}>
-                              {req.status === 'Completed' ? 'Activated' : req.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan="5" className="empty-history-cell">No records found</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+          {/* 2. Vehicle Details */}
+          <div className="search-section-card">
+            <div className="section-header-teal">Vehicle Details</div>
+            <div className="card-body-table">
+              <table className="details-grid-table">
+                <tbody>
+                  <tr>
+                    <td>
+                      <div className="grid-cell-label">Vehicle Reg. Year</div>
+                      <div className="grid-cell-value">{latestRequest?.registrationYear || '—'}</div>
+                    </td>
+                    <td>
+                      <div className="grid-cell-label">Activation Type</div>
+                      <div className="grid-cell-value">{latestRequest?.activationMode || '—'}</div>
+                    </td>
+                    <td>
+                      <div className="grid-cell-label">Vehicle Condition</div>
+                      <div className="grid-cell-value">{latestRequest?.vehicleCondition || '—'}</div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div className="grid-cell-label">Vehicle Make</div>
+                      <div className="grid-cell-value">{latestRequest?.vehicleMake || '—'}</div>
+                    </td>
+                    <td>
+                      <div className="grid-cell-label">Vehicle Model</div>
+                      <div className="grid-cell-value">{latestRequest?.vehicleModel || '—'}</div>
+                    </td>
+                    <td>
+                      <div className="grid-cell-label">RTO</div>
+                      <div className="grid-cell-value">{latestRequest?.rto || '—'}</div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div className="grid-cell-label">Vehicle No</div>
+                      <div className="grid-cell-value bold">{latestRequest?.vehicleNo || '—'}</div>
+                    </td>
+                    <td>
+                      <div className="grid-cell-label">Engine No</div>
+                      <div className="grid-cell-value bold">{latestRequest?.engineNo || '—'}</div>
+                    </td>
+                    <td>
+                      <div className="grid-cell-label">Chassis No</div>
+                      <div className="grid-cell-value bold">{latestRequest?.chassisNo || '—'}</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
+          </div>
 
-            {/* Common Layer History */}
-            <div className="history-card">
-              <div className="history-header">
-                Common Layer History
-              </div>
-              <div className="history-body">
-                <table className="history-table">
-                  <thead>
-                    <tr>
-                      <th>Req ID</th>
-                      <th>Req Date</th>
-                      <th>Common Layer</th>
-                      <th>Certificates</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td colSpan="5" className="empty-history-cell">No records found</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+          {/* 3. Customer Details */}
+          <div className="search-section-card">
+            <div className="section-header-teal">Customer Details</div>
+            <div className="card-body-table">
+              <table className="details-grid-table">
+                <tbody>
+                  <tr>
+                    <td>
+                      <div className="grid-cell-label">Customer Name</div>
+                      <div className="grid-cell-value bold">{latestRequest?.customerName || '—'}</div>
+                    </td>
+                    <td>
+                      <div className="grid-cell-label">Mobile No 1</div>
+                      <div className="grid-cell-value">{latestRequest?.regMobNo || '—'}</div>
+                    </td>
+                    <td>
+                      <div className="grid-cell-label">Mobile No 2</div>
+                      <div className="grid-cell-value">{latestRequest?.regMobNo2 || '—'}</div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div className="grid-cell-label">Aadhar No</div>
+                      <div className="grid-cell-value">{latestRequest?.aadharNo || '—'}</div>
+                    </td>
+                    <td>
+                      <div className="grid-cell-label">Address</div>
+                      <div className="grid-cell-value">{latestRequest?.address || '—'}</div>
+                    </td>
+                    <td>
+                      <div className="grid-cell-label">State</div>
+                      <div className="grid-cell-value">{latestRequest?.userId?.state || device.dealerId?.state || '—'}</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-
           </div>
 
         </div>
