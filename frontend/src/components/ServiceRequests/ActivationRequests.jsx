@@ -702,24 +702,22 @@ const ActivationRequests = () => {
                     </div>
 
                     <div className="form-group-custom">
-                      <label>Engine Number <span className="required-star">*</span></label>
+                      <label>Engine Number</label>
                       <input 
                         type="text" 
                         value={formData.engineNo}
                         onChange={(e) => setFormData({...formData, engineNo: e.target.value})}
                         placeholder="Enter engine number"
-                        required
                       />
                     </div>
 
                     <div className="form-group-custom">
-                      <label>Chassis Number <span className="required-star">*</span></label>
+                      <label>Chassis Number</label>
                       <input 
                         type="text" 
                         value={formData.chassisNo}
                         onChange={(e) => setFormData({...formData, chassisNo: e.target.value})}
                         placeholder="Enter chassis number"
-                        required
                       />
                     </div>
                   </div>
@@ -739,14 +737,13 @@ const ActivationRequests = () => {
                     </div>
 
                     <div className="form-group-custom">
-                      <label>Aadhar Number <span className="required-star">*</span></label>
+                      <label>Aadhar Number</label>
                       <input 
                         type="text" 
                         value={formData.aadharNo}
                         onChange={(e) => setFormData({...formData, aadharNo: e.target.value})}
                         placeholder="Enter 12-digit Aadhar"
                         maxLength={12}
-                        required
                       />
                     </div>
 
