@@ -187,11 +187,9 @@ router.get('/summary', protect, async (req, res) => {
       ? scope.users
       : scope.users.filter((item) => item._id.toString() !== req.user._id.toString());
 
-    const dealers = scope.users.filter((item) => (
-      item.role === 'customer' && !item.parentId && item.userType !== 'End Customer'
-    ));
-    const subDealers = scopedUsers.filter((item) => item.userType === 'Sub Dealer');
-    const userCustomers = scopedUsers.filter((item) => item.userType === 'End Customer');
+    const dealers = scope.users.filter((item) => getPortalRole(item) === 'DEALER');
+    const subDealers = scopedUsers.filter((item) => getPortalRole(item) === 'SUB_DEALER');
+    const userCustomers = scopedUsers.filter((item) => getPortalRole(item) === 'CUSTOMER');
 
     const [
       totalDevices,
