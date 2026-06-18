@@ -594,7 +594,7 @@ const ActivationRequests = () => {
                   
                   <div className="form-row-grid">
                     <div className="form-group-custom">
-                      <label>Installation Date <span className="required-star">*</span></label>
+                      <label>Activation Date <span className="required-star">*</span></label>
                       <input 
                         type="date" 
                         value={formData.installationDate}
