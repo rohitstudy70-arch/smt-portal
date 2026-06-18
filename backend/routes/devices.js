@@ -42,11 +42,14 @@ const normalizeDeviceInput = (body) => ({
   dealerName: String(body.dealerName || '').trim(),
   subDealerId: String(body.subDealerId || '').trim(),
   subDealerName: String(body.subDealerName || '').trim(),
+  vendor: String(body.vendor || '').trim(),
   imei: String(body.imei || body.imeiNumber || '').trim(),
   iccid: String(body.iccid || body.iccidNumber || '').trim(),
   serialNo: String(body.serialNo || body.serialNumber || '').trim(),
   msisdn1: String(body.msisdn1 || '').trim(),
   msisdn2: String(body.msisdn2 || '').trim(),
+  itrNo: String(body.itrNo || '').trim(),
+  billAmount: Number(body.billAmount) || 0,
   validity: normalizeValidity(body.validity),
   status: String(body.status || 'Active').trim() || 'Active',
 });
@@ -442,6 +445,7 @@ router.post('/assign', requireRoles(...deviceCreateRoles), async (req, res) => {
 // @access  Protected
 router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
   try {
+    console.log('Create device req.body:', req.body);
     const input = normalizeDeviceInput(req.body);
 
     if (!input.imei || !input.iccid || !input.serialNo) {
@@ -475,6 +479,7 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
       dealerName,
       subDealerId: ownership.subDealer?._id || null,
       subDealerName: subDealerName || '',
+      vendor: input.vendor,
       imei: input.imei,
       imeiNumber: input.imei,
       iccid: input.iccid,
@@ -483,6 +488,8 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
       serialNumber: input.serialNo,
       msisdn1: input.msisdn1,
       msisdn2: input.msisdn2,
+      itrNo: input.itrNo,
+      billAmount: input.billAmount,
       validity: input.validity,
       presentDate,
       expiryDate,
@@ -497,6 +504,90 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
     res.status(201).json({ message: 'Device added successfully!', device: populatedDevice });
   } catch (error) {
     console.error('Create device error:', error.message);
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'Duplicate IMEI, ICCID, or Serial Number detected.' });
+    }
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   PUT /api/devices/:id
+// @desc    Update an existing device
+// @access  Protected
+router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
+  try {
+    const scopeQuery = buildDeviceScopeQuery(req.hierarchyScope);
+    const device = await Device.findOne(combineQueries(scopeQuery, { _id: req.params.id }));
+    if (!device) {
+      return res.status(404).json({ message: 'Device not found or access denied.' });
+    }
+
+    const input = normalizeDeviceInput(req.body);
+
+    if (!input.imei || !input.iccid || !input.serialNo) {
+      return res.status(400).json({ message: 'IMEI, ICCID, and Serial No are required.' });
+    }
+
+    const ownership = await resolveDeviceOwnership(req, input);
+    if (ownership.error) {
+      return res.status(ownership.error.status).json({ message: ownership.error.message });
+    }
+
+    const duplicate = await Device.findOne({
+      _id: { $ne: device._id },
+      $or: [
+        { imei: input.imei },
+        { imeiNumber: input.imei },
+        { iccid: input.iccid },
+        { iccidNumber: input.iccid },
+        { serialNo: input.serialNo },
+        { serialNumber: input.serialNo },
+      ],
+    });
+    if (duplicate) {
+      if (duplicate.imei === input.imei || duplicate.imeiNumber === input.imei) {
+        return res.status(400).json({ message: 'A device with this IMEI already exists.' });
+      }
+      if (duplicate.iccid === input.iccid || duplicate.iccidNumber === input.iccid) {
+        return res.status(400).json({ message: 'A device with this ICCID already exists.' });
+      }
+      return res.status(400).json({ message: 'A device with this Serial Number already exists.' });
+    }
+
+    let expiryDate = device.expiryDate;
+    if (input.validity !== device.validity) {
+      expiryDate = addYears(device.presentDate || new Date(), input.validity === '2 Years' ? 2 : 1);
+    }
+    const dealerName = labelForUser(ownership.dealer);
+    const subDealerName = ownership.subDealer ? labelForUser(ownership.subDealer) : input.subDealerName;
+
+    device.userId = ownership.ownerId;
+    device.dealerId = ownership.dealer?._id || null;
+    device.dealerName = dealerName;
+    device.subDealerId = ownership.subDealer?._id || null;
+    device.subDealerName = subDealerName || '';
+    device.vendor = input.vendor;
+    device.imei = input.imei;
+    device.imeiNumber = input.imei;
+    device.iccid = input.iccid;
+    device.iccidNumber = input.iccid;
+    device.serialNo = input.serialNo;
+    device.serialNumber = input.serialNo;
+    device.msisdn1 = input.msisdn1;
+    device.msisdn2 = input.msisdn2;
+    device.itrNo = input.itrNo;
+    device.billAmount = input.billAmount;
+    device.validity = input.validity;
+    device.expiryDate = expiryDate;
+    device.status = input.status;
+    device.hasSim = Boolean(input.msisdn1 || input.msisdn2 || input.iccid);
+    device.updatedAt = new Date();
+
+    await device.save();
+    const populatedDevice = await populateDevice(Device.findById(device._id));
+    res.json({ message: 'Device updated successfully!', device: populatedDevice });
+  } catch (error) {
+    console.error('Update device error:', error.message);
     if (error.code === 11000) {
       return res.status(400).json({ message: 'Duplicate IMEI, ICCID, or Serial Number detected.' });
     }

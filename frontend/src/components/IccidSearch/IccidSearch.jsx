@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { FaTabletAlt, FaSpinner, FaSimCard, FaCar, FaUserAlt, FaHistory, FaFolderOpen } from 'react-icons/fa';
 import api from '../../utils/api';
 import './IccidSearch.css';
@@ -11,6 +11,7 @@ const IccidSearch = () => {
   const [activationHistory, setActivationHistory] = useState([]);
   const [latestRequest, setLatestRequest] = useState(null);
   const location = useLocation();
+  const navigate = useNavigate();
 
   const getSearchQuery = () => {
     const params = new URLSearchParams(location.search);
@@ -104,8 +105,21 @@ const IccidSearch = () => {
           
           {/* 1. DEVICE DETAILS CARD */}
           <div className="device-details-card">
-            <div className="card-header-teal">
-              <FaTabletAlt className="header-icon" /> DEVICE DETAILS
+            <div className="card-header-teal" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FaTabletAlt className="header-icon" /> DEVICE DETAILS
+              </span>
+              <button 
+                className="btn-activate-device"
+                onClick={() => navigate('/service-requests/activation', { 
+                  state: { 
+                    prefillDevice: device, 
+                    prefillRequest: latestRequest 
+                  } 
+                })}
+              >
+                Raise Activation Request
+              </button>
             </div>
             <div className="card-body-table">
               <table className="device-details-table">
@@ -142,7 +156,7 @@ const IccidSearch = () => {
                   <tr>
                     <td className="cell-label center-text" colSpan="3">
                       <FaUserAlt style={{ marginRight: '6px', fontSize: '11px', color: '#00897b' }} /> 
-                      Vendor Name: <strong style={{ marginLeft: '4px', color: '#333' }}>{device.vendor || 'Taisys'}</strong>
+                      Vendor Name: <strong style={{ marginLeft: '4px', color: '#333' }}>{device.vendor || '-'}</strong>
                     </td>
                   </tr>
                   <tr>

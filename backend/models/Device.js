@@ -94,7 +94,7 @@ const deviceSchema = new mongoose.Schema({
   ],
   vendor: {
     type: String,
-    default: 'Taisys',
+    default: '',
   },
   deviceType: {
     type: String,
@@ -120,6 +120,10 @@ const deviceSchema = new mongoose.Schema({
     type: String,
     default: 'BSNL',
   },
+  itrNo: {
+    type: String,
+    default: '',
+  },
   status: {
     type: String,
     default: 'Activated',
@@ -144,6 +148,10 @@ const deviceSchema = new mongoose.Schema({
   expiryDate: {
     type: Date,
     default: null,
+  },
+  billAmount: {
+    type: Number,
+    default: 0,
   },
   createdAt: {
     type: Date,

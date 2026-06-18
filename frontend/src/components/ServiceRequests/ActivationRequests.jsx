@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { FaSyncAlt, FaPlus, FaTimes, FaSpinner, FaSearch, FaChevronDown } from 'react-icons/fa';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
@@ -14,6 +15,7 @@ const getRole = (user) => {
 const ActivationRequests = () => {
   const { user } = useAuth();
   const role = getRole(user);
+  const location = useLocation();
   const [requests, setRequests] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -28,7 +30,7 @@ const ActivationRequests = () => {
     requestType: 'Commercial Plan',
     plan: '1 Year',
     piNo: '',
-    amount: 1300,
+    amount: 0,
     remarks: '',
     dealerName: '',
     dealerAddress: '',
@@ -40,6 +42,7 @@ const ActivationRequests = () => {
     validity: '',
     expiryDate: null,
     itrNo: '',
+    vendor: '',
     installationDate: '',
     activationMode: 'NIC',
     vehicleCondition: 'New',
@@ -56,7 +59,8 @@ const ActivationRequests = () => {
     aadharNo: '',
     address: '',
     isSubDealer: false,
-    subDealerName: ''
+    subDealerName: '',
+    deviceBillAmount: null
   };
 
   const [showModal, setShowModal] = useState(false);
@@ -70,6 +74,95 @@ const ActivationRequests = () => {
   const [deviceDropdownOpen, setDeviceDropdownOpen] = useState(false);
 
   const deviceDropdownRef = useRef(null);
+
+  // Helper to format date for input (YYYY-MM-DD)
+  const formatDateForInput = (dateVal) => {
+    if (!dateVal) return '';
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return '';
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Prefill Listener from Location State
+  useEffect(() => {
+    if (location.state?.prefillDevice) {
+      const { prefillDevice, prefillRequest } = location.state;
+
+      // Extract dealer details using select logic
+      const dealerObj = prefillDevice.dealerId;
+      let dealerAddressStr = '';
+      let dName = prefillDevice.dealerName || '';
+      
+      if (dealerObj) {
+        const parts = [
+          dealerObj.address,
+          dealerObj.city,
+          dealerObj.state,
+          dealerObj.pincode
+        ].filter(Boolean);
+        dealerAddressStr = parts.join(', ');
+        dName = dealerObj.displayName || dealerObj.companyName || dealerObj.username || dName;
+      } else {
+        if (role === 'ADMIN' || role === 'DEALER') {
+          const parts = [
+            user?.address,
+            user?.city,
+            user?.state,
+            user?.pincode
+          ].filter(Boolean);
+          dealerAddressStr = parts.join(', ');
+          dName = user?.displayName || user?.companyName || user?.username || dName;
+        }
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        imei: prefillDevice.imei || '',
+        iccid: prefillDevice.iccid || '',
+        serialNo: prefillDevice.serialNo || '',
+        msisdn1: prefillDevice.msisdn1 || '',
+        msisdn2: prefillDevice.msisdn2 || '',
+        validity: prefillDevice.validity || '1 Year',
+        expiryDate: prefillDevice.expiryDate || null,
+        dealerName: dName || '',
+        dealerAddress: dealerAddressStr || '',
+        isSubDealer: !!prefillDevice.subDealerId,
+        subDealerName: prefillDevice.subDealerName || '',
+        plan: prefillDevice.validity === '2 Years' ? '2 Years' : '1 Year',
+        amount: prefillDevice.billAmount || 0,
+        deviceBillAmount: prefillDevice.billAmount || null,
+        itrNo: prefillDevice.itrNo || prefillRequest?.itrNo || '',
+        vendor: prefillDevice.vendor || '',
+        
+        // Vehicle details from request
+        installationDate: prefillRequest?.installationDate ? formatDateForInput(prefillRequest.installationDate) : '',
+        activationMode: prefillRequest?.activationMode || 'NIC',
+        vehicleCondition: prefillRequest?.vehicleCondition || 'New',
+        vehicleMake: prefillRequest?.vehicleMake || '',
+        vehicleModel: prefillRequest?.vehicleModel || '',
+        registrationYear: prefillRequest?.registrationYear || '',
+        vehicleNo: prefillRequest?.vehicleNo || '',
+        rto: prefillRequest?.rto || '',
+        engineNo: prefillRequest?.engineNo || '',
+        chassisNo: prefillRequest?.chassisNo || '',
+        
+        // Customer details from request
+        customerName: prefillRequest?.customerName || '',
+        aadharNo: prefillRequest?.aadharNo || '',
+        regMobNo: prefillRequest?.regMobNo || '',
+        regMobNo2: prefillRequest?.regMobNo2 || '',
+        address: prefillRequest?.address || ''
+      }));
+
+      setShowModal(true);
+
+      // Clear the router state to avoid reopening on refresh
+      window.history.replaceState(null, '');
+    }
+  }, [location.state, user, role]);
 
   // Fetch Requests
   useEffect(() => {
@@ -94,33 +187,11 @@ const ActivationRequests = () => {
   // Amount Auto-calculation
   useEffect(() => {
     const qty = formData.quantity || 1;
-    const type = formData.requestType;
-    const plan = formData.plan;
-
-    if (type === 'Commercial Plan') {
-      if (plan === '1 Year') {
-        setFormData(prev => ({ ...prev, amount: qty * 1300 }));
-      } else if (plan === '2 Years') {
-        setFormData(prev => ({ ...prev, amount: qty * 2600 }));
-      } else if (plan === '1 Month') {
-        setFormData(prev => ({ ...prev, amount: qty * 110 }));
-      }
-    } else if (type === 'Recharge Plan') {
-      if (plan === 'recharge NIC') {
-        setFormData(prev => ({ ...prev, amount: qty * 1500 }));
-      } else if (plan === 'RENEWAL MINING') {
-        setFormData(prev => ({ ...prev, amount: qty * 1800 }));
-      }
-    } else if (type === 'Top-up') {
-      if (plan === '1 Month') {
-        setFormData(prev => ({ ...prev, amount: qty * 100 }));
-      } else if (plan === '1 Year') {
-        setFormData(prev => ({ ...prev, amount: qty * 1200 }));
-      } else if (plan === '2 Years') {
-        setFormData(prev => ({ ...prev, amount: qty * 2400 }));
-      }
+    const customAmt = formData.deviceBillAmount || 0;
+    if (formData.amount !== qty * customAmt) {
+      setFormData(prev => ({ ...prev, amount: qty * customAmt }));
     }
-  }, [formData.quantity, formData.requestType, formData.plan]);
+  }, [formData.quantity, formData.deviceBillAmount]);
 
   // Load Devices on Modal Open
   useEffect(() => {
@@ -196,7 +267,10 @@ const ActivationRequests = () => {
       dealerAddress: dealerAddressStr || '',
       isSubDealer: !!device.subDealerId,
       subDealerName: device.subDealerName || '',
-      plan: device.validity === '2 Years' ? '2 Years' : '1 Year'
+      vendor: device.vendor || '',
+      plan: device.validity === '2 Years' ? '2 Years' : '1 Year',
+      amount: device.billAmount || 0,
+      deviceBillAmount: device.billAmount || null
     }));
     setDeviceDropdownOpen(false);
     setDeviceSearch('');
@@ -320,7 +394,7 @@ const ActivationRequests = () => {
                 
                 {/* COLUMN 1: DEVICE DETAILS (AUTO-FILLED) */}
                 <div className="form-column">
-                  <h4 className="column-section-title">Device & Partner Details</h4>
+                  <h4 className="column-section-title">DEVICE & PARTNER DETAILS</h4>
                   
                   <div className="form-group-custom" ref={deviceDropdownRef}>
                     <label>Select Device (IMEI / Serial) <span className="required-star">*</span></label>
@@ -330,7 +404,7 @@ const ActivationRequests = () => {
                         onClick={() => setDeviceDropdownOpen(!deviceDropdownOpen)}
                       >
                         <span className={formData.imei ? 'selected-value' : 'placeholder-value'}>
-                          {formData.imei ? `${formData.imei} (SN: ${formData.serialNo})` : 'Search & Select Device...'}
+                          {formData.imei ? formData.imei : 'Search & Select Device...'}
                         </span>
                         <FaChevronDown className={`dropdown-arrow-custom ${deviceDropdownOpen ? 'open' : ''}`} />
                       </div>
@@ -491,109 +565,24 @@ const ActivationRequests = () => {
                         placeholder="Enter ITR Number"
                       />
                     </div>
-                  </div>
-
-                  <h4 className="column-section-title" style={{ marginTop: '20px' }}>Billing & Plan</h4>
-                  
-                  <div className="form-row-grid">
                     <div className="form-group-custom">
-                      <label>Request Type</label>
-                      <select 
-                        value={formData.requestType}
-                        onChange={(e) => {
-                          const type = e.target.value;
-                          let defaultPlan = '1 Year';
-                          let defaultAmt = 1300;
-                          if (type === 'Recharge Plan') {
-                            defaultPlan = 'recharge NIC';
-                            defaultAmt = 1500;
-                          } else if (type === 'Top-up') {
-                            defaultPlan = '1 Month';
-                            defaultAmt = 100;
-                          }
-                          setFormData({
-                            ...formData,
-                            requestType: type,
-                            plan: defaultPlan,
-                            amount: defaultAmt
-                          });
-                        }}
-                      >
-                        <option value="Commercial Plan">Commercial Plan</option>
-                        <option value="Top-up">Top-up</option>
-                        <option value="Recharge Plan">Recharge Plan</option>
-                      </select>
-                    </div>
-
-                    <div className="form-group-custom">
-                      <label>Plan</label>
-                      <select 
-                        value={formData.plan}
-                        onChange={(e) => setFormData({...formData, plan: e.target.value})}
-                      >
-                        {formData.requestType === 'Commercial Plan' && (
-                          <>
-                            <option value="1 Month">1 Month</option>
-                            <option value="1 Year">1 Year</option>
-                            <option value="2 Years">2 Years</option>
-                          </>
-                        )}
-                        {formData.requestType === 'Recharge Plan' && (
-                          <>
-                            <option value="recharge NIC">recharge NIC</option>
-                            <option value="RENEWAL MINING">RENEWAL MINING</option>
-                          </>
-                        )}
-                        {formData.requestType === 'Top-up' && (
-                          <>
-                            <option value="1 Month">1 Month</option>
-                            <option value="1 Year">1 Year</option>
-                            <option value="2 Years">2 Years</option>
-                          </>
-                        )}
-                      </select>
-                    </div>
-
-                    <div className="form-group-custom">
-                      <label>PI No <span className="required-star">*</span></label>
+                      <label>Vendor Name</label>
                       <input 
                         type="text" 
-                        value={formData.piNo}
-                        onChange={(e) => setFormData({...formData, piNo: e.target.value})}
-                        placeholder="e.g. iTR_PI_0626_43466"
-                        required
-                      />
-                    </div>
-
-                    <div className="form-group-custom">
-                      <label>Amount (₹) <span className="required-star">*</span></label>
-                      <input 
-                        type="number" 
-                        min="0.01" 
-                        step="0.01"
-                        value={formData.amount}
-                        onChange={(e) => setFormData({...formData, amount: parseFloat(e.target.value) || 0})}
-                        readOnly={(formData.requestType === 'Commercial Plan' && (formData.plan === '1 Year' || formData.plan === '2 Years')) || (formData.requestType === 'Recharge Plan' && (formData.plan === 'recharge NIC' || formData.plan === 'RENEWAL MINING'))}
-                        className={((formData.requestType === 'Commercial Plan' && (formData.plan === '1 Year' || formData.plan === '2 Years')) || (formData.requestType === 'Recharge Plan' && (formData.plan === 'recharge NIC' || formData.plan === 'RENEWAL MINING'))) ? 'readonly-input' : ''}
-                        required
-                      />
-                    </div>
-
-                    <div className="form-group-custom full-width-group">
-                      <label>Remarks</label>
-                      <textarea 
-                        value={formData.remarks}
-                        onChange={(e) => setFormData({...formData, remarks: e.target.value})}
-                        placeholder="Enter remarks"
-                        rows="2"
+                        value={formData.vendor} 
+                        className="readonly-input" 
+                        readOnly 
+                        placeholder="Auto-filled"
                       />
                     </div>
                   </div>
+
+
                 </div>
 
                 {/* COLUMN 2: VEHICLE & CUSTOMER DETAILS (MANUAL) */}
                 <div className="form-column">
-                  <h4 className="column-section-title">Vehicle & Installation Details</h4>
+                  <h4 className="column-section-title">VEHICLE & INSTALLATION DETAILS</h4>
                   
                   <div className="form-row-grid">
                     <div className="form-group-custom">
@@ -721,7 +710,7 @@ const ActivationRequests = () => {
                     </div>
                   </div>
 
-                  <h4 className="column-section-title" style={{ marginTop: '20px' }}>Customer Details</h4>
+                  <h4 className="column-section-title" style={{ marginTop: '20px' }}>CUSTOMER DETAILS</h4>
 
                   <div className="form-row-grid">
                     <div className="form-group-custom">
@@ -801,7 +790,7 @@ const ActivationRequests = () => {
                   disabled={submitting || !formData.imei}
                   className="btn-submit-custom"
                 >
-                  {submitting ? 'Submitting...' : 'Submit Request'}
+                  {submitting ? 'Submitting...' : 'Submit'}
                 </button>
               </div>
             </form>

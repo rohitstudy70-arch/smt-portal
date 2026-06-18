@@ -8,6 +8,7 @@ import {
   FaSave,
   FaSearch,
   FaTimesCircle,
+  FaEdit,
 } from 'react-icons/fa';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
@@ -42,24 +43,18 @@ const createEmptyForm = (dealer) => ({
   dealerName: dealer ? getName(dealer) : '',
   subDealerId: '',
   subDealerName: '',
+  vendor: 'iTriangle',
   imei: '',
   iccid: '',
   serialNo: '',
   msisdn1: '',
   msisdn2: '',
+  itrNo: '',
+
+  billAmount: '',
   validity: '1 Year',
   status: 'Active',
 });
-
-const initialFilters = {
-  search: '',
-  dealer: '',
-  subDealer: '',
-  msisdn: '',
-  status: 'all',
-  dateFrom: '',
-  dateTo: '',
-};
 
 const AddDevice = () => {
   const { user } = useAuth();
@@ -70,7 +65,7 @@ const AddDevice = () => {
   const [totalDevices, setTotalDevices] = useState(0);
   const [devicesLoading, setDevicesLoading] = useState(true);
   const [formData, setFormData] = useState(createEmptyForm());
-  const [filters, setFilters] = useState(initialFilters);
+  const [editingDeviceId, setEditingDeviceId] = useState(null);
   const [errors, setErrors] = useState({});
   const [toast, setToast] = useState({ show: false, type: '', message: '' });
   const [submitting, setSubmitting] = useState(false);
@@ -126,13 +121,6 @@ const AddDevice = () => {
       setDevicesLoading(true);
       const response = await api.get('/devices', {
         params: {
-          search: filters.search,
-          dealer: filters.dealer,
-          subDealer: filters.subDealer,
-          msisdn: filters.msisdn,
-          status: filters.status,
-          dateFrom: filters.dateFrom,
-          dateTo: filters.dateTo,
           limit: 100,
           page: 1,
         },
@@ -144,7 +132,7 @@ const AddDevice = () => {
     } finally {
       setDevicesLoading(false);
     }
-  }, [filters]);
+  }, []);
 
   useEffect(() => {
     const fetchAllUsersAndPopulate = async () => {
@@ -155,17 +143,14 @@ const AddDevice = () => {
         // Identify dealers
         let dealerList = [];
         if (role === 'ADMIN') {
-          // All dealers from the user list + admin/partner roles
           const listFromDb = allUsers.filter(
             (item) => item.userType === 'Dealer' || item.userType === '' || item.role === 'partner'
           );
-          // Ensure logged-in user themselves is in the list
           if (user && !listFromDb.some((u) => u._id === user._id)) {
             listFromDb.unshift(user);
           }
           dealerList = listFromDb;
         } else {
-          // For a dealer, they only see themselves as the dealer option
           dealerList = user ? [user] : [];
         }
 
@@ -185,14 +170,9 @@ const AddDevice = () => {
 
     if (role !== 'CUSTOMER') {
       fetchAllUsersAndPopulate();
-    }
-  }, [role, user]);
-
-  useEffect(() => {
-    if (role !== 'CUSTOMER') {
       fetchDevices();
     }
-  }, [fetchDevices, role]);
+  }, [role, user, fetchDevices]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -217,10 +197,6 @@ const AddDevice = () => {
     if (errors[field]) {
       setErrors((current) => ({ ...current, [field]: '' }));
     }
-  };
-
-  const updateFilter = (field, value) => {
-    setFilters((current) => ({ ...current, [field]: value }));
   };
 
   const selectDealer = (dealer) => {
@@ -254,7 +230,6 @@ const AddDevice = () => {
     if (!formData.imei) nextErrors.imei = 'IMEI is required';
     else if (!/^\d{15}$/.test(formData.imei)) nextErrors.imei = 'IMEI must be exactly 15 digits';
     if (!formData.iccid) nextErrors.iccid = 'ICCID is required';
-    if (!formData.serialNo) nextErrors.serialNo = 'Serial No is required';
 
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -266,18 +241,28 @@ const AddDevice = () => {
 
     setSubmitting(true);
     try {
-      await api.post('/devices', formData);
-      showToast('success', 'Device added successfully!');
+      if (editingDeviceId) {
+        await api.put(`/devices/${editingDeviceId}`, {
+          ...formData,
+          serialNo: formData.serialNo || formData.imei
+        });
+        showToast('success', 'Device updated successfully!');
+      } else {
+        await api.post('/devices', {
+          ...formData,
+          serialNo: formData.serialNo || formData.imei
+        });
+        showToast('success', 'Device added successfully!');
+      }
       handleReset();
       await fetchDevices();
     } catch (error) {
-      const message = error.response?.data?.message || 'Failed to add device. Please try again.';
+      const message = error.response?.data?.message || `Failed to ${editingDeviceId ? 'update' : 'add'} device. Please try again.`;
       showToast('error', message);
 
       const nextErrors = {};
       if (message.toLowerCase().includes('imei')) nextErrors.imei = message;
       if (message.toLowerCase().includes('iccid')) nextErrors.iccid = message;
-      if (message.toLowerCase().includes('serial')) nextErrors.serialNo = message;
       setErrors((current) => ({ ...current, ...nextErrors }));
     } finally {
       setSubmitting(false);
@@ -285,21 +270,47 @@ const AddDevice = () => {
   };
 
   const handleReset = () => {
-    setFormData(createEmptyForm(dealers.length === 1 ? dealers[0] : selectedDealer));
+    const defaultDealer = dealers.length === 1 ? dealers[0] : dealers.find((d) => d._id === formData.dealerId);
+    setFormData(createEmptyForm(defaultDealer || selectedDealer));
     setErrors({});
     setDealerSearch('');
     setSubDealerSearch('');
+    setEditingDeviceId(null);
+  };
+
+  const handleEditStart = (device) => {
+    setEditingDeviceId(device._id);
+    setFormData({
+      dealerId: device.dealerId?._id || device.dealerId || '',
+      dealerName: getLinkedName(device.dealerId, device.dealerName),
+      subDealerId: device.subDealerId?._id || device.subDealerId || '',
+      subDealerName: getLinkedName(device.subDealerId, device.subDealerName),
+      vendor: device.vendor || 'iTriangle',
+      imei: device.imei || '',
+      iccid: device.iccid || '',
+      serialNo: device.serialNo || '',
+      msisdn1: device.msisdn1 || '',
+      msisdn2: device.msisdn2 || '',
+      itrNo: device.itrNo || '',
+      billAmount: device.billAmount || '',
+      validity: device.validity || '1 Year',
+      status: device.status || 'Active',
+    });
+    setDealerSearch(getLinkedName(device.dealerId, device.dealerName));
+    setSubDealerSearch(getLinkedName(device.subDealerId, device.subDealerName));
+    setErrors({});
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   if (role === 'CUSTOMER') {
     return (
       <div className="add-device-container">
-        <div className="add-device-card">
+        <div className="add-device-card device-list-card">
           <div className="add-device-header">
-            <FaMobileAlt className="header-icon" />
-            <span>ADD DEVICE</span>
+            <FaFilter className="header-icon" />
+            <span>DEVICE TABLE</span>
           </div>
-          <div className="add-device-denied">Forbidden: You do not have permission to add devices.</div>
+          <div className="add-device-denied">Forbidden: You do not have permission to view devices.</div>
         </div>
       </div>
     );
@@ -317,7 +328,7 @@ const AddDevice = () => {
       <div className="add-device-card">
         <div className="add-device-header">
           <FaMobileAlt className="header-icon" />
-          <span>ADD NEW DEVICE</span>
+          <span>{editingDeviceId ? 'EDIT DEVICE' : 'ADD NEW DEVICE'}</span>
         </div>
 
         <form className="add-device-form" onSubmit={handleSubmit}>
@@ -418,6 +429,19 @@ const AddDevice = () => {
               </div>
             )}
 
+            <div className="form-group">
+              <label>Vendor Name</label>
+              <select name="vendor" value={formData.vendor} onChange={(event) => updateFormField('vendor', event.target.value)}>
+                <option value="iTriangle">iTriangle</option>
+                <option value="Acute">Acute</option>
+                <option value="Markon">Markon</option>
+                <option value="RDM">RDM</option>
+                <option value="BB">BB</option>
+                <option value="TrackNow">TrackNow</option>
+                <option value="Road point">Road point</option>
+              </select>
+            </div>
+
             <div className={`form-group ${errors.imei ? 'has-error' : ''}`}>
               <label>IMEI No. <span className="required">*</span></label>
               <input
@@ -443,17 +467,7 @@ const AddDevice = () => {
               {errors.iccid && <span className="error-text">{errors.iccid}</span>}
             </div>
 
-            <div className={`form-group ${errors.serialNo ? 'has-error' : ''}`}>
-              <label>Serial No. <span className="required">*</span></label>
-              <input
-                type="text"
-                name="serialNo"
-                value={formData.serialNo}
-                onChange={(event) => updateFormField('serialNo', event.target.value)}
-                placeholder="Enter Serial Number"
-              />
-              {errors.serialNo && <span className="error-text">{errors.serialNo}</span>}
-            </div>
+
 
             <div className="form-group">
               <label>MSISDN 1</label>
@@ -466,6 +480,8 @@ const AddDevice = () => {
               />
             </div>
 
+
+
             <div className="form-group">
               <label>MSISDN 2</label>
               <input
@@ -474,6 +490,17 @@ const AddDevice = () => {
                 value={formData.msisdn2}
                 onChange={(event) => updateFormField('msisdn2', event.target.value)}
                 placeholder="Enter MSISDN 2"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>ITR No.</label>
+              <input
+                type="text"
+                name="itrNo"
+                value={formData.itrNo || ''}
+                onChange={(event) => updateFormField('itrNo', event.target.value)}
+                placeholder="Enter ITR Number"
               />
             </div>
 
@@ -496,20 +523,27 @@ const AddDevice = () => {
             </div>
 
             <div className="form-group">
-              <label>Status</label>
-              <select name="status" value={formData.status} onChange={(event) => updateFormField('status', event.target.value)}>
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-              </select>
+              <label>Bill Amount</label>
+              <input
+                type="number"
+                name="billAmount"
+                value={formData.billAmount}
+                onChange={(event) => updateFormField('billAmount', event.target.value)}
+                placeholder="Enter Bill Amount"
+              />
             </div>
+
+
           </div>
 
           <div className="form-actions">
+            {editingDeviceId && (
+              <button type="button" className="btn-reset" onClick={handleReset}>
+                Cancel
+              </button>
+            )}
             <button type="submit" className="btn-save" disabled={submitting}>
-              <FaSave /> {submitting ? 'Saving...' : 'Save Device'}
-            </button>
-            <button type="button" className="btn-reset" onClick={handleReset}>
-              <FaRedo /> Reset
+              <FaSave /> {submitting ? 'Saving...' : editingDeviceId ? 'Update Device' : 'Save Device'}
             </button>
           </div>
         </form>
@@ -519,70 +553,6 @@ const AddDevice = () => {
         <div className="add-device-header">
           <FaFilter className="header-icon" />
           <span>DEVICE TABLE</span>
-        </div>
-
-        <div className="device-filter-panel">
-          <div className="device-filter-grid">
-            <div className="form-group">
-              <label>IMEI / ICCID / Serial</label>
-              <input
-                type="text"
-                value={filters.search}
-                onChange={(event) => updateFilter('search', event.target.value)}
-                placeholder="Search device"
-              />
-            </div>
-            <div className="form-group">
-              <label>Dealer</label>
-              <select value={filters.dealer} onChange={(event) => updateFilter('dealer', event.target.value)}>
-                <option value="">All Dealers</option>
-                {dealers.map((dealer) => (
-                  <option value={getName(dealer)} key={dealer._id}>{getName(dealer)}</option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Sub Dealer</label>
-              <select value={filters.subDealer} onChange={(event) => updateFilter('subDealer', event.target.value)}>
-                <option value="">All Sub Dealers</option>
-                {subDealers.map((subDealer) => (
-                  <option value={getName(subDealer)} key={subDealer._id}>{getName(subDealer)}</option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>MSISDN</label>
-              <input
-                type="text"
-                value={filters.msisdn}
-                onChange={(event) => updateFilter('msisdn', event.target.value)}
-                placeholder="MSISDN 1 or 2"
-              />
-            </div>
-            <div className="form-group">
-              <label>Status</label>
-              <select value={filters.status} onChange={(event) => updateFilter('status', event.target.value)}>
-                <option value="all">All Status</option>
-                <option value="Active">Active</option>
-                <option value="Activated">Activated</option>
-                <option value="Inactive">Inactive</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label>From Date</label>
-              <input type="date" value={filters.dateFrom} onChange={(event) => updateFilter('dateFrom', event.target.value)} />
-            </div>
-            <div className="form-group">
-              <label>To Date</label>
-              <input type="date" value={filters.dateTo} onChange={(event) => updateFilter('dateTo', event.target.value)} />
-            </div>
-            <div className="form-group filter-actions">
-              <label>&nbsp;</label>
-              <button type="button" className="btn-reset" onClick={() => setFilters(initialFilters)}>
-                <FaRedo /> Reset Filters
-              </button>
-            </div>
-          </div>
         </div>
 
         <div className="device-table-meta">
@@ -602,16 +572,18 @@ const AddDevice = () => {
                 <th>MSISDN 1</th>
                 <th>MSISDN 2</th>
                 <th>Validity</th>
+                <th>Bill Amount</th>
                 <th>Present Date</th>
                 <th>Expiry Date</th>
                 <th>Created By</th>
                 <th>Status</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {devicesLoading ? (
                 <tr>
-                  <td colSpan={12} className="table-empty">Loading devices...</td>
+                  <td colSpan={14} className="table-empty">Loading devices...</td>
                 </tr>
               ) : devices.length > 0 ? (
                 devices.map((device) => (
@@ -624,15 +596,26 @@ const AddDevice = () => {
                     <td>{device.msisdn1 || '-'}</td>
                     <td>{device.msisdn2 || '-'}</td>
                     <td>{device.validity || '-'}</td>
+                    <td>₹{device.billAmount || 0}</td>
                     <td>{formatDate(device.presentDate)}</td>
                     <td>{formatDate(device.expiryDate)}</td>
                     <td>{getLinkedName(device.createdBy)}</td>
                     <td><span className={`device-status status-${String(device.status || 'active').toLowerCase()}`}>{device.status || 'Active'}</span></td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn-action-edit"
+                        onClick={() => handleEditStart(device)}
+                        title="Edit Device"
+                      >
+                        <FaEdit /> Edit
+                      </button>
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={12} className="table-empty">No device records found.</td>
+                  <td colSpan={14} className="table-empty">No device records found.</td>
                 </tr>
               )}
             </tbody>

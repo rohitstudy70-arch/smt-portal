@@ -65,6 +65,7 @@ const activationRequestSchema = new mongoose.Schema({
   validity: { type: String, default: '' },
   expiryDate: { type: Date, default: null },
   itrNo: { type: String, default: '' },
+  vendor: { type: String, default: '' },
 
   // Date fields
   installationDate: { type: Date, default: null },

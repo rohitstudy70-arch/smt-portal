@@ -346,7 +346,13 @@ const DeviceManagement = () => {
               <div className="filter-item">
                 <select value={filterVendor} onChange={(e) => { setFilterVendor(e.target.value); setPage(1); }}>
                   <option value="">-Select Vendor-</option>
-                  <option value="Taisys">Taisys</option>
+                  <option value="iTriangle">iTriangle</option>
+                  <option value="Acute">Acute</option>
+                  <option value="Markon">Markon</option>
+                  <option value="RDM">RDM</option>
+                  <option value="BB">BB</option>
+                  <option value="TrackNow">TrackNow</option>
+                  <option value="Road point">Road point</option>
                   <option value="Others">Others</option>
                 </select>
               </div>

@@ -496,6 +496,73 @@ const CustomerDevicePortal = () => {
     </span>
   );
 
+  const handleStatClick = (key) => {
+    switch (key) {
+      case 'totalDealers':
+        if (role === 'ADMIN') {
+          openView('dealers');
+        }
+        break;
+      case 'totalSubDealers':
+        openView('subdealers');
+        break;
+      case 'totalCustomers':
+      case 'activeCustomers':
+        openView('customers');
+        break;
+      case 'totalDevices':
+        if (role === 'CUSTOMER') {
+          openView('mydevices');
+        } else {
+          navigate('/device-management');
+        }
+        break;
+      case 'activeDevices':
+        if (role === 'CUSTOMER') {
+          openView('mydevices');
+          setSearch('active');
+        } else {
+          navigate('/device-management?search=active');
+        }
+        break;
+      case 'expiredDevices':
+        if (role === 'CUSTOMER') {
+          openView('mydevices');
+          setSearch('inactive');
+        } else {
+          navigate('/device-management?search=inactive');
+        }
+        break;
+      case 'devicesAddedToday':
+        if (role === 'CUSTOMER') {
+          openView('mydevices');
+        } else {
+          navigate('/device-management');
+        }
+        break;
+      case 'renewalDueDevices':
+      case 'pendingRenewals':
+        openView('renewals');
+        break;
+      case 'assignedDevices':
+        if (role === 'CUSTOMER') {
+          openView('mydevices');
+        } else {
+          navigate('/device-management');
+        }
+        break;
+      case 'availableDevices':
+        if (role === 'CUSTOMER') {
+          openView('mydevices');
+        } else {
+          navigate('/device-management');
+        }
+        break;
+      default:
+        break;
+    }
+  };
+
   const renderStats = () => {
     const keys = statKeysByRole[role] || statKeysByRole.DEALER;
     return (
@@ -504,7 +571,12 @@ const CustomerDevicePortal = () => {
           const item = statCatalog[key];
           const Icon = item.icon;
           return (
-            <div className={`portal-stat stat-${item.tone}`} key={key}>
+            <div 
+              className={`portal-stat stat-${item.tone}`} 
+              key={key}
+              onClick={() => handleStatClick(key)}
+              style={{ cursor: 'pointer' }}
+            >
               <div>
                 <span className="portal-stat-value">{summary?.[key] ?? 0}</span>
                 <span className="portal-stat-label">{item.label}</span>
