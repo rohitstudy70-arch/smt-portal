@@ -663,12 +663,15 @@ const CustomerDevicePortal = () => {
               role === 'SUB_DEALER' ? ['SUB DEALER', 'END USER'] :
               role === 'CUSTOMER' ? ['END USER'] :
               ['ADMIN', 'DEALER', 'SUB DEALER', 'END USER']
-            ).map((item, index) => (
-              <div className={`hierarchy-step ${role.replace('_', ' ') === item ? 'current' : ''}`} key={item}>
-                <span>{index + 1}</span>
-                <strong>{item}</strong>
-              </div>
-            ))}
+            ).map((item, index) => {
+              const isCurrent = (role.replace('_', ' ') === item) || (role === 'CUSTOMER' && item === 'END USER');
+              return (
+                <div className={`hierarchy-step ${isCurrent ? 'current' : ''}`} key={item}>
+                  <span>{index + 1}</span>
+                  <strong>{item}</strong>
+                </div>
+              );
+            })}
           </div>
           <div className="portal-quick-actions">
             {!isCustomer && (
@@ -696,8 +699,8 @@ const CustomerDevicePortal = () => {
         <label>
           <span>Role</span>
           <select value={forcedUserType || userForm.userType} onChange={(event) => updateUserForm('userType', event.target.value)} disabled={Boolean(forcedUserType)}>
-            <option value="Dealer">Dealer</option>
-            <option value="Sub Dealer">Sub Dealer</option>
+            {isAdmin && <option value="Dealer">Dealer</option>}
+            {(isAdmin || role === 'DEALER') && <option value="Sub Dealer">Sub Dealer</option>}
             <option value="End Customer">End User Customer</option>
           </select>
         </label>
