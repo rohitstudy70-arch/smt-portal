@@ -164,14 +164,6 @@ const Header = () => {
       <div className="header">
         <div className="header-left">
           <FaBars className="menu-toggle" />
-          <div className="balance-info">
-            <div className="bal-avail">
-              Available Balance : <span>{user?.availableBalance?.toFixed(2) || '0.00'}</span>
-            </div>
-            <div className="bal-overdrawn">
-              Over Drawn Amount : <span>{user?.overDrawnAmount?.toFixed(2) || '0.00'}</span>
-            </div>
-          </div>
         </div>
 
         <div className="header-right">

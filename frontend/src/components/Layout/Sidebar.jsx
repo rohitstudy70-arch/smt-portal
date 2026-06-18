@@ -113,14 +113,7 @@ const Sidebar = () => {
           </ul>
         </li>
 
-        {canShow(operationsRoles) && (
-          <li className={`sidebar-menu-item ${location.pathname === '/wallet-system' ? 'active' : ''}`}>
-            <NavLink to="/wallet-system">
-              <FaWallet className="menu-icon" />
-              <span className="menu-text">Wallet System</span>
-            </NavLink>
-          </li>
-        )}
+
 
         {canShow(operationsRoles) && (
           <li className={`sidebar-menu-item ${location.pathname === '/user-management' ? 'active' : ''}`}>
