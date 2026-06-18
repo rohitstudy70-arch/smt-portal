@@ -90,6 +90,8 @@ const ActivationRequests = () => {
   useEffect(() => {
     if (location.state?.prefillDevice) {
       const { prefillDevice, prefillRequest } = location.state;
+      console.log('Prefill device object received in ActivationRequests:', prefillDevice);
+      console.log('Prefill request object received in ActivationRequests:', prefillRequest);
 
       // Extract dealer details using select logic
       const dealerObj = prefillDevice.dealerId;
@@ -226,6 +228,7 @@ const ActivationRequests = () => {
   }, []);
 
   const handleSelectDevice = (device) => {
+    console.log('Selected device object in dropdown ActivationRequests:', device);
     // Construct address
     const dealerObj = device.dealerId;
     let dealerAddressStr = '';

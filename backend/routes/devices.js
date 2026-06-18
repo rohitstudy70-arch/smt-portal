@@ -329,6 +329,15 @@ router.get('/', async (req, res) => {
       Device.countDocuments(query),
     ]);
 
+    console.log('GET /api/devices - Queried devices count:', devices.length);
+    if (devices.length > 0) {
+      console.log('GET /api/devices - Sample device details:', {
+        imei: devices[0].imei,
+        itrNo: devices[0].itrNo,
+        vendor: devices[0].vendor
+      });
+    }
+
     res.json({
       devices,
       total,
