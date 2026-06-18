@@ -456,18 +456,6 @@ const AddDevice = () => {
               {errors.imei && <span className="error-text">{errors.imei}</span>}
             </div>
 
-            <div className={`form-group ${errors.iccid ? 'has-error' : ''}`}>
-              <label>ICCID No. <span className="required">*</span></label>
-              <input
-                type="text"
-                name="iccid"
-                value={formData.iccid}
-                onChange={(event) => updateFormField('iccid', event.target.value)}
-                placeholder="Enter ICCID"
-              />
-              {errors.iccid && <span className="error-text">{errors.iccid}</span>}
-            </div>
-
             <div className={`form-group ${errors.serialNo ? 'has-error' : ''}`}>
               <label>Serial No. <span className="required">*</span></label>
               <input
@@ -480,7 +468,17 @@ const AddDevice = () => {
               {errors.serialNo && <span className="error-text">{errors.serialNo}</span>}
             </div>
 
-
+            <div className={`form-group ${errors.iccid ? 'has-error' : ''}`}>
+              <label>ICCID No. <span className="required">*</span></label>
+              <input
+                type="text"
+                name="iccid"
+                value={formData.iccid}
+                onChange={(event) => updateFormField('iccid', event.target.value)}
+                placeholder="Enter ICCID"
+              />
+              {errors.iccid && <span className="error-text">{errors.iccid}</span>}
+            </div>
 
             <div className="form-group">
               <label>MSISDN 1</label>
