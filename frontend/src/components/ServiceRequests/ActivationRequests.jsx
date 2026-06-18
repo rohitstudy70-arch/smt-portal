@@ -298,6 +298,10 @@ const ActivationRequests = () => {
 
   const handleSubmitRequest = async (e) => {
     e.preventDefault();
+    if (formData.rto && !/^[A-Z0-9]{4}$/.test(formData.rto)) {
+      alert('RTO must be exactly 4 alphanumeric characters (e.g. RJ14)');
+      return;
+    }
     setSubmitting(true);
     try {
       await api.post('/activation-requests', formData);
@@ -681,8 +685,14 @@ const ActivationRequests = () => {
                       <input 
                         type="text" 
                         value={formData.rto}
-                        onChange={(e) => setFormData({...formData, rto: e.target.value})}
-                        placeholder="e.g. Jaipur RJ14"
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+                          if (val.length <= 4) {
+                            setFormData({...formData, rto: val});
+                          }
+                        }}
+                        placeholder="e.g. RJ14"
+                        maxLength={4}
                         required
                       />
                     </div>
