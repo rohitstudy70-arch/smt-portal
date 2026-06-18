@@ -649,12 +649,21 @@ const CustomerDevicePortal = () => {
           <div className="portal-panel-header">
             <div>
               <h2>Hierarchy</h2>
-              <span>Admin - Dealer - Sub Dealer - End User</span>
+              <span>
+                {role === 'DEALER' ? 'Dealer - Sub Dealer - End User' :
+                 role === 'SUB_DEALER' ? 'Sub Dealer - End User' :
+                 role === 'CUSTOMER' ? 'End User' :
+                 'Admin - Dealer - Sub Dealer - End User'}
+              </span>
             </div>
             <FaUserShield className="portal-panel-icon" />
           </div>
           <div className="portal-hierarchy">
-            {['ADMIN', 'DEALER', 'SUB DEALER', 'END USER'].map((item, index) => (
+            {(role === 'DEALER' ? ['DEALER', 'SUB DEALER', 'END USER'] :
+              role === 'SUB_DEALER' ? ['SUB DEALER', 'END USER'] :
+              role === 'CUSTOMER' ? ['END USER'] :
+              ['ADMIN', 'DEALER', 'SUB DEALER', 'END USER']
+            ).map((item, index) => (
               <div className={`hierarchy-step ${role.replace('_', ' ') === item ? 'current' : ''}`} key={item}>
                 <span>{index + 1}</span>
                 <strong>{item}</strong>
