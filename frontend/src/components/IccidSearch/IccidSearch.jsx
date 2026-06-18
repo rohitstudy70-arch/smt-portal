@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FaTabletAlt, FaSpinner, FaSimCard, FaCar, FaUserAlt, FaHistory, FaFolderOpen } from 'react-icons/fa';
+import { FaTabletAlt, FaSpinner, FaSimCard, FaCar, FaUserAlt, FaHistory, FaFolderOpen, FaCopy } from 'react-icons/fa';
 import api from '../../utils/api';
 import './IccidSearch.css';
 
@@ -92,6 +92,49 @@ const IccidSearch = () => {
     return date.toLocaleDateString('en-GB');
   };
 
+  const handleCopyDetails = () => {
+    if (!device) return;
+    
+    const details = `--- DEVICE DETAILS ---
+IMEI No: ${device.imei || '-'}
+Serial No: ${device.serialNo || '-'}
+ICCID No: ${device.iccid || '-'}
+Invoice Date: ${formatDate(device.presentDate)}
+Warranty Expiry: ${formatDate(device.expiryDate)}
+
+--- SIM DETAILS ---
+Vendor Name: ${device.vendor || '-'}
+MSISDN 1: ${device.msisdn1 || '-'}
+TSP 1: ${device.tsp1 || '-'}
+MSISDN 2: ${device.msisdn2 || '-'}
+TSP 2: ${device.tsp2 || '-'}
+Bootstrap Activation: ${formatDate(device.presentDate)}
+Bootstrap Expiry: ${formatBootstrapExpiry(device.presentDate)}
+SIM Activation: ${formatDate(device.presentDate)}
+SIM Expiry: ${formatDate(device.simExpiryDate || device.expiryDate)}
+
+--- VEHICLE DETAILS ---
+Engine No: ${latestRequest?.engineNo || 'NA'}
+Chassis No: ${latestRequest?.chassisNo || 'NA'}
+VRN No: ${latestRequest?.vehicleNo || 'NA'}
+
+--- CUSTODIAN DETAILS ---
+End Customer: ${latestRequest?.customerName || 'NA'}
+Identity Proof: ${latestRequest?.aadharNo ? 'ADHAR' : 'NA'}
+Identity No: ${latestRequest?.aadharNo || 'NA'}
+Address Proof: ${latestRequest?.aadharNo ? 'ADHAR' : 'NA'}
+Address No: ${latestRequest?.aadharNo || 'NA'}`;
+
+    navigator.clipboard.writeText(details)
+      .then(() => {
+        alert('All details copied to clipboard!');
+      })
+      .catch((err) => {
+        console.error('Failed to copy details:', err);
+        alert('Failed to copy details. Please copy manually.');
+      });
+  };
+
   return (
     <div className="iccid-search-container">
       {loading ? (
@@ -109,17 +152,26 @@ const IccidSearch = () => {
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <FaTabletAlt className="header-icon" /> DEVICE DETAILS
               </span>
-              <button 
-                className="btn-activate-device"
-                onClick={() => navigate('/service-requests/activation', { 
-                  state: { 
-                    prefillDevice: device, 
-                    prefillRequest: latestRequest 
-                  } 
-                })}
-              >
-                Raise Activation Request
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button 
+                  className="btn-activate-device"
+                  onClick={handleCopyDetails}
+                  style={{ background: '#0284c7' }}
+                >
+                  <FaCopy style={{ marginRight: '6px' }} /> Copy All Details
+                </button>
+                <button 
+                  className="btn-activate-device"
+                  onClick={() => navigate('/service-requests/activation', { 
+                    state: { 
+                      prefillDevice: device, 
+                      prefillRequest: latestRequest 
+                    } 
+                  })}
+                >
+                  Raise Activation Request
+                </button>
+              </div>
             </div>
             <div className="card-body-table">
               <table className="device-details-table">
