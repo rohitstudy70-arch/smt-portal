@@ -1,5 +1,6 @@
 const express = require('express');
 const ActivationRequest = require('../models/ActivationRequest');
+const Device = require('../models/Device');
 const { protect } = require('../middleware/auth');
 const {
   PORTAL_ROLES,
@@ -165,6 +166,29 @@ router.post('/', requireRoles(...operationsRoles), async (req, res) => {
       aadharNo: aadharNo || '',
       address: address || '',
     });
+
+    // Automatically assign the device to the user raising the activation request
+    try {
+      const device = await Device.findOne({ imei });
+      if (device) {
+        const fromUser = device.assignedTo;
+        device.assignedTo = req.user._id;
+        device.updatedAt = new Date();
+        device.assignmentHistory.push({
+          fromUser: fromUser || null,
+          toUser: req.user._id,
+          action: 'Assigned',
+          note: 'Assigned automatically upon raising activation request',
+          changedBy: req.user._id,
+        });
+        await device.save();
+        console.log(`Automatically assigned device ${imei} to user ${req.user.username}`);
+      } else {
+        console.warn(`Device with IMEI ${imei} not found for automatic assignment`);
+      }
+    } catch (assignError) {
+      console.error('Error during automatic device assignment:', assignError.message);
+    }
 
     res.status(201).json(activationRequest);
   } catch (error) {
