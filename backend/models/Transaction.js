@@ -56,6 +56,31 @@ const transactionSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  deviceName: {
+    type: String,
+    default: '',
+  },
+  imei: {
+    type: String,
+    default: '',
+  },
+  iccid: {
+    type: String,
+    default: '',
+  },
+  serialNo: {
+    type: String,
+    default: '',
+  },
+  balanceAfterTransaction: {
+    type: Number,
+    default: 0,
+  },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

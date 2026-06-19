@@ -9,6 +9,15 @@ const EditProfile = () => {
   const { user, updateProfile } = useAuth();
   const [username, setUsername] = useState('');
   const [companyName, setCompanyName] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [mobileNo, setMobileNo] = useState('');
+  const [email, setEmail] = useState('');
+  const [address, setAddress] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
+  const [pincode, setPincode] = useState('');
+  const [gstNo, setGstNo] = useState('');
+
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,6 +27,14 @@ const EditProfile = () => {
     if (user) {
       setUsername(user.username || '');
       setCompanyName(user.companyName || '');
+      setDisplayName(user.displayName || '');
+      setMobileNo(user.mobileNo || '');
+      setEmail(user.email || '');
+      setAddress(user.address || '');
+      setCity(user.city || '');
+      setState(user.state || '');
+      setPincode(user.pincode || '');
+      setGstNo(user.gstNo || '');
     }
   }, [user]);
 
@@ -35,7 +52,15 @@ const EditProfile = () => {
       setLoading(true);
       const res = await api.put('/auth/update-profile', {
         username,
-        companyName
+        companyName,
+        displayName,
+        mobileNo,
+        email,
+        address,
+        city,
+        state,
+        pincode,
+        gstNo,
       });
       
       // Update local storage and context state
@@ -80,6 +105,19 @@ const EditProfile = () => {
                 />
               </div>
             </div>
+
+            <div className="form-group-horizontal">
+              <label htmlFor="displayName">Display Name</label>
+              <div className="input-wrapper">
+                <input
+                  type="text"
+                  id="displayName"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="Display Name"
+                />
+              </div>
+            </div>
             
             <div className="form-group-horizontal">
               <label htmlFor="companyName">Company Name</label>
@@ -90,6 +128,97 @@ const EditProfile = () => {
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder="Company Name"
+                />
+              </div>
+            </div>
+
+            <div className="form-group-horizontal">
+              <label htmlFor="gstNo">GSTIN / GST No</label>
+              <div className="input-wrapper">
+                <input
+                  type="text"
+                  id="gstNo"
+                  value={gstNo}
+                  onChange={(e) => setGstNo(e.target.value)}
+                  placeholder="GSTIN"
+                />
+              </div>
+            </div>
+
+            <div className="form-group-horizontal">
+              <label htmlFor="mobileNo">Mobile No</label>
+              <div className="input-wrapper">
+                <input
+                  type="text"
+                  id="mobileNo"
+                  value={mobileNo}
+                  onChange={(e) => setMobileNo(e.target.value)}
+                  placeholder="Mobile Number"
+                />
+              </div>
+            </div>
+
+            <div className="form-group-horizontal">
+              <label htmlFor="email">Email</label>
+              <div className="input-wrapper">
+                <input
+                  type="email"
+                  id="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Email Address"
+                />
+              </div>
+            </div>
+
+            <div className="form-group-horizontal">
+              <label htmlFor="address">Address</label>
+              <div className="input-wrapper">
+                <input
+                  type="text"
+                  id="address"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="Street Address"
+                />
+              </div>
+            </div>
+
+            <div className="form-group-horizontal">
+              <label htmlFor="city">City</label>
+              <div className="input-wrapper">
+                <input
+                  type="text"
+                  id="city"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="City"
+                />
+              </div>
+            </div>
+
+            <div className="form-group-horizontal">
+              <label htmlFor="state">State</label>
+              <div className="input-wrapper">
+                <input
+                  type="text"
+                  id="state"
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
+                  placeholder="State"
+                />
+              </div>
+            </div>
+
+            <div className="form-group-horizontal">
+              <label htmlFor="pincode">Pincode</label>
+              <div className="input-wrapper">
+                <input
+                  type="text"
+                  id="pincode"
+                  value={pincode}
+                  onChange={(e) => setPincode(e.target.value)}
+                  placeholder="Pincode"
                 />
               </div>
             </div>

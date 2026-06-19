@@ -74,6 +74,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: 'Active',
   },
+  gstNo: {
+    type: String,
+    default: '',
+  },
   createdAt: {
     type: Date,
     default: Date.now,

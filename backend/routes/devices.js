@@ -1,6 +1,8 @@
 const express = require('express');
 const Device = require('../models/Device');
 const User = require('../models/User');
+const Transaction = require('../models/Transaction');
+const AuditLog = require('../models/AuditLog');
 const { protect } = require('../middleware/auth');
 const {
   PORTAL_ROLES,
@@ -49,6 +51,7 @@ const normalizeDeviceInput = (body) => ({
   msisdn1: String(body.msisdn1 || '').trim(),
   msisdn2: String(body.msisdn2 || '').trim(),
   itrNo: String(body.itrNo || '').trim(),
+  deviceName: String(body.deviceName || 'Aquila Track Bharat 101 With IRNSS').trim(),
   billAmount: Number(body.billAmount) || 0,
   validity: normalizeValidity(body.validity),
   status: String(body.status || 'Active').trim() || 'Active',
@@ -477,45 +480,152 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
       return res.status(400).json({ message: 'A device with this Serial Number already exists.' });
     }
 
-    const presentDate = new Date();
-    const expiryDate = addYears(presentDate, input.validity === '2 Years' ? 2 : 1);
-    const dealerName = labelForUser(ownership.dealer);
-    const subDealerName = ownership.subDealer ? labelForUser(ownership.subDealer) : input.subDealerName;
-
-    const device = await Device.create({
-      userId: ownership.ownerId,
-      dealerId: ownership.dealer?._id || null,
-      dealerName,
-      subDealerId: ownership.subDealer?._id || null,
-      subDealerName: subDealerName || '',
-      vendor: input.vendor,
-      imei: input.imei,
-      imeiNumber: input.imei,
-      iccid: input.iccid,
-      iccidNumber: input.iccid,
-      serialNo: input.serialNo,
-      serialNumber: input.serialNo,
-      msisdn1: input.msisdn1,
-      msisdn2: input.msisdn2,
-      itrNo: input.itrNo,
-      billAmount: input.billAmount,
-      validity: input.validity,
-      presentDate,
-      expiryDate,
-      status: input.status,
-      hasSim: Boolean(input.msisdn1 || input.msisdn2 || input.iccid),
-      createdBy: req.user._id,
-      createdByRole: req.portalRole,
-      updatedAt: presentDate,
-    });
-
-    const populatedDevice = await populateDevice(Device.findById(device._id));
-    res.status(201).json({ message: 'Device added successfully!', device: populatedDevice });
-  } catch (error) {
-    console.error('Create device error:', error.message);
-    if (error.code === 11000) {
-      return res.status(400).json({ message: 'Duplicate IMEI, ICCID, or Serial Number detected.' });
+    const targetUser = await User.findById(ownership.ownerId);
+    if (!targetUser) {
+      return res.status(404).json({ message: 'Target dealer or sub-dealer user not found.' });
     }
+
+    const billAmt = Number(input.billAmount) || 0;
+    if (billAmt > 0) {
+      if (targetUser.availableBalance < billAmt) {
+        return res.status(400).json({
+          message: `Insufficient wallet balance for ${targetUser.displayName || targetUser.username}. Available balance: ₹${targetUser.availableBalance}`
+        });
+      }
+    }
+
+    let balanceUpdated = false;
+    let deviceCreated = null;
+    let transactionCreated = null;
+
+    try {
+      // Deduct from wallet balance
+      if (billAmt > 0) {
+        targetUser.availableBalance -= billAmt;
+        await targetUser.save();
+        balanceUpdated = true;
+      }
+
+      const presentDate = new Date();
+      const expiryDate = addYears(presentDate, input.validity === '2 Years' ? 2 : 1);
+      const dealerName = labelForUser(ownership.dealer);
+      const subDealerName = ownership.subDealer ? labelForUser(ownership.subDealer) : input.subDealerName;
+
+      deviceCreated = await Device.create({
+        userId: ownership.ownerId,
+        dealerId: ownership.dealer?._id || null,
+        dealerName,
+        subDealerId: ownership.subDealer?._id || null,
+        subDealerName: subDealerName || '',
+        vendor: input.vendor,
+        deviceName: input.deviceName,
+        imei: input.imei,
+        imeiNumber: input.imei,
+        iccid: input.iccid,
+        iccidNumber: input.iccid,
+        serialNo: input.serialNo,
+        serialNumber: input.serialNo,
+        msisdn1: input.msisdn1,
+        msisdn2: input.msisdn2,
+        itrNo: input.itrNo,
+        billAmount: billAmt,
+        validity: input.validity,
+        presentDate,
+        expiryDate,
+        status: input.status,
+        hasSim: Boolean(input.msisdn1 || input.msisdn2 || input.iccid),
+        createdBy: req.user._id,
+        createdByRole: req.portalRole,
+        updatedAt: presentDate,
+      });
+
+      // Create a transaction in ledger for the deducted device price
+      let transactionId = '';
+      if (billAmt > 0) {
+        const randomNum = Math.floor(10000 + Math.random() * 90000);
+        const date = new Date();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        transactionId = `ITR_${mm}_${dd}_${randomNum}`;
+
+        transactionCreated = await Transaction.create({
+          userId: targetUser._id,
+          transactionId,
+          paymentId: deviceCreated._id.toString(),
+          paymentFor: 'Device Purchase',
+          referenceNo: input.imei,
+          payMode: 'Itwallet',
+          transactionType: 'Debit',
+          status: 'Success',
+          remarks: `Device Purchase: IMEI ${input.imei}`,
+          requestedAmt: billAmt,
+          transactedAmt: billAmt,
+          deviceName: input.deviceName,
+          imei: input.imei,
+          iccid: input.iccid,
+          serialNo: input.serialNo,
+          balanceAfterTransaction: targetUser.availableBalance,
+          createdBy: req.user._id,
+        });
+      }
+
+      // Create audit log
+      await AuditLog.create({
+        userId: req.user._id,
+        action: 'DEVICE_ASSIGNMENT',
+        ipAddress: req.ip || '',
+        details: {
+          imei: input.imei,
+          assignedTo: targetUser._id,
+          assignedToName: targetUser.displayName || targetUser.username,
+          billAmount: billAmt,
+          transactionId: transactionId || null,
+        }
+      }).catch((e) => console.error('Failed to log audit event:', e.message));
+
+      const populatedDevice = await populateDevice(Device.findById(deviceCreated._id));
+      res.status(201).json({ message: 'Device added successfully!', device: populatedDevice });
+    } catch (err) {
+      console.error('Device assignment / creation error, rolling back changes:', err.message);
+
+      // Rollback balance update
+      if (balanceUpdated) {
+        try {
+          targetUser.availableBalance += billAmt;
+          await targetUser.save();
+          console.log('Balance rolled back successfully');
+        } catch (rollbackErr) {
+          console.error('CRITICAL: Failed to rollback wallet balance:', rollbackErr.message);
+        }
+      }
+
+      // Rollback device creation
+      if (deviceCreated) {
+        try {
+          await Device.deleteOne({ _id: deviceCreated._id });
+          console.log('Device creation rolled back successfully');
+        } catch (rollbackErr) {
+          console.error('CRITICAL: Failed to rollback device creation:', rollbackErr.message);
+        }
+      }
+
+      // Rollback transaction creation
+      if (transactionCreated) {
+        try {
+          await Transaction.deleteOne({ _id: transactionCreated._id });
+          console.log('Transaction creation rolled back successfully');
+        } catch (rollbackErr) {
+          console.error('CRITICAL: Failed to rollback transaction creation:', rollbackErr.message);
+        }
+      }
+
+      if (err.code === 11000) {
+        return res.status(400).json({ message: 'Duplicate IMEI, ICCID, or Serial Number detected.' });
+      }
+      res.status(500).json({ message: err.message || 'Server error' });
+    }
+  } catch (outerErr) {
+    console.error('Create device outer error:', outerErr.message);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -563,43 +673,237 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
       return res.status(400).json({ message: 'A device with this Serial Number already exists.' });
     }
 
-    let expiryDate = device.expiryDate;
-    if (input.validity !== device.validity) {
-      expiryDate = addYears(device.presentDate || new Date(), input.validity === '2 Years' ? 2 : 1);
-    }
-    const dealerName = labelForUser(ownership.dealer);
-    const subDealerName = ownership.subDealer ? labelForUser(ownership.subDealer) : input.subDealerName;
+    const oldBillAmount = device.billAmount || 0;
+    const oldUserId = device.userId;
+    const newBillAmount = Number(input.billAmount) || 0;
+    const newUserId = ownership.ownerId;
 
-    device.userId = ownership.ownerId;
-    device.dealerId = ownership.dealer?._id || null;
-    device.dealerName = dealerName;
-    device.subDealerId = ownership.subDealer?._id || null;
-    device.subDealerName = subDealerName || '';
-    device.vendor = input.vendor;
-    device.imei = input.imei;
-    device.imeiNumber = input.imei;
-    device.iccid = input.iccid;
-    device.iccidNumber = input.iccid;
-    device.serialNo = input.serialNo;
-    device.serialNumber = input.serialNo;
-    device.msisdn1 = input.msisdn1;
-    device.msisdn2 = input.msisdn2;
-    device.itrNo = input.itrNo;
-    device.billAmount = input.billAmount;
-    device.validity = input.validity;
-    device.expiryDate = expiryDate;
-    device.status = input.status;
-    device.hasSim = Boolean(input.msisdn1 || input.msisdn2 || input.iccid);
-    device.updatedAt = new Date();
+    const isSameOwner = oldUserId.toString() === newUserId.toString();
+    const oldOwner = await User.findById(oldUserId);
+    const newOwner = isSameOwner ? oldOwner : await User.findById(newUserId);
 
-    await device.save();
-    const populatedDevice = await populateDevice(Device.findById(device._id));
-    res.json({ message: 'Device updated successfully!', device: populatedDevice });
-  } catch (error) {
-    console.error('Update device error:', error.message);
-    if (error.code === 11000) {
-      return res.status(400).json({ message: 'Duplicate IMEI, ICCID, or Serial Number detected.' });
+    if (!newOwner) {
+      return res.status(404).json({ message: 'Target user not found for wallet check.' });
     }
+
+    // Check balance sufficiency
+    if (isSameOwner) {
+      const netChange = newBillAmount - oldBillAmount;
+      if (netChange > 0 && newOwner.availableBalance < netChange) {
+        return res.status(400).json({
+          message: `Insufficient wallet balance for ${newOwner.displayName || newOwner.username}. Required: ₹${netChange}, Available: ₹${newOwner.availableBalance}`
+        });
+      }
+    } else {
+      if (newBillAmount > 0 && newOwner.availableBalance < newBillAmount) {
+        return res.status(400).json({
+          message: `Insufficient wallet balance for ${newOwner.displayName || newOwner.username}. Required: ₹${newBillAmount}, Available: ₹${newOwner.availableBalance}`
+        });
+      }
+    }
+
+    let oldOwnerBalanceUpdated = false;
+    let newOwnerBalanceUpdated = false;
+    let transactionsCreated = [];
+
+    try {
+      if (isSameOwner) {
+        const netChange = newBillAmount - oldBillAmount;
+        if (netChange !== 0) {
+          newOwner.availableBalance -= netChange;
+          await newOwner.save();
+          newOwnerBalanceUpdated = true;
+
+          const randomNum = Math.floor(10000 + Math.random() * 90000);
+          const date = new Date();
+          const mm = String(date.getMonth() + 1).padStart(2, '0');
+          const dd = String(date.getDate()).padStart(2, '0');
+          const transactionId = `ITR_${mm}_${dd}_${randomNum}`;
+
+          const txType = netChange > 0 ? 'Debit' : 'Credit';
+          const txAmt = Math.abs(netChange);
+
+          const transaction = await Transaction.create({
+            userId: newOwner._id,
+            transactionId,
+            paymentId: device._id.toString(),
+            paymentFor: 'Device Purchase Adjustment',
+            referenceNo: input.imei,
+            payMode: 'Itwallet',
+            transactionType: txType,
+            status: 'Success',
+            remarks: `Device adjustment: IMEI ${input.imei} (Bill amount changed from ₹${oldBillAmount} to ₹${newBillAmount})`,
+            requestedAmt: txAmt,
+            transactedAmt: txAmt,
+            deviceName: input.deviceName,
+            imei: input.imei,
+            iccid: input.iccid,
+            serialNo: input.serialNo,
+            balanceAfterTransaction: newOwner.availableBalance,
+            createdBy: req.user._id,
+          });
+          transactionsCreated.push(transaction);
+        }
+      } else {
+        // Refund old owner
+        if (oldOwner && oldBillAmount > 0) {
+          oldOwner.availableBalance += oldBillAmount;
+          await oldOwner.save();
+          oldOwnerBalanceUpdated = true;
+
+          const randomNum = Math.floor(10000 + Math.random() * 90000);
+          const date = new Date();
+          const mm = String(date.getMonth() + 1).padStart(2, '0');
+          const dd = String(date.getDate()).padStart(2, '0');
+          const transactionId = `ITR_${mm}_${dd}_${randomNum}`;
+
+          const transaction = await Transaction.create({
+            userId: oldOwner._id,
+            transactionId,
+            paymentId: device._id.toString(),
+            paymentFor: 'Device Reassignment Refund',
+            referenceNo: input.imei,
+            payMode: 'Itwallet',
+            transactionType: 'Credit',
+            status: 'Success',
+            remarks: `Refund: Device IMEI ${input.imei} reassigned to another dealer`,
+            requestedAmt: oldBillAmount,
+            transactedAmt: oldBillAmount,
+            deviceName: input.deviceName,
+            imei: input.imei,
+            iccid: input.iccid,
+            serialNo: input.serialNo,
+            balanceAfterTransaction: oldOwner.availableBalance,
+            createdBy: req.user._id,
+          });
+          transactionsCreated.push(transaction);
+        }
+
+        // Charge new owner
+        if (newBillAmount > 0) {
+          newOwner.availableBalance -= newBillAmount;
+          await newOwner.save();
+          newOwnerBalanceUpdated = true;
+
+          const randomNum = Math.floor(10000 + Math.random() * 90000);
+          const date = new Date();
+          const mm = String(date.getMonth() + 1).padStart(2, '0');
+          const dd = String(date.getDate()).padStart(2, '0');
+          const transactionId = `ITR_${mm}_${dd}_${randomNum}`;
+
+          const transaction = await Transaction.create({
+            userId: newOwner._id,
+            transactionId,
+            paymentId: device._id.toString(),
+            paymentFor: 'Device Purchase',
+            referenceNo: input.imei,
+            payMode: 'Itwallet',
+            transactionType: 'Debit',
+            status: 'Success',
+            remarks: `Device Purchase: IMEI ${input.imei}`,
+            requestedAmt: newBillAmount,
+            transactedAmt: newBillAmount,
+            deviceName: input.deviceName,
+            imei: input.imei,
+            iccid: input.iccid,
+            serialNo: input.serialNo,
+            balanceAfterTransaction: newOwner.availableBalance,
+            createdBy: req.user._id,
+          });
+          transactionsCreated.push(transaction);
+        }
+      }
+
+      let expiryDate = device.expiryDate;
+      if (input.validity !== device.validity) {
+        expiryDate = addYears(device.presentDate || new Date(), input.validity === '2 Years' ? 2 : 1);
+      }
+      const dealerName = labelForUser(ownership.dealer);
+      const subDealerName = ownership.subDealer ? labelForUser(ownership.subDealer) : input.subDealerName;
+
+      device.userId = ownership.ownerId;
+      device.dealerId = ownership.dealer?._id || null;
+      device.dealerName = dealerName;
+      device.subDealerId = ownership.subDealer?._id || null;
+      device.subDealerName = subDealerName || '';
+      device.vendor = input.vendor;
+      device.imei = input.imei;
+      device.imeiNumber = input.imei;
+      device.iccid = input.iccid;
+      device.iccidNumber = input.iccid;
+      device.serialNo = input.serialNo;
+      device.serialNumber = input.serialNo;
+      device.msisdn1 = input.msisdn1;
+      device.msisdn2 = input.msisdn2;
+      device.itrNo = input.itrNo;
+      device.billAmount = newBillAmount;
+      device.validity = input.validity;
+      device.expiryDate = expiryDate;
+      device.status = input.status;
+      device.hasSim = Boolean(input.msisdn1 || input.msisdn2 || input.iccid);
+      device.updatedAt = new Date();
+
+      await device.save();
+
+      await AuditLog.create({
+        userId: req.user._id,
+        action: 'DEVICE_UPDATE',
+        ipAddress: req.ip || '',
+        details: {
+          imei: input.imei,
+          updatedFields: {
+            oldBillAmount,
+            newBillAmount,
+            oldUserId,
+            newUserId
+          }
+        }
+      }).catch((e) => console.error('Failed to log audit event:', e.message));
+
+      const populatedDevice = await populateDevice(Device.findById(device._id));
+      res.json({ message: 'Device updated successfully!', device: populatedDevice });
+
+    } catch (err) {
+      console.error('Update device database operations failed, rolling back:', err.message);
+
+      if (oldOwnerBalanceUpdated && oldOwner) {
+        try {
+          oldOwner.availableBalance -= oldBillAmount;
+          await oldOwner.save();
+        } catch (rErr) {
+          console.error('CRITICAL: Failed to rollback old owner balance:', rErr.message);
+        }
+      }
+
+      if (newOwnerBalanceUpdated && newOwner) {
+        try {
+          if (isSameOwner) {
+            const netChange = newBillAmount - oldBillAmount;
+            newOwner.availableBalance += netChange;
+          } else {
+            newOwner.availableBalance += newBillAmount;
+          }
+          await newOwner.save();
+        } catch (rErr) {
+          console.error('CRITICAL: Failed to rollback new owner balance:', rErr.message);
+        }
+      }
+
+      for (const tx of transactionsCreated) {
+        try {
+          await Transaction.deleteOne({ _id: tx._id });
+        } catch (rErr) {
+          console.error('CRITICAL: Failed to delete transaction log on rollback:', rErr.message);
+        }
+      }
+
+      if (err.code === 11000) {
+        return res.status(400).json({ message: 'Duplicate IMEI, ICCID, or Serial Number detected.' });
+      }
+      res.status(500).json({ message: err.message || 'Server error' });
+    }
+  } catch (outerErr) {
+    console.error('Update device outer error:', outerErr.message);
     res.status(500).json({ message: 'Server error' });
   }
 });

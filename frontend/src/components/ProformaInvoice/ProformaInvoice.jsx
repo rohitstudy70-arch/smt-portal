@@ -31,6 +31,26 @@ const ProformaInvoice = () => {
     }
   }, [invoiceId]);
 
+  const getSenderDetails = (userObj) => {
+    const isAdmin = !userObj || userObj.role === 'partner' || userObj.userType === 'Administration';
+    if (isAdmin) {
+      return {
+        brandName: 'Arshi GPS',
+        companyName: 'Arshi Enterprises',
+        address: 'Near Brajesh Auto Mobile Maranga',
+        cityStatePin: 'Purnea, Bihar, 854304',
+        gstNo: '10ATIPK1589P1ZA'
+      };
+    }
+    return {
+      brandName: userObj.companyName || userObj.displayName || userObj.username || 'Arshi GPS',
+      companyName: userObj.companyName || userObj.displayName || '',
+      address: userObj.address || '',
+      cityStatePin: `${userObj.city || ''}${userObj.city && userObj.state ? ', ' : ''}${userObj.state || ''}${userObj.pincode ? ' - ' : ''}${userObj.pincode || ''}`,
+      gstNo: userObj.gstNo || ''
+    };
+  };
+
   const numberToWords = (price) => {
     const s = Math.round(price);
     const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
@@ -86,6 +106,7 @@ const ProformaInvoice = () => {
     const customerAddress = invoice.address || 'PAPRAPUR, Begusarai, Bihar, 851210';
     const customerMob = invoice.rmn || '9031622921';
     const customerGstin = invoice.poaNo || '10AAECJ5132H1Z3';
+    const sender = getSenderDetails(invoice.userId);
 
     let itemsHtml = '';
     invoice.items.forEach((item, index) => {
@@ -177,12 +198,12 @@ const ProformaInvoice = () => {
         <div class="page" id="invoice">
           <div class="header">
             <div>
-              <div class="brand-name">Arshi GPS</div>
+              <div class="brand-name">${sender.brandName}</div>
               <div class="brand-sub">
-                Arshi Enterprises<br>
-                Near Brajesh Auto Mobile Maranga,<br>
-                Purnea, Bihar, 854304<br>
-                GST No: 10ATIPK1589P1ZA
+                ${sender.companyName ? `${sender.companyName}<br>` : ''}
+                ${sender.address ? `${sender.address}<br>` : ''}
+                ${sender.cityStatePin ? `${sender.cityStatePin}<br>` : ''}
+                ${sender.gstNo ? `GST No: ${sender.gstNo}` : ''}
               </div>
             </div>
             <div class="invoice-title-block">
@@ -309,6 +330,7 @@ const ProformaInvoice = () => {
   const customerAddress = invoice.address || 'PAPRAPUR, Begusarai, Bihar, 851210';
   const customerMob = invoice.rmn || '9031622921';
   const customerGstin = invoice.poaNo || '10AAECJ5132H1Z3';
+  const sender = getSenderDetails(invoice.userId);
 
   return (
     <div className="proforma-invoice-wrapper">
@@ -324,12 +346,12 @@ const ProformaInvoice = () => {
       <div className="proforma-page">
         <div className="proforma-header">
           <div>
-            <div className="proforma-brand-name">Arshi GPS</div>
+            <div className="proforma-brand-name">{sender.brandName}</div>
             <div className="proforma-brand-sub">
-              Arshi Enterprises<br />
-              Near Brajesh Auto Mobile Maranga,<br />
-              Purnea, Bihar, 854304<br />
-              GST No: 10ATIPK1589P1ZA
+              {sender.companyName && <>{sender.companyName}<br /></>}
+              {sender.address && <>{sender.address}<br /></>}
+              {sender.cityStatePin && <>{sender.cityStatePin}<br /></>}
+              {sender.gstNo && <>GST No: {sender.gstNo}</>}
             </div>
           </div>
           <div className="proforma-invoice-title-block">

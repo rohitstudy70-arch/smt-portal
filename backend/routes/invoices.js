@@ -143,7 +143,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.get('/next-pi-no', requireRoles(...operationsRoles), async (req, res) => {
+router.get('/next-pi-no', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
   try {
     const [nextPiNo, nextInvoiceNo] = await Promise.all([
       generateNextPiNo(),
@@ -162,7 +162,7 @@ router.get('/:id', async (req, res) => {
     const invoice = await Invoice.findOne({
       _id: req.params.id,
       ...buildInvoiceScope(req.user, req.hierarchyScope),
-    });
+    }).populate('userId');
 
     if (!invoice) {
       return res.status(404).json({ message: 'Invoice not found' });
@@ -175,7 +175,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.post('/', requireRoles(...operationsRoles), async (req, res) => {
+router.post('/', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
   try {
     const {
       vehicleType,

@@ -1,6 +1,8 @@
 const express = require('express');
 const ActivationRequest = require('../models/ActivationRequest');
 const Device = require('../models/Device');
+const User = require('../models/User');
+const Transaction = require('../models/Transaction');
 const { protect } = require('../middleware/auth');
 const {
   PORTAL_ROLES,
@@ -124,6 +126,29 @@ router.post('/', requireRoles(...operationsRoles), async (req, res) => {
         .json({ message: 'IMEI is required. Please select a device.' });
     }
 
+    const device = await Device.findOne({ imei });
+    const targetUserId = device ? (device.subDealerId || device.dealerId || req.user._id) : req.user._id;
+
+    const targetUser = await User.findById(targetUserId);
+    if (!targetUser) {
+      return res.status(404).json({ message: 'Target dealer or sub-dealer user not found.' });
+    }
+
+    const reqAmount = Number(amount) || 0;
+    if (reqAmount > 0) {
+      if (targetUser.availableBalance < reqAmount) {
+        return res.status(400).json({
+          message: `Insufficient balance in wallet of ${targetUser.displayName || targetUser.username}. Available balance: ₹${targetUser.availableBalance}`
+        });
+      }
+    }
+
+    // Deduct amount from wallet balance
+    if (reqAmount > 0) {
+      targetUser.availableBalance -= reqAmount;
+      await targetUser.save();
+    }
+
     const requestId = await generateRequestId();
 
     const activationRequest = await ActivationRequest.create({
@@ -136,7 +161,7 @@ router.post('/', requireRoles(...operationsRoles), async (req, res) => {
       requestType: requestType || 'Commercial Plan',
       plan: plan || '',
       piNo: piNo || '',
-      amount: amount || 0,
+      amount: reqAmount,
       remarks: remarks || '',
       status: 'Requested',
       // Activation form fields
@@ -168,25 +193,44 @@ router.post('/', requireRoles(...operationsRoles), async (req, res) => {
       address: address || '',
     });
 
-    // Automatically assign the device to the dealer/sub-dealer it belongs to, or the user raising the request
+    // Create a transaction in ledger for the deducted amount
+    if (reqAmount > 0) {
+      const randomNum = Math.floor(10000 + Math.random() * 90000);
+      const date = new Date();
+      const mm = String(date.getMonth() + 1).padStart(2, '0');
+      const dd = String(date.getDate()).padStart(2, '0');
+      const transactionId = `ITR_${mm}_${dd}_${randomNum}`;
+
+      await Transaction.create({
+        userId: targetUser._id,
+        transactionId,
+        paymentId: requestId,
+        paymentFor: 'Sim Activation',
+        referenceNo: piNo || requestId,
+        payMode: 'Itwallet',
+        transactionType: 'Debit',
+        status: 'Success',
+        remarks: remarks || `Activation Request raised for IMEI ${imei}`,
+        requestedAmt: reqAmount,
+        transactedAmt: reqAmount,
+      });
+    }
+
+    // Automatically assign the device to the dealer/sub-dealer
     try {
-      const device = await Device.findOne({ imei });
       if (device) {
-        const targetAssignee = device.subDealerId || device.dealerId || req.user._id;
         const fromUser = device.assignedTo;
-        device.assignedTo = targetAssignee;
+        device.assignedTo = targetUser._id;
         device.updatedAt = new Date();
         device.assignmentHistory.push({
           fromUser: fromUser || null,
-          toUser: targetAssignee,
+          toUser: targetUser._id,
           action: 'Assigned',
           note: 'Assigned automatically upon raising activation request',
           changedBy: req.user._id,
         });
         await device.save();
-        console.log(`Automatically assigned device ${imei} to user ${targetAssignee}`);
-      } else {
-        console.warn(`Device with IMEI ${imei} not found for automatic assignment`);
+        console.log(`Automatically assigned device ${imei} to user ${targetUser._id}`);
       }
     } catch (assignError) {
       console.error('Error during automatic device assignment:', assignError.message);

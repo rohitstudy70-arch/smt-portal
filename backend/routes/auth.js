@@ -76,6 +76,7 @@ router.post('/login', async (req, res) => {
       companyName: user.companyName,
       availableBalance: user.availableBalance,
       overDrawnAmount: user.overDrawnAmount,
+      gstNo: user.gstNo || '',
       token: generateToken(user._id),
     };
     responsePayload.user = {
@@ -95,6 +96,7 @@ router.post('/login', async (req, res) => {
       companyName: user.companyName,
       availableBalance: user.availableBalance,
       overDrawnAmount: user.overDrawnAmount,
+      gstNo: user.gstNo || '',
     };
     res.json(responsePayload);
   } catch (error) {
@@ -154,7 +156,19 @@ router.post('/change-password', protect, async (req, res) => {
 // @access  Protected
 router.put('/update-profile', protect, async (req, res) => {
   try {
-    const { username, companyName } = req.body;
+    const {
+      username,
+      companyName,
+      displayName,
+      contactPerson,
+      mobileNo,
+      email,
+      address,
+      city,
+      state,
+      pincode,
+      gstNo
+    } = req.body;
 
     const user = await User.findById(req.user._id);
 
@@ -168,9 +182,16 @@ router.put('/update-profile', protect, async (req, res) => {
       }
     }
 
-    if (companyName !== undefined) {
-      user.companyName = companyName;
-    }
+    if (companyName !== undefined) user.companyName = companyName;
+    if (displayName !== undefined) user.displayName = displayName;
+    if (contactPerson !== undefined) user.contactPerson = contactPerson;
+    if (mobileNo !== undefined) user.mobileNo = mobileNo;
+    if (email !== undefined) user.email = email;
+    if (address !== undefined) user.address = address;
+    if (city !== undefined) user.city = city;
+    if (state !== undefined) user.state = state;
+    if (pincode !== undefined) user.pincode = pincode;
+    if (gstNo !== undefined) user.gstNo = gstNo;
 
     const updatedUser = await user.save();
 
@@ -179,7 +200,17 @@ router.put('/update-profile', protect, async (req, res) => {
       username: updatedUser.username,
       role: updatedUser.role,
       parentId: updatedUser.parentId,
-      companyName: updatedUser.companyName,
+      userType: updatedUser.userType || '',
+      displayName: updatedUser.displayName || '',
+      companyName: updatedUser.companyName || '',
+      contactPerson: updatedUser.contactPerson || '',
+      mobileNo: updatedUser.mobileNo || '',
+      email: updatedUser.email || '',
+      address: updatedUser.address || '',
+      city: updatedUser.city || '',
+      state: updatedUser.state || '',
+      pincode: updatedUser.pincode || '',
+      gstNo: updatedUser.gstNo || '',
       availableBalance: updatedUser.availableBalance,
       overDrawnAmount: updatedUser.overDrawnAmount,
     });

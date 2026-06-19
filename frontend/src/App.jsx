@@ -65,7 +65,7 @@ function App() {
         <Route
           path="/invoice-generator"
           element={
-            <ProtectedRoute allowedRoles={operationsRoles}>
+            <ProtectedRoute allowedRoles={['ADMIN']}>
               <Layout>
                 <InvoiceGenerator />
               </Layout>

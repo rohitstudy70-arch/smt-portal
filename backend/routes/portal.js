@@ -147,6 +147,7 @@ const normalizeUser = (user) => ({
   state: user.state || '',
   pincode: user.pincode || '',
   status: user.status || 'Active',
+  gstNo: user.gstNo || '',
   parentId: user.parentId,
   createdAt: user.createdAt,
 });
@@ -287,6 +288,7 @@ router.post('/users', protect, async (req, res) => {
       city,
       state,
       pincode,
+      gstNo,
     } = req.body;
 
     if (!userType || !username || !password) {
@@ -345,6 +347,7 @@ router.post('/users', protect, async (req, res) => {
       city: city || '',
       state: state || '',
       pincode: pincode || '',
+      gstNo: gstNo || '',
       status: 'Active',
     });
 
@@ -400,6 +403,7 @@ router.put('/users/:id', protect, async (req, res) => {
       'state',
       'pincode',
       'status',
+      'gstNo',
     ];
 
     fields.forEach((field) => {

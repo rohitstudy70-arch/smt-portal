@@ -48,14 +48,29 @@ const Sidebar = () => {
     || (location.pathname === '/dashboard' && ['devices', 'mydevices'].includes(currentPortalView))
   );
 
+  const getInitials = (name) => {
+    if (!name) return 'AE';
+    const cleanName = name.replace(/[^a-zA-Z0-9\s]/g, '').trim();
+    const parts = cleanName.split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return 'AE';
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  };
+
+  const brandName = role === 'ADMIN'
+    ? 'Arshi Enterprises'
+    : (user?.companyName || user?.displayName || user?.username || 'Arshi Enterprises');
+
+  const brandLogoText = role === 'ADMIN' ? 'AE' : getInitials(brandName);
+
   return (
     <div className="sidebar">
       <div className="sidebar-brand">
         <div className="brand-logo-container">
-          <span className="brand-logo-text">AE</span>
+          <span className="brand-logo-text">{brandLogoText}</span>
         </div>
         <div className="brand-title-group">
-          <h2>Arshi Enterprises</h2>
+          <h2>{brandName}</h2>
           <span>Customer Device Portal</span>
         </div>
       </div>
@@ -68,7 +83,7 @@ const Sidebar = () => {
           </NavLink>
         </li>
 
-        {canShow(operationsRoles) && (
+        {canShow(['ADMIN']) && (
           <li className={`sidebar-menu-item ${location.pathname === '/invoice-generator' ? 'active' : ''}`}>
             <NavLink to="/invoice-generator">
               <FaFileInvoiceDollar className="menu-icon" />

@@ -9,6 +9,7 @@ const {
   ensureUserInHierarchy,
   attachHierarchyScope,
   requireRoles,
+  buildDeviceScopeQuery,
 } = require('../middleware/hierarchy');
 
 const router = express.Router();
@@ -66,6 +67,333 @@ router.get('/transactions', requireRoles(...operationsRoles), async (req, res) =
     });
   } catch (error) {
     console.error('Get transactions error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+const Device = require('../models/Device');
+
+const syncOldDeviceTransactions = async (userIds) => {
+  try {
+    const devices = await Device.find({
+      userId: { $in: userIds },
+      billAmount: { $gt: 0 }
+    });
+
+    if (devices.length === 0) return;
+
+    // Get all existing transaction referenceNos or paymentIds in one query to optimize
+    const existingTx = await Transaction.find({
+      userId: { $in: userIds }
+    }, 'paymentId referenceNo');
+
+    const txPaymentIds = new Set(existingTx.map(t => t.paymentId));
+    const txRefNos = new Set(existingTx.map(t => t.referenceNo));
+
+    const toCreate = [];
+
+    for (const dev of devices) {
+      const devIdStr = dev._id.toString();
+      const hasTx = txPaymentIds.has(devIdStr) || txRefNos.has(dev.imei);
+
+      if (!hasTx) {
+        const randomNum = Math.floor(10000 + Math.random() * 90000);
+        const date = dev.presentDate || dev.createdAt || new Date();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        const transactionId = `ITR_${mm}_${dd}_${randomNum}`;
+
+        toCreate.push({
+          userId: dev.userId,
+          transactionId,
+          paymentId: devIdStr,
+          paymentFor: 'Device Purchase',
+          referenceNo: dev.imei,
+          payMode: 'Itwallet',
+          transactionType: 'Debit',
+          status: 'Success',
+          remarks: `Auto-synced: Device Purchase (IMEI ${dev.imei})`,
+          requestedAmt: dev.billAmount,
+          transactedAmt: dev.billAmount,
+          deviceName: dev.deviceName,
+          imei: dev.imei,
+          iccid: dev.iccid,
+          serialNo: dev.serialNo,
+          balanceAfterTransaction: 0,
+          createdBy: dev.createdBy || dev.userId,
+          date: date
+        });
+      }
+    }
+
+    if (toCreate.length > 0) {
+      await Transaction.insertMany(toCreate);
+      console.log(`Auto-synced ${toCreate.length} missing device transactions to ledger.`);
+    }
+  } catch (err) {
+    console.error('Error during auto-sync of old device transactions:', err.message);
+  }
+};
+
+// @route   GET /api/wallet/ledger-dashboard
+// @desc    Get ledger dashboard summaries, analytics, and paginated transactions
+// @access  Protected
+router.get('/ledger-dashboard', requireRoles(...operationsRoles), async (req, res) => {
+  try {
+    // Auto-sync missing transactions from devices
+    await syncOldDeviceTransactions(req.hierarchyScope.userIds);
+
+    const { fromDate, toDate, search, type, dealerId, limit = 10, page = 1 } = req.query;
+
+    let targetUserId = null;
+    let selectedUser = null;
+
+    if (dealerId) {
+      // Validate that the dealerId is in hierarchy
+      selectedUser = await ensureUserInHierarchy(dealerId, req.hierarchyScope);
+      if (!selectedUser) {
+        return res.status(403).json({ message: 'Access denied: Selected dealer is not in your hierarchy.' });
+      }
+      targetUserId = selectedUser._id;
+    } else if (req.portalRole !== PORTAL_ROLES.ADMIN) {
+      // Default non-admin to themselves
+      targetUserId = req.user._id;
+      selectedUser = req.user;
+    }
+
+    const transactionQuery = {};
+    if (targetUserId) {
+      transactionQuery.userId = targetUserId;
+    } else {
+      // If Admin and no dealerId is selected, show transactions for all users in Admin's scope
+      transactionQuery.userId = { $in: req.hierarchyScope.userIds };
+    }
+
+    // Date filters
+    if (fromDate || toDate) {
+      transactionQuery.date = {};
+      if (fromDate) {
+        transactionQuery.date.$gte = new Date(fromDate);
+      }
+      if (toDate) {
+        const end = new Date(toDate);
+        if (!isNaN(end.getTime())) {
+          end.setHours(23, 59, 59, 999);
+          transactionQuery.date.$lte = end;
+        }
+      }
+    }
+
+    // Type filter
+    if (type && ['Credit', 'Debit'].includes(type)) {
+      transactionQuery.transactionType = type;
+    }
+
+    // Search query
+    if (search) {
+      const searchRegex = new RegExp(search.trim(), 'i');
+      transactionQuery.$or = [
+        { transactionId: searchRegex },
+        { paymentId: searchRegex },
+        { paymentFor: searchRegex },
+        { referenceNo: searchRegex },
+        { remarks: searchRegex },
+        { deviceName: searchRegex },
+        { imei: searchRegex },
+        { iccid: searchRegex },
+        { serialNo: searchRegex }
+      ];
+    }
+
+    const parsedLimit = Math.min(parseInt(limit, 10) || 10, 500);
+    const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
+
+    const [transactions, total] = await Promise.all([
+      Transaction.find(transactionQuery)
+        .populate('userId', 'displayName companyName username userType')
+        .populate('createdBy', 'displayName companyName username userType')
+        .sort({ date: -1 })
+        .skip((parsedPage - 1) * parsedLimit)
+        .limit(parsedLimit),
+      Transaction.countDocuments(transactionQuery),
+    ]);
+
+    // Calculate Summary Metrics
+    const summaryAgg = await Transaction.aggregate([
+      { $match: transactionQuery },
+      {
+        $group: {
+          _id: '$transactionType',
+          total: { $sum: '$transactedAmt' }
+        }
+      }
+    ]);
+
+    let totalCredit = 0;
+    let totalDebit = 0;
+    summaryAgg.forEach(item => {
+      if (item._id === 'Credit') totalCredit = item.total;
+      if (item._id === 'Debit') totalDebit = item.total;
+    });
+
+    let currentBalance = 0;
+    if (targetUserId) {
+      const userDoc = await User.findById(targetUserId);
+      currentBalance = userDoc ? (userDoc.availableBalance || 0) : 0;
+    } else {
+      // Sum of all users' balances in hierarchy scope
+      const usersBalances = await User.find({ _id: { $in: req.hierarchyScope.userIds } }, 'availableBalance');
+      currentBalance = usersBalances.reduce((sum, u) => sum + (u.availableBalance || 0), 0);
+    }
+
+    // Calculate total devices assigned
+    let totalDevicesAssigned = 0;
+    if (targetUserId) {
+      totalDevicesAssigned = await Device.countDocuments({
+        $or: [
+          { dealerId: targetUserId },
+          { subDealerId: targetUserId },
+          { userId: targetUserId }
+        ]
+      });
+    } else {
+      totalDevicesAssigned = await Device.countDocuments(buildDeviceScopeQuery(req.hierarchyScope));
+    }
+
+    // Calculate Analytics
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const todayQuery = {
+      userId: transactionQuery.userId,
+      date: { $gte: todayStart, $lte: todayEnd }
+    };
+
+    const todayAgg = await Transaction.aggregate([
+      { $match: todayQuery },
+      {
+        $group: {
+          _id: '$transactionType',
+          total: { $sum: '$transactedAmt' }
+        }
+      }
+    ]);
+
+    let todayTotalCredit = 0;
+    let todayTotalDebit = 0;
+    todayAgg.forEach(item => {
+      if (item._id === 'Credit') todayTotalCredit = item.total;
+      if (item._id === 'Debit') todayTotalDebit = item.total;
+    });
+
+    // Monthly Sales
+    const currentYearStart = new Date(new Date().getFullYear(), 0, 1);
+    const monthlyQuery = {
+      userId: transactionQuery.userId,
+      transactionType: 'Debit',
+      date: { $gte: currentYearStart }
+    };
+
+    const monthlyAgg = await Transaction.aggregate([
+      { $match: monthlyQuery },
+      {
+        $group: {
+          _id: { $month: '$date' },
+          total: { $sum: '$transactedAmt' }
+        }
+      },
+      { $sort: { '_id': 1 } }
+    ]);
+
+    const monthlySales = Array.from({ length: 12 }, (_, i) => ({
+      month: new Date(0, i).toLocaleString('default', { month: 'short' }),
+      total: 0
+    }));
+
+    monthlyAgg.forEach(item => {
+      const monthIndex = item._id - 1;
+      if (monthIndex >= 0 && monthIndex < 12) {
+        monthlySales[monthIndex].total = item.total;
+      }
+    });
+
+    // Pending Dues
+    let pendingDues = 0;
+    if (targetUserId) {
+      if (selectedUser && selectedUser.availableBalance < 0) {
+        pendingDues = Math.abs(selectedUser.availableBalance);
+      } else {
+        const userDoc = await User.findById(targetUserId);
+        if (userDoc && userDoc.availableBalance < 0) {
+          pendingDues = Math.abs(userDoc.availableBalance);
+        }
+      }
+    } else {
+      const negativeUsers = await User.find({
+        _id: { $in: req.hierarchyScope.userIds },
+        availableBalance: { $lt: 0 }
+      }, 'availableBalance');
+      pendingDues = negativeUsers.reduce((sum, u) => sum + Math.abs(u.availableBalance), 0);
+    }
+
+    // Top Dealers
+    let topDealers = [];
+    if (req.portalRole === PORTAL_ROLES.ADMIN) {
+      const topDealersAgg = await Transaction.aggregate([
+        {
+          $match: {
+            transactionType: 'Debit',
+            userId: { $in: req.hierarchyScope.userIds }
+          }
+        },
+        {
+          $group: {
+            _id: '$userId',
+            totalDebit: { $sum: '$transactedAmt' }
+          }
+        },
+        { $sort: { totalDebit: -1 } },
+        { $limit: 5 }
+      ]);
+
+      const dealerIds = topDealersAgg.map(item => item._id);
+      const dealerDocs = await User.find({ _id: { $in: dealerIds } }, 'displayName companyName username userType');
+
+      topDealers = topDealersAgg.map(item => {
+        const userDoc = dealerDocs.find(d => d._id.toString() === item._id.toString());
+        return {
+          userId: item._id,
+          name: userDoc ? (userDoc.displayName || userDoc.companyName || userDoc.username) : 'Unknown Dealer',
+          role: userDoc ? userDoc.userType : 'Dealer',
+          totalDebit: item.totalDebit
+        };
+      });
+    }
+
+    res.json({
+      transactions,
+      total,
+      pages: Math.ceil(total / parsedLimit),
+      currentPage: parsedPage,
+      summary: {
+        totalCredit,
+        totalDebit,
+        currentBalance,
+        totalDevicesAssigned
+      },
+      analytics: {
+        todayTotalCredit,
+        todayTotalDebit,
+        monthlySales,
+        pendingDues,
+        topDealers
+      }
+    });
+
+  } catch (error) {
+    console.error('Ledger dashboard error:', error.message);
     res.status(500).json({ message: 'Server error' });
   }
 });
