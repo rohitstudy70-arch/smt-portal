@@ -486,26 +486,11 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
     }
 
     const billAmt = Number(input.billAmount) || 0;
-    if (billAmt > 0) {
-      if (targetUser.availableBalance < billAmt) {
-        return res.status(400).json({
-          message: `Insufficient wallet balance for ${targetUser.displayName || targetUser.username}. Available balance: ₹${targetUser.availableBalance}`
-        });
-      }
-    }
 
-    let balanceUpdated = false;
     let deviceCreated = null;
     let transactionCreated = null;
 
     try {
-      // Deduct from wallet balance
-      if (billAmt > 0) {
-        targetUser.availableBalance -= billAmt;
-        await targetUser.save();
-        balanceUpdated = true;
-      }
-
       const presentDate = new Date();
       const expiryDate = addYears(presentDate, input.validity === '2 Years' ? 2 : 1);
       const dealerName = labelForUser(ownership.dealer);
@@ -564,7 +549,7 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
           imei: input.imei,
           iccid: input.iccid,
           serialNo: input.serialNo,
-          balanceAfterTransaction: targetUser.availableBalance,
+          balanceAfterTransaction: targetUser.availableBalance || 0,
           createdBy: req.user._id,
         });
       }
@@ -587,17 +572,6 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
       res.status(201).json({ message: 'Device added successfully!', device: populatedDevice });
     } catch (err) {
       console.error('Device assignment / creation error, rolling back changes:', err.message);
-
-      // Rollback balance update
-      if (balanceUpdated) {
-        try {
-          targetUser.availableBalance += billAmt;
-          await targetUser.save();
-          console.log('Balance rolled back successfully');
-        } catch (rollbackErr) {
-          console.error('CRITICAL: Failed to rollback wallet balance:', rollbackErr.message);
-        }
-      }
 
       // Rollback device creation
       if (deviceCreated) {
@@ -686,34 +660,12 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
       return res.status(404).json({ message: 'Target user not found for wallet check.' });
     }
 
-    // Check balance sufficiency
-    if (isSameOwner) {
-      const netChange = newBillAmount - oldBillAmount;
-      if (netChange > 0 && newOwner.availableBalance < netChange) {
-        return res.status(400).json({
-          message: `Insufficient wallet balance for ${newOwner.displayName || newOwner.username}. Required: ₹${netChange}, Available: ₹${newOwner.availableBalance}`
-        });
-      }
-    } else {
-      if (newBillAmount > 0 && newOwner.availableBalance < newBillAmount) {
-        return res.status(400).json({
-          message: `Insufficient wallet balance for ${newOwner.displayName || newOwner.username}. Required: ₹${newBillAmount}, Available: ₹${newOwner.availableBalance}`
-        });
-      }
-    }
-
-    let oldOwnerBalanceUpdated = false;
-    let newOwnerBalanceUpdated = false;
     let transactionsCreated = [];
 
     try {
       if (isSameOwner) {
         const netChange = newBillAmount - oldBillAmount;
         if (netChange !== 0) {
-          newOwner.availableBalance -= netChange;
-          await newOwner.save();
-          newOwnerBalanceUpdated = true;
-
           const randomNum = Math.floor(10000 + Math.random() * 90000);
           const date = new Date();
           const mm = String(date.getMonth() + 1).padStart(2, '0');
@@ -739,7 +691,7 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
             imei: input.imei,
             iccid: input.iccid,
             serialNo: input.serialNo,
-            balanceAfterTransaction: newOwner.availableBalance,
+            balanceAfterTransaction: newOwner.availableBalance || 0,
             createdBy: req.user._id,
           });
           transactionsCreated.push(transaction);
@@ -747,10 +699,6 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
       } else {
         // Refund old owner
         if (oldOwner && oldBillAmount > 0) {
-          oldOwner.availableBalance += oldBillAmount;
-          await oldOwner.save();
-          oldOwnerBalanceUpdated = true;
-
           const randomNum = Math.floor(10000 + Math.random() * 90000);
           const date = new Date();
           const mm = String(date.getMonth() + 1).padStart(2, '0');
@@ -773,7 +721,7 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
             imei: input.imei,
             iccid: input.iccid,
             serialNo: input.serialNo,
-            balanceAfterTransaction: oldOwner.availableBalance,
+            balanceAfterTransaction: oldOwner.availableBalance || 0,
             createdBy: req.user._id,
           });
           transactionsCreated.push(transaction);
@@ -781,10 +729,6 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
 
         // Charge new owner
         if (newBillAmount > 0) {
-          newOwner.availableBalance -= newBillAmount;
-          await newOwner.save();
-          newOwnerBalanceUpdated = true;
-
           const randomNum = Math.floor(10000 + Math.random() * 90000);
           const date = new Date();
           const mm = String(date.getMonth() + 1).padStart(2, '0');
@@ -807,7 +751,7 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
             imei: input.imei,
             iccid: input.iccid,
             serialNo: input.serialNo,
-            balanceAfterTransaction: newOwner.availableBalance,
+            balanceAfterTransaction: newOwner.availableBalance || 0,
             createdBy: req.user._id,
           });
           transactionsCreated.push(transaction);
@@ -865,29 +809,6 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
 
     } catch (err) {
       console.error('Update device database operations failed, rolling back:', err.message);
-
-      if (oldOwnerBalanceUpdated && oldOwner) {
-        try {
-          oldOwner.availableBalance -= oldBillAmount;
-          await oldOwner.save();
-        } catch (rErr) {
-          console.error('CRITICAL: Failed to rollback old owner balance:', rErr.message);
-        }
-      }
-
-      if (newOwnerBalanceUpdated && newOwner) {
-        try {
-          if (isSameOwner) {
-            const netChange = newBillAmount - oldBillAmount;
-            newOwner.availableBalance += netChange;
-          } else {
-            newOwner.availableBalance += newBillAmount;
-          }
-          await newOwner.save();
-        } catch (rErr) {
-          console.error('CRITICAL: Failed to rollback new owner balance:', rErr.message);
-        }
-      }
 
       for (const tx of transactionsCreated) {
         try {
