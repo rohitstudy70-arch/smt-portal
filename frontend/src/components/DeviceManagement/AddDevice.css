@@ -433,6 +433,12 @@
   }
 }
 
+.action-buttons-cell {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .btn-action-edit {
   background: transparent;
   color: var(--accent-color);
@@ -451,5 +457,25 @@
 .btn-action-edit:hover {
   background: var(--accent-color);
   color: #0b131f;
+}
+
+.btn-action-delete {
+  background: transparent;
+  color: #ef4444;
+  border: 1px solid #ef4444;
+  padding: 6px 12px;
+  font-size: 11.5px;
+  font-weight: 700;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s;
+}
+
+.btn-action-delete:hover {
+  background: #ef4444;
+  color: #ffffff;
 }
 

@@ -9,6 +9,7 @@ import {
   FaSearch,
   FaTimesCircle,
   FaEdit,
+  FaTrash,
 } from 'react-icons/fa';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
@@ -268,6 +269,18 @@ const AddDevice = () => {
       setErrors((current) => ({ ...current, ...nextErrors }));
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDeleteDevice = async (deviceId, imei) => {
+    if (window.confirm(`Are you sure you want to permanently delete device with IMEI "${imei}"?`)) {
+      try {
+        const res = await api.delete(`/devices/${deviceId}`);
+        showToast('success', res.data.message || 'Device deleted successfully.');
+        await fetchDevices();
+      } catch (error) {
+        showToast('error', error.response?.data?.message || 'Failed to delete device.');
+      }
     }
   };
 
@@ -614,14 +627,24 @@ const AddDevice = () => {
                     <td>{getLinkedName(device.createdBy)}</td>
                     <td><span className={`device-status status-${String(device.status || 'active').toLowerCase()}`}>{device.status || 'Active'}</span></td>
                     <td>
-                      <button
-                        type="button"
-                        className="btn-action-edit"
-                        onClick={() => handleEditStart(device)}
-                        title="Edit Device"
-                      >
-                        <FaEdit /> Edit
-                      </button>
+                      <div className="action-buttons-cell">
+                        <button
+                          type="button"
+                          className="btn-action-edit"
+                          onClick={() => handleEditStart(device)}
+                          title="Edit Device"
+                        >
+                          <FaEdit /> Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-action-delete"
+                          onClick={() => handleDeleteDevice(device._id, device.imei)}
+                          title="Delete Device"
+                        >
+                          <FaTrash /> Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
