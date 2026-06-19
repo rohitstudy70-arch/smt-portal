@@ -525,7 +525,7 @@ const AddDevice = () => {
             </div>
 
             <div className="form-group">
-              <label>Present Date</label>
+              <label>Activation Date</label>
               <input type="text" value={formatDate(presentDate)} readOnly className="readonly-field" />
             </div>
 
@@ -585,7 +585,7 @@ const AddDevice = () => {
                 <th>MSISDN 2</th>
                 <th>Validity</th>
                 <th>Bill Amount</th>
-                <th>Present Date</th>
+                <th>Activation Date</th>
                 <th>Expiry Date</th>
                 <th>Created By</th>
                 <th>Status</th>

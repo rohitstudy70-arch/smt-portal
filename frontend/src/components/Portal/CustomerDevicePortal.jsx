@@ -462,7 +462,7 @@ const CustomerDevicePortal = () => {
   };
 
   const downloadDeviceReport = () => {
-    const headers = ['Device ID', 'Dealer', 'Sub Dealer', 'IMEI', 'ICCID', 'Serial No', 'MSISDN 1', 'MSISDN 2', 'Validity', 'Present Date', 'Expiry Date', 'Created By', 'Status'];
+    const headers = ['Device ID', 'Dealer', 'Sub Dealer', 'IMEI', 'ICCID', 'Serial No', 'MSISDN 1', 'MSISDN 2', 'Validity', 'Activation Date', 'Expiry Date', 'Created By', 'Status'];
     const rows = filteredDevices.map((device) => [
       device._id || '',
       device.dealerName || '',
@@ -1013,7 +1013,7 @@ const CustomerDevicePortal = () => {
             </select>
           </label>
           <label>
-            <span>Present Date</span>
+            <span>Activation Date</span>
             <input value={formatDate(presentDate)} readOnly />
           </label>
           <label>
@@ -1065,7 +1065,7 @@ const CustomerDevicePortal = () => {
               <th>MSISDN 1</th>
               <th>MSISDN 2</th>
               <th>Validity</th>
-              <th>Present Date</th>
+              <th>Activation Date</th>
               <th>Expiry Date</th>
               <th>Created By</th>
               <th>Status</th>
