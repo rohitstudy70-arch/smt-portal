@@ -634,6 +634,7 @@ const ActivationRequests = () => {
                         <option value="Toyota">Toyota</option>
                         <option value="BharatBenz">BharatBenz</option>
                         <option value="Force Motors">Force Motors</option>
+                        <option value="VE Commercial">VE Commercial</option>
                         <option value="Other">Other</option>
                       </select>
                     </div>
