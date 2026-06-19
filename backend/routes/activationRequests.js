@@ -168,22 +168,23 @@ router.post('/', requireRoles(...operationsRoles), async (req, res) => {
       address: address || '',
     });
 
-    // Automatically assign the device to the user raising the activation request
+    // Automatically assign the device to the dealer/sub-dealer it belongs to, or the user raising the request
     try {
       const device = await Device.findOne({ imei });
       if (device) {
+        const targetAssignee = device.subDealerId || device.dealerId || req.user._id;
         const fromUser = device.assignedTo;
-        device.assignedTo = req.user._id;
+        device.assignedTo = targetAssignee;
         device.updatedAt = new Date();
         device.assignmentHistory.push({
           fromUser: fromUser || null,
-          toUser: req.user._id,
+          toUser: targetAssignee,
           action: 'Assigned',
           note: 'Assigned automatically upon raising activation request',
           changedBy: req.user._id,
         });
         await device.save();
-        console.log(`Automatically assigned device ${imei} to user ${req.user.username}`);
+        console.log(`Automatically assigned device ${imei} to user ${targetAssignee}`);
       } else {
         console.warn(`Device with IMEI ${imei} not found for automatic assignment`);
       }
