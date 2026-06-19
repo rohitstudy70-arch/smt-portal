@@ -860,7 +860,17 @@ const ActivationRequests = () => {
                     <td style={{ color: '#337ab7', fontWeight: '600' }}>{req.requestId}</td>
                     <td>{req.isSubDealer ? 'Yes' : 'No'}</td>
                     <td>{req.subDealerName || '--'}</td>
-                    <td>{new Date(req.dateTime).toLocaleString()}</td>
+                    <td>
+                      {new Date(req.dateTime).toLocaleString('en-IN', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: true
+                      })}
+                    </td>
                     <td>{req.quantity}</td>
                     <td>{req.requestType}</td>
                     <td>{req.plan}</td>

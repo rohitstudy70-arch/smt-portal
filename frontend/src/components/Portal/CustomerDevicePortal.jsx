@@ -650,7 +650,8 @@ const CustomerDevicePortal = () => {
             <div>
               <h2>Hierarchy</h2>
               <span>
-                {role === 'DEALER' ? 'Dealer - Sub Dealer - End User' :
+                {user?.userType === 'Administration' ? 'Administration - Dealer - Sub Dealer - End User' :
+                 role === 'DEALER' ? 'Dealer - Sub Dealer - End User' :
                  role === 'SUB_DEALER' ? 'Sub Dealer - End User' :
                  role === 'CUSTOMER' ? 'End User' :
                  'Admin - Dealer - Sub Dealer - End User'}
@@ -659,12 +660,15 @@ const CustomerDevicePortal = () => {
             <FaUserShield className="portal-panel-icon" />
           </div>
           <div className="portal-hierarchy">
-            {(role === 'DEALER' ? ['DEALER', 'SUB DEALER', 'END USER'] :
+            {(user?.userType === 'Administration' ? ['ADMINISTRATION', 'DEALER', 'SUB DEALER', 'END USER'] :
+              role === 'DEALER' ? ['DEALER', 'SUB DEALER', 'END USER'] :
               role === 'SUB_DEALER' ? ['SUB DEALER', 'END USER'] :
               role === 'CUSTOMER' ? ['END USER'] :
               ['ADMIN', 'DEALER', 'SUB DEALER', 'END USER']
             ).map((item, index) => {
-              const isCurrent = (role.replace('_', ' ') === item) || (role === 'CUSTOMER' && item === 'END USER');
+              const isCurrent = 
+                (user?.userType === 'Administration' && item === 'ADMINISTRATION') ||
+                (user?.userType !== 'Administration' && ((role.replace('_', ' ') === item) || (role === 'CUSTOMER' && item === 'END USER')));
               return (
                 <div className={`hierarchy-step ${isCurrent ? 'current' : ''}`} key={item}>
                   <span>{index + 1}</span>

@@ -129,6 +129,7 @@ router.post('/', requireRoles(...operationsRoles), async (req, res) => {
     const activationRequest = await ActivationRequest.create({
       requestId,
       userId: req.user._id,
+      dateTime: new Date(),
       isSubDealer: isSubDealer || false,
       subDealerName: subDealerName || '',
       quantity: quantity || 1,
