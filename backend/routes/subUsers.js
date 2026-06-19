@@ -49,7 +49,12 @@ router.post('/sub-user', protect, async (req, res) => {
       return res.status(400).json({ message: 'Please fill in all required fields' });
     }
 
-    if (!allowedUserTypesByRole[role]?.includes(userType)) {
+    const isFullAdmin = req.user.role === 'partner' && req.user.userType !== 'Administration';
+    const allowedUserTypes = isFullAdmin
+      ? ['Administration', 'Dealer', 'Sub Dealer', 'End Customer']
+      : (allowedUserTypesByRole[role] || []);
+
+    if (!allowedUserTypes.includes(userType)) {
       return res.status(403).json({ message: 'Access denied: You cannot create this user type.' });
     }
 
@@ -125,6 +130,14 @@ router.put('/sub-user/:id', protect, async (req, res) => {
       }
     }
 
+    // Administration restriction
+    if (req.user.userType === 'Administration') {
+      const targetRole = getPortalRole(subUser);
+      if (targetRole === 'ADMIN' || subUser.userType === 'Administration') {
+        return res.status(403).json({ message: 'Access denied: Administration users cannot manage Admin/Administration accounts.' });
+      }
+    }
+
     if (userType) {
       if (role === 'SUB_DEALER' && userType !== 'End Customer') {
         return res.status(403).json({ message: 'Access denied: Sub Dealers can only manage End Customers.' });
@@ -172,6 +185,14 @@ router.delete('/sub-user/:id', protect, async (req, res) => {
       }
     }
 
+    // Administration restriction
+    if (req.user.userType === 'Administration') {
+      const targetRole = getPortalRole(subUser);
+      if (targetRole === 'ADMIN' || subUser.userType === 'Administration') {
+        return res.status(403).json({ message: 'Access denied: Administration users cannot manage Admin/Administration accounts.' });
+      }
+    }
+
     subUser.status = subUser.status === 'Active' ? 'Inactive' : 'Active';
     await subUser.save();
 
@@ -216,6 +237,14 @@ router.delete('/sub-user/:id/permanent', protect, async (req, res) => {
       const descendantIds = descendants.map((d) => d._id.toString());
       if (!descendantIds.includes(subUser._id.toString())) {
         return res.status(403).json({ message: 'Access denied: User is not in your hierarchy.' });
+      }
+    }
+
+    // Administration restriction
+    if (req.user.userType === 'Administration') {
+      const targetRole = getPortalRole(subUser);
+      if (targetRole === 'ADMIN' || subUser.userType === 'Administration') {
+        return res.status(403).json({ message: 'Access denied: Administration users cannot manage Admin/Administration accounts.' });
       }
     }
 

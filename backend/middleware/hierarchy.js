@@ -10,6 +10,7 @@ const PORTAL_ROLES = {
 const getPortalRole = (user) => {
   if (!user) return PORTAL_ROLES.CUSTOMER;
   if (user.role === 'partner') return PORTAL_ROLES.ADMIN;
+  if (user.userType === 'Administration') return PORTAL_ROLES.ADMIN;
   if (user.userType === 'Sub Dealer') return PORTAL_ROLES.SUB_DEALER;
   if (user.userType === 'End Customer') return PORTAL_ROLES.CUSTOMER;
   return PORTAL_ROLES.DEALER;

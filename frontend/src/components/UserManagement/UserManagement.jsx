@@ -6,6 +6,7 @@ import './UserManagement.css';
 
 const getRole = (user) => {
   if (user?.role === 'partner') return 'ADMIN';
+  if (user?.userType === 'Administration') return 'ADMIN';
   if (user?.userType === 'Sub Dealer') return 'SUB_DEALER';
   if (user?.userType === 'End Customer') return 'CUSTOMER';
   return 'DEALER';
@@ -20,7 +21,10 @@ const userTypesByRole = {
 const UserManagement = () => {
   const { user } = useAuth();
   const role = getRole(user);
-  const allowedUserTypes = userTypesByRole[role] || [];
+  const isFullAdmin = user?.role === 'partner' && user?.userType !== 'Administration';
+  const allowedUserTypes = isFullAdmin
+    ? ['Administration', 'Dealer', 'Sub Dealer', 'End Customer']
+    : (userTypesByRole[role] || []);
   const [subUsers, setSubUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -129,7 +133,21 @@ const UserManagement = () => {
     }
   };
 
+  const canManageUser = (targetUser) => {
+    const targetUserType = targetUser.userType;
+    if (targetUserType === 'Administration') {
+      // Only full admin can manage Administration users
+      return user?.role === 'partner' && user?.userType !== 'Administration';
+    }
+    if (targetUser.role === 'partner') {
+      return false;
+    }
+    return true;
+  };
+
   const canDeleteUser = (targetUser) => {
+    if (!canManageUser(targetUser)) return false;
+
     const targetUserType = targetUser.userType || 'Dealer';
     if (targetUserType === 'Dealer') {
       return role === 'ADMIN';
@@ -350,20 +368,24 @@ const UserManagement = () => {
                           <td>{user.email || '-'}</td>
                           <td>
                             <div className="action-buttons">
-                              <button 
-                                className="btn-action edit" 
-                                title="Edit User"
-                                onClick={() => handleEditClick(user)}
-                              >
-                                <FaEdit />
-                              </button>
-                              <button 
-                                className={`btn-action status ${user.status === 'Active' ? 'active' : 'inactive'}`} 
-                                title={user.status === 'Active' ? 'Deactivate User' : 'Activate User'}
-                                onClick={() => handleToggleStatus(user._id)}
-                              >
-                                {user.status === 'Active' ? <FaCheck /> : <FaTimes />}
-                              </button>
+                              {canManageUser(user) && (
+                                <>
+                                  <button 
+                                    className="btn-action edit" 
+                                    title="Edit User"
+                                    onClick={() => handleEditClick(user)}
+                                  >
+                                    <FaEdit />
+                                  </button>
+                                  <button 
+                                    className={`btn-action status ${user.status === 'Active' ? 'active' : 'inactive'}`} 
+                                    title={user.status === 'Active' ? 'Deactivate User' : 'Activate User'}
+                                    onClick={() => handleToggleStatus(user._id)}
+                                  >
+                                    {user.status === 'Active' ? <FaCheck /> : <FaTimes />}
+                                  </button>
+                                </>
+                              )}
                               {canDeleteUser(user) && (
                                 <button 
                                   className="btn-action delete" 

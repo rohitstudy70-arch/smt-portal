@@ -15,6 +15,7 @@ import './Ledger.css';
 
 const getRole = (user) => {
   if (user?.role === 'partner') return 'ADMIN';
+  if (user?.userType === 'Administration') return 'ADMIN';
   if (user?.userType === 'Sub Dealer') return 'SUB_DEALER';
   if (user?.userType === 'End Customer') return 'CUSTOMER';
   return 'DEALER';

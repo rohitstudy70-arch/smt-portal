@@ -200,7 +200,7 @@ const CustomerDevicePortal = () => {
   const [resetForm, setResetForm] = useState({ userId: '', password: '' });
   const [selectedCustomer, setSelectedCustomer] = useState(null);
 
-  const userRole = user?.role === 'partner' ? 'ADMIN' : user?.userType === 'Sub Dealer' ? 'SUB_DEALER' : user?.userType === 'End Customer' ? 'CUSTOMER' : 'DEALER';
+  const userRole = user?.role === 'partner' ? 'ADMIN' : user?.userType === 'Administration' ? 'ADMIN' : user?.userType === 'Sub Dealer' ? 'SUB_DEALER' : user?.userType === 'End Customer' ? 'CUSTOMER' : 'DEALER';
   const role = summary?.role || userRole;
   const isAdmin = role === 'ADMIN';
   const isCustomer = role === 'CUSTOMER';

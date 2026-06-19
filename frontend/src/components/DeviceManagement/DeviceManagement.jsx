@@ -9,6 +9,7 @@ const DeviceManagement = () => {
   const { user } = useAuth();
   const getRole = (u) => {
     if (u?.role === 'partner') return 'ADMIN';
+    if (u?.userType === 'Administration') return 'ADMIN';
     if (u?.userType === 'Sub Dealer') return 'SUB_DEALER';
     if (u?.userType === 'End Customer') return 'CUSTOMER';
     return 'DEALER';
