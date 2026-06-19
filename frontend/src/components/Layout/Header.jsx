@@ -86,6 +86,15 @@ const Header = () => {
         </div>
       );
     }
+    if (path === '/ledger') {
+      return (
+        <div className="breadcrumbs">
+          <Link to="/dashboard">Home</Link>
+          <span>/</span>
+          <span className="active-crumb">Dealer Ledger</span>
+        </div>
+      );
+    }
     if (path === '/user-management') {
       return (
         <div className="breadcrumbs">

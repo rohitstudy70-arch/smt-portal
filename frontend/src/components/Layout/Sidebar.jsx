@@ -116,6 +116,15 @@ const Sidebar = () => {
 
 
         {canShow(operationsRoles) && (
+          <li className={`sidebar-menu-item ${location.pathname === '/ledger' ? 'active' : ''}`}>
+            <NavLink to="/ledger">
+              <FaWallet className="menu-icon" />
+              <span className="menu-text">Dealer Ledger</span>
+            </NavLink>
+          </li>
+        )}
+
+        {canShow(operationsRoles) && (
           <li className={`sidebar-menu-item ${location.pathname === '/user-management' ? 'active' : ''}`}>
             <NavLink to="/user-management">
               <FaUsers className="menu-icon" />

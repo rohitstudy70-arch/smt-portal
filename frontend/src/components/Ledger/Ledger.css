@@ -1,0 +1,223 @@
+.ledger-container {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* User Type Badges */
+.badge-role {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  display: inline-block;
+}
+
+.badge-role.dealer {
+  background: rgba(66, 165, 245, 0.15);
+  color: #42a5f5;
+}
+
+.badge-role.subdealer {
+  background: rgba(255, 167, 38, 0.15);
+  color: #ffa726;
+}
+
+.badge-role.customer {
+  background: rgba(102, 187, 106, 0.15);
+  color: #66bb6a;
+}
+
+/* Buttons */
+.btn-view-ledger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #ffffff;
+  border: 1px solid #dcdcdc;
+  color: #4a5568;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.btn-view-ledger:hover {
+  background: #f7fafc;
+  border-color: #cbd5e0;
+  color: var(--accent-color, #0b131f);
+}
+
+.ledger-action-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn-ledger-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  color: #ffffff;
+}
+
+.btn-ledger-action.credit {
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+  box-shadow: 0 2px 4px rgba(56, 161, 105, 0.2);
+}
+
+.btn-ledger-action.credit:hover {
+  background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
+  transform: translateY(-1px);
+}
+
+.btn-ledger-action.debit {
+  background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+  box-shadow: 0 2px 4px rgba(229, 62, 62, 0.2);
+}
+
+.btn-ledger-action.debit:hover {
+  background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
+  transform: translateY(-1px);
+}
+
+/* Selected User Detail Header styles */
+.selected-user-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #4a5568;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-back:hover {
+  background: #edf2f7;
+  border-color: #cbd5e0;
+}
+
+.balance-highlight {
+  color: #2b6cb0;
+  font-size: 1.1em;
+  padding: 2px 6px;
+  background: #ebf8ff;
+  border-radius: 4px;
+}
+
+.detail-actions-row {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.detail-actions-row .button-group {
+  display: flex;
+  gap: 12px;
+}
+
+/* Modal and inputs specific for Ledger */
+.ledger-modal-user-info {
+  background: #f7fafc;
+  padding: 12px;
+  border-radius: 6px;
+  border-left: 4px solid #4299e1;
+  margin-bottom: 18px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: #2d3748;
+}
+
+/* Badges for transaction types */
+.badge-type {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-block;
+  text-transform: uppercase;
+}
+
+.badge-type.credit {
+  background: #e6fffa;
+  color: #319795;
+}
+
+.badge-type.debit {
+  background: #fff5f5;
+  color: #e53e3e;
+}
+
+/* Badge for transaction status */
+.badge-status-success {
+  background: #ebf8ff;
+  color: #2b6cb0;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.text-remarks {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Alignment utilities */
+.justify-center {
+  justify-content: center;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-bold {
+  font-weight: 700;
+}
+
+.text-semibold {
+  font-weight: 600;
+}
+
+.text-teal {
+  color: #319795;
+}
+
+.text-uppercase {
+  text-transform: uppercase;
+}
