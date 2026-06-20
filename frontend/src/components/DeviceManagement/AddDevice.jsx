@@ -78,6 +78,10 @@ const AddDevice = () => {
   const [subDealerDropdownOpen, setSubDealerDropdownOpen] = useState(false);
   const subDealerDropdownRef = useRef(null);
 
+  // Table search states
+  const [tableSearch, setTableSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
   const selectedDealer = useMemo(
     () => dealers.find((dealer) => dealer._id === formData.dealerId),
     [dealers, formData.dealerId]
@@ -118,13 +122,14 @@ const AddDevice = () => {
     window.setTimeout(() => setToast({ show: false, type: '', message: '' }), 4000);
   };
 
-  const fetchDevices = useCallback(async () => {
+  const fetchDevices = useCallback(async (searchQuery = '') => {
     try {
       setDevicesLoading(true);
       const response = await api.get('/devices', {
         params: {
           limit: 100,
           page: 1,
+          search: searchQuery,
         },
       });
       setDevices(response.data.devices || []);
@@ -135,6 +140,21 @@ const AddDevice = () => {
       setDevicesLoading(false);
     }
   }, []);
+
+  // Debounce search input
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(tableSearch);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [tableSearch]);
+
+  // Fetch devices when search query or role changes
+  useEffect(() => {
+    if (role !== 'CUSTOMER') {
+      fetchDevices(debouncedSearch);
+    }
+  }, [debouncedSearch, fetchDevices, role]);
 
   useEffect(() => {
     const fetchAllUsersAndPopulate = async () => {
@@ -172,9 +192,8 @@ const AddDevice = () => {
 
     if (role !== 'CUSTOMER') {
       fetchAllUsersAndPopulate();
-      fetchDevices();
     }
-  }, [role, user, fetchDevices]);
+  }, [role, user]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -258,7 +277,7 @@ const AddDevice = () => {
         showToast('success', 'Device added successfully!');
       }
       handleReset();
-      await fetchDevices();
+      await fetchDevices(debouncedSearch);
     } catch (error) {
       const message = error.response?.data?.message || `Failed to ${editingDeviceId ? 'update' : 'add'} device. Please try again.`;
       showToast('error', message);
@@ -277,7 +296,7 @@ const AddDevice = () => {
       try {
         const res = await api.delete(`/devices/${deviceId}`);
         showToast('success', res.data.message || 'Device deleted successfully.');
-        await fetchDevices();
+        await fetchDevices(debouncedSearch);
       } catch (error) {
         showToast('error', error.response?.data?.message || 'Failed to delete device.');
       }
@@ -578,6 +597,22 @@ const AddDevice = () => {
         <div className="add-device-header">
           <FaFilter className="header-icon" />
           <span>DEVICE TABLE</span>
+          <div className="table-header-search-wrap">
+            <FaSearch className="search-box-icon" />
+            <input
+              type="text"
+              placeholder="Search IMEI, ICCID, Serial..."
+              value={tableSearch}
+              onChange={(e) => setTableSearch(e.target.value)}
+              className="table-header-search-input"
+            />
+            {tableSearch && (
+              <FaTimesCircle
+                onClick={() => setTableSearch('')}
+                className="search-box-clear-icon"
+              />
+            )}
+          </div>
         </div>
 
         <div className="device-table-meta">

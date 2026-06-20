@@ -301,6 +301,38 @@ const ActivationRequests = () => {
     }
   };
 
+  const handleApproveRequest = async (requestId) => {
+    if (!window.confirm('Are you sure you want to approve this activation request and activate the device?')) {
+      return;
+    }
+    try {
+      await api.put(`/activation-requests/${requestId}/approve`);
+      alert('Request approved and device activated successfully!');
+      handleRefresh();
+    } catch (err) {
+      console.error('Approve request error:', err);
+      alert(err.response?.data?.message || 'Failed to approve request.');
+    }
+  };
+
+  const handleRejectRequest = async (requestId, remarks) => {
+    try {
+      await api.put(`/activation-requests/${requestId}/reject`, { remarks });
+      alert('Request rejected successfully!');
+      handleRefresh();
+    } catch (err) {
+      console.error('Reject request error:', err);
+      alert(err.response?.data?.message || 'Failed to reject request.');
+    }
+  };
+
+  const handleRejectClick = (requestId) => {
+    const remarks = window.prompt('Enter rejection remarks (optional):');
+    if (remarks !== null) {
+      handleRejectRequest(requestId, remarks);
+    }
+  };
+
   const handleSubmitRequest = async (e) => {
     e.preventDefault();
     if (formData.rto && !/^[A-Z0-9]{4}$/.test(formData.rto)) {
@@ -837,60 +869,149 @@ const ActivationRequests = () => {
         ) : (
           <table className="table-requests">
             <thead>
-              <tr>
-                <th style={{ width: '40px' }}><input type="checkbox" /></th>
-                <th>No.</th>
-                <th>Request ID</th>
-                <th>Is Sub Dealer</th>
-                <th>Sub Dealer Name</th>
-                <th>DateTime</th>
-                <th>Quantity</th>
-                <th>Request Type</th>
-                <th>Plan</th>
-                <th>PI No.</th>
-                <th>Amount (₹)</th>
-                <th>Remarks</th>
-                <th>Status</th>
-              </tr>
+              {role === 'ADMIN' ? (
+                <tr>
+                  <th style={{ width: '40px' }}><input type="checkbox" /></th>
+                  <th>No.</th>
+                  <th>Request ID</th>
+                  <th>IMEI</th>
+                  <th>ICCID</th>
+                  <th>Customer Name</th>
+                  <th>Dealer Name</th>
+                  <th>Request Date</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              ) : (
+                <tr>
+                  <th style={{ width: '40px' }}><input type="checkbox" /></th>
+                  <th>No.</th>
+                  <th>Request ID</th>
+                  <th>Is Sub Dealer</th>
+                  <th>Sub Dealer Name</th>
+                  <th>DateTime</th>
+                  <th>Quantity</th>
+                  <th>Request Type</th>
+                  <th>Plan</th>
+                  <th>PI No.</th>
+                  <th>Amount (₹)</th>
+                  <th>Remarks</th>
+                  <th>Status</th>
+                </tr>
+              )}
             </thead>
             <tbody>
               {requests.length > 0 ? (
-                requests.map((req, index) => (
-                  <tr key={req._id}>
-                    <td><input type="checkbox" /></td>
-                    <td>{((page - 1) * limit) + index + 1}</td>
-                    <td style={{ color: '#337ab7', fontWeight: '600' }}>{req.requestId}</td>
-                    <td>{req.isSubDealer ? 'Yes' : 'No'}</td>
-                    <td>{req.subDealerName || '--'}</td>
-                    <td>
-                      {new Date(req.dateTime).toLocaleString('en-IN', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit',
-                        hour12: true
-                      })}
-                    </td>
-                    <td>{req.quantity}</td>
-                    <td>{req.requestType}</td>
-                    <td>{req.plan}</td>
-                    <td>{req.piNo || '--'}</td>
-                    <td style={{ fontWeight: '600' }}>{req.amount.toFixed(2)}</td>
-                    <td style={{ maxWidth: '250px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {req.remarks || '--'}
-                    </td>
-                    <td>
-                      <span className={`status-badge ${req.status.toLowerCase()}`}>
-                        {req.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))
+                requests.map((req, index) => {
+                  const displayStatus = req.status === 'Completed' ? 'Active' : req.status;
+                  const statusClass = displayStatus.toLowerCase();
+
+                  if (role === 'ADMIN') {
+                    return (
+                      <tr key={req._id}>
+                        <td><input type="checkbox" /></td>
+                        <td>{((page - 1) * limit) + index + 1}</td>
+                        <td style={{ color: '#337ab7', fontWeight: '600' }}>{req.requestId}</td>
+                        <td style={{ fontWeight: '600' }}>{req.imei || '--'}</td>
+                        <td>{req.iccid || '--'}</td>
+                        <td>{req.customerName || '--'}</td>
+                        <td>{req.dealerName || '--'}</td>
+                        <td>
+                          {new Date(req.dateTime).toLocaleString('en-IN', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true
+                          })}
+                        </td>
+                        <td>
+                          <span className={`status-badge ${statusClass}`}>
+                            {displayStatus}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            {['requested', 'processing'].includes(req.status.toLowerCase()) ? (
+                              <>
+                                <button
+                                  onClick={() => handleApproveRequest(req._id)}
+                                  style={{
+                                    padding: '4px 8px',
+                                    background: '#5cb85c',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    fontSize: '11px',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Approve / Activate Device
+                                </button>
+                                <button
+                                  onClick={() => handleRejectClick(req._id)}
+                                  style={{
+                                    padding: '4px 8px',
+                                    background: '#d9534f',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    fontSize: '11px',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Reject
+                                </button>
+                              </>
+                            ) : (
+                              <span style={{ fontSize: '11px', color: '#999', fontStyle: 'italic' }}>No actions</span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  return (
+                    <tr key={req._id}>
+                      <td><input type="checkbox" /></td>
+                      <td>{((page - 1) * limit) + index + 1}</td>
+                      <td style={{ color: '#337ab7', fontWeight: '600' }}>{req.requestId}</td>
+                      <td>{req.isSubDealer ? 'Yes' : 'No'}</td>
+                      <td>{req.subDealerName || '--'}</td>
+                      <td>
+                        {new Date(req.dateTime).toLocaleString('en-IN', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                          hour12: true
+                        })}
+                      </td>
+                      <td>{req.quantity}</td>
+                      <td>{req.requestType}</td>
+                      <td>{req.plan}</td>
+                      <td>{req.piNo || '--'}</td>
+                      <td style={{ fontWeight: '600' }}>{req.amount.toFixed(2)}</td>
+                      <td style={{ maxWidth: '250px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {req.remarks || '--'}
+                      </td>
+                      <td>
+                        <span className={`status-badge ${statusClass}`}>
+                          {displayStatus}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
-                  <td colSpan="13" style={{ textAlign: 'center', padding: '20px', color: '#999', fontStyle: 'italic' }}>
+                  <td colSpan={role === 'ADMIN' ? '10' : '13'} style={{ textAlign: 'center', padding: '20px', color: '#999', fontStyle: 'italic' }}>
                     No records found
                   </td>
                 </tr>

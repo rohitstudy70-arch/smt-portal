@@ -4,32 +4,19 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import './index.css';
 
-window.addEventListener('error', (event) => {
-  const root = document.getElementById('root');
-  if (root) {
-    root.innerHTML = `<div style="padding:30px;color:#721c24;background:#f8d7da;border:1px solid #f5c6cb;margin:20px;border-radius:4px;font-family:monospace;">
-      <h2>Uncaught Global Error</h2>
-      <pre style="background:#fff;padding:15px;border-radius:4px;overflow:auto;border:1px solid #eee;">
-        ${event.message}
-        at ${event.filename}:${event.lineno}:${event.colno}
-        \n\nStack:\n${event.error ? event.error.stack : 'No stack trace available'}
-      </pre>
-    </div>`;
-  }
-});
-
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
     this.state = { hasError: false, error: null, errorInfo: null };
   }
 
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
   componentDidCatch(error, errorInfo) {
-    this.setState({
-      hasError: true,
-      error: error,
-      errorInfo: errorInfo
-    });
+    this.setState({ errorInfo });
+    console.error('React ErrorBoundary caught:', error, errorInfo);
   }
 
   render() {
@@ -42,6 +29,15 @@ class ErrorBoundary extends React.Component {
             {"\n\nComponent Stack:\n"}
             {this.state.errorInfo && this.state.errorInfo.componentStack}
           </pre>
+          <button
+            style={{ marginTop: '15px', padding: '8px 16px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '14px' }}
+            onClick={() => {
+              this.setState({ hasError: false, error: null, errorInfo: null });
+              window.location.href = '/dashboard';
+            }}
+          >
+            Go to Dashboard
+          </button>
         </div>
       );
     }
@@ -50,11 +46,9 @@ class ErrorBoundary extends React.Component {
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <ErrorBoundary>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </ErrorBoundary>
-  </React.StrictMode>
+  <ErrorBoundary>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </ErrorBoundary>
 );

@@ -77,21 +77,13 @@ const Header = () => {
         </div>
       );
     }
-    if (path === '/wallet-system') {
+    if (path === '/due-dashboard') {
+      const tab = new URLSearchParams(location.search).get('tab');
       return (
         <div className="breadcrumbs">
           <Link to="/dashboard">Home</Link>
           <span>/</span>
-          <span className="active-crumb">Wallet System</span>
-        </div>
-      );
-    }
-    if (path === '/ledger') {
-      return (
-        <div className="breadcrumbs">
-          <Link to="/dashboard">Home</Link>
-          <span>/</span>
-          <span className="active-crumb">Dealer Ledger</span>
+          <span className="active-crumb">{tab === 'renewals' ? 'Renewal Due Devices' : 'Due Dashboard'}</span>
         </div>
       );
     }

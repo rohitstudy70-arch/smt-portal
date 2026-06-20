@@ -295,9 +295,7 @@ const ProformaInvoice = () => {
     const a = document.createElement('a');
     a.href = url;
     a.download = `Invoice_${invoice.piNo}_${new Date().getTime()}.html`;
-    document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 

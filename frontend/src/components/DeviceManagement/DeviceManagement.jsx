@@ -189,9 +189,7 @@ const DeviceManagement = () => {
     const link = document.createElement('a');
     link.setAttribute('href', url);
     link.setAttribute('download', 'Device_Assign_Template.csv');
-    document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
   };
 
   const totalPages = Math.ceil(total / limit);
@@ -453,7 +451,7 @@ const DeviceManagement = () => {
                   </tr>
                 ) : devices.length > 0 ? (
                   devices.map((d, index) => (
-                    <tr key={d._id || index}>
+                    <tr key={d._id || `device-${index}`}>
                       <td>{((page - 1) * limit) + index + 1}</td>
                       <td>{d.vendor}</td>
                       <td>{d.deviceType}</td>

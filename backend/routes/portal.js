@@ -3,7 +3,13 @@ const Device = require('../models/Device');
 const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
 const RenewalRequest = require('../models/RenewalRequest');
+const DuePayment = require('../models/DuePayment');
 const { protect } = require('../middleware/auth');
+const {
+  getDueOwnerIdsFromDevice,
+  syncDueForScope,
+  syncDueForUsers,
+} = require('../services/dueService');
 
 const router = express.Router();
 

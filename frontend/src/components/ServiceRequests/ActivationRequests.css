@@ -122,7 +122,9 @@
   color: white;
 }
 
-.status-badge.completed {
+.status-badge.completed,
+.status-badge.active,
+.status-badge.approved {
   background: #5cb85c;
 }
 

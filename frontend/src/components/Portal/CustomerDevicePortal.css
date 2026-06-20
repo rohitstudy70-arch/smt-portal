@@ -79,6 +79,13 @@
   gap: 18px;
 }
 
+.portal-view-container {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+}
+
 .portal-dashboard-actions {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -313,6 +320,20 @@
 .portal-table-wrap {
   width: 100%;
   overflow-x: auto;
+}
+
+.dashboard-scrollable-table {
+  max-height: 380px;
+  overflow-y: auto;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.dashboard-scrollable-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #ffffff;
+  box-shadow: inset 0 -1px 0 var(--border-color);
 }
 
 .portal-table {

@@ -135,6 +135,53 @@ const syncOldDeviceTransactions = async (userIds) => {
   }
 };
 
+const syncUserBalances = async (userIds) => {
+  try {
+    if (!userIds || userIds.length === 0) return;
+
+    const summaryAgg = await Transaction.aggregate([
+      { $match: { userId: { $in: userIds } } },
+      {
+        $group: {
+          _id: { userId: '$userId', type: '$transactionType' },
+          total: { $sum: '$transactedAmt' }
+        }
+      }
+    ]);
+
+    const balanceMap = {};
+    userIds.forEach(uid => {
+      balanceMap[uid.toString()] = 0;
+    });
+
+    summaryAgg.forEach(item => {
+      if (!item._id || !item._id.userId) return;
+      const uid = item._id.userId.toString();
+      const type = item._id.type;
+      const amount = item.total;
+
+      if (type === 'Credit') {
+        balanceMap[uid] += amount;
+      } else if (type === 'Debit') {
+        balanceMap[uid] -= amount;
+      }
+    });
+
+    const bulkOps = Object.keys(balanceMap).map(uid => ({
+      updateOne: {
+        filter: { _id: uid },
+        update: { $set: { availableBalance: balanceMap[uid] } }
+      }
+    }));
+
+    if (bulkOps.length > 0) {
+      await User.bulkWrite(bulkOps);
+    }
+  } catch (err) {
+    console.error('Error during bulk syncUserBalances:', err.message);
+  }
+};
+
 // @route   GET /api/wallet/ledger-dashboard
 // @desc    Get ledger dashboard summaries, analytics, and paginated transactions
 // @access  Protected
@@ -142,6 +189,9 @@ router.get('/ledger-dashboard', requireRoles(...operationsRoles), async (req, re
   try {
     // Auto-sync missing transactions from devices
     await syncOldDeviceTransactions(req.hierarchyScope.userIds);
+
+    // Sync user balances with transaction history
+    await syncUserBalances(req.hierarchyScope.userIds);
 
     const { fromDate, toDate, search, type, dealerId, limit = 10, page = 1 } = req.query;
 
@@ -338,9 +388,9 @@ router.get('/ledger-dashboard', requireRoles(...operationsRoles), async (req, re
       pendingDues = negativeUsers.reduce((sum, u) => sum + Math.abs(u.availableBalance), 0);
     }
 
-    // Top Dealers
+    // Dealer-wise Debit Breakdown
     let topDealers = [];
-    if (req.portalRole === PORTAL_ROLES.ADMIN) {
+    if (req.hierarchyScope.userIds && req.hierarchyScope.userIds.length > 0) {
       const topDealersAgg = await Transaction.aggregate([
         {
           $match: {
@@ -355,11 +405,11 @@ router.get('/ledger-dashboard', requireRoles(...operationsRoles), async (req, re
           }
         },
         { $sort: { totalDebit: -1 } },
-        { $limit: 5 }
+        { $limit: 500 }
       ]);
 
       const dealerIds = topDealersAgg.map(item => item._id);
-      const dealerDocs = await User.find({ _id: { $in: dealerIds } }, 'displayName companyName username userType');
+      const dealerDocs = await User.find({ _id: { $in: dealerIds } }, 'displayName companyName username userType availableBalance');
 
       topDealers = topDealersAgg.map(item => {
         const userDoc = dealerDocs.find(d => d._id.toString() === item._id.toString());
@@ -367,7 +417,8 @@ router.get('/ledger-dashboard', requireRoles(...operationsRoles), async (req, re
           userId: item._id,
           name: userDoc ? (userDoc.displayName || userDoc.companyName || userDoc.username) : 'Unknown Dealer',
           role: userDoc ? userDoc.userType : 'Dealer',
-          totalDebit: item.totalDebit
+          totalDebit: item.totalDebit,
+          availableBalance: userDoc ? (userDoc.availableBalance || 0) : 0
         };
       });
     }

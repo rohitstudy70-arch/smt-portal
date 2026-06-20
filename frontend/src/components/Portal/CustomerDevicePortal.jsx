@@ -18,9 +18,12 @@ import {
   FaSearch,
   FaSimCard,
   FaTimes,
-  FaUserShield,
+   FaUserShield,
   FaUsers,
   FaUserTie,
+  FaFileInvoiceDollar,
+  FaDollarSign,
+  FaCoins,
 } from 'react-icons/fa';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
@@ -181,6 +184,7 @@ const CustomerDevicePortal = () => {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [summary, setSummary] = useState(null);
+  const [dueSummary, setDueSummary] = useState(null);
   const [dealers, setDealers] = useState([]);
   const [deviceDealerOptions, setDeviceDealerOptions] = useState([]);
   const [subDealers, setSubDealers] = useState([]);
@@ -271,6 +275,7 @@ const CustomerDevicePortal = () => {
       setLoading(true);
       setError('');
       const canManageUsers = userRole !== 'CUSTOMER';
+      const isOps = canManageUsers;
       const [
         summaryRes,
         dealersRes,
@@ -282,6 +287,7 @@ const CustomerDevicePortal = () => {
         reportsRes,
         loginLogsRes,
         deviceDealersRes,
+        dueSummaryRes,
       ] = await Promise.all([
         api.get('/portal/summary'),
         canManageUsers ? api.get('/portal/users', { params: { type: 'dealer' } }) : Promise.resolve({ data: [] }),
@@ -293,9 +299,11 @@ const CustomerDevicePortal = () => {
         api.get('/portal/reports'),
         canManageUsers ? api.get('/portal/login-logs').catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
         canManageUsers ? api.get('/users/dealers').catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
+        isOps ? api.get('/due-dashboard/summary').catch(() => ({ data: null })) : Promise.resolve({ data: null }),
       ]);
 
       setSummary(summaryRes.data);
+      setDueSummary(dueSummaryRes?.data || null);
       setDealers(dealersRes.data || []);
       setUsers(usersRes.data || []);
       setCustomers(customersRes.data || []);
@@ -484,9 +492,7 @@ const CustomerDevicePortal = () => {
     const link = document.createElement('a');
     link.href = url;
     link.setAttribute('download', 'device-report.csv');
-    document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
 
@@ -511,52 +517,28 @@ const CustomerDevicePortal = () => {
         openView('customers');
         break;
       case 'totalDevices':
-        if (role === 'CUSTOMER') {
-          openView('mydevices');
-        } else {
-          navigate('/device-management');
-        }
+        openView(role === 'CUSTOMER' ? 'mydevices' : 'devices');
         break;
       case 'activeDevices':
-        if (role === 'CUSTOMER') {
-          openView('mydevices');
-          setSearch('active');
-        } else {
-          navigate('/device-management?search=active');
-        }
+        openView(role === 'CUSTOMER' ? 'mydevices' : 'devices');
+        setSearch('active');
         break;
       case 'expiredDevices':
-        if (role === 'CUSTOMER') {
-          openView('mydevices');
-          setSearch('inactive');
-        } else {
-          navigate('/device-management?search=inactive');
-        }
+        openView(role === 'CUSTOMER' ? 'mydevices' : 'devices');
+        setSearch('inactive');
         break;
       case 'devicesAddedToday':
-        if (role === 'CUSTOMER') {
-          openView('mydevices');
-        } else {
-          navigate('/device-management');
-        }
+        openView(role === 'CUSTOMER' ? 'mydevices' : 'devices');
         break;
       case 'renewalDueDevices':
       case 'pendingRenewals':
         openView('renewals');
         break;
       case 'assignedDevices':
-        if (role === 'CUSTOMER') {
-          openView('mydevices');
-        } else {
-          navigate('/device-management');
-        }
+        openView(role === 'CUSTOMER' ? 'mydevices' : 'devices');
         break;
       case 'availableDevices':
-        if (role === 'CUSTOMER') {
-          openView('mydevices');
-        } else {
-          navigate('/device-management');
-        }
+        openView(role === 'CUSTOMER' ? 'mydevices' : 'devices');
         break;
       default:
         break;
@@ -589,19 +571,109 @@ const CustomerDevicePortal = () => {
     );
   };
 
-  const renderDashboard = () => (
-    <div className="portal-stack">
-      {renderStats()}
+  const renderDashboard = () => {
+    const isOps = userRole !== 'CUSTOMER';
+    return (
+      <div className="portal-stack" key="view-dashboard">
+        {renderStats()}
 
-      {!isCustomer && (
-        <div className="portal-dashboard-actions">
-          <Link className="portal-dashboard-card" to="/add-device">
-            <FaPlus className="portal-dashboard-card-icon" />
-            <strong>Add Device</strong>
-            <span>IMEI / ICCID / Serial No</span>
-          </Link>
-        </div>
-      )}
+        {isOps && dueSummary ? (
+          <div className="portal-panel" style={{ marginTop: '10px' }} key="due-summary-panel">
+            <div className="portal-panel-header">
+              <div>
+                <h2>Due & Financial Overview</h2>
+                <span>Outstanding dues and collections</span>
+              </div>
+              <FaFileInvoiceDollar className="portal-panel-icon" />
+            </div>
+            <div style={{ padding: '16px' }}>
+              <div className="portal-stats-grid">
+                <div 
+                  className="portal-stat stat-red" 
+                  onClick={() => navigate('/due-dashboard')} 
+                  style={{ cursor: 'pointer' }}
+                >
+                  <div>
+                    <span className="portal-stat-value">₹{(dueSummary.totalDueAmount || 0).toLocaleString()}</span>
+                    <span className="portal-stat-label">Total Due Amount</span>
+                  </div>
+                  <FaFileInvoiceDollar className="portal-stat-icon" />
+                </div>
+
+                {isAdmin && (
+                  <div className="portal-stat stat-green">
+                    <div>
+                      <span className="portal-stat-value">₹{(dueSummary.todaysCollection || 0).toLocaleString()}</span>
+                      <span className="portal-stat-label">Today's Collection</span>
+                    </div>
+                    <FaDollarSign className="portal-stat-icon" />
+                  </div>
+                )}
+
+                {isAdmin && (
+                  <div className="portal-stat stat-blue">
+                    <div>
+                      <span className="portal-stat-value">₹{(dueSummary.monthlyCollection || 0).toLocaleString()}</span>
+                      <span className="portal-stat-label">Monthly Collection</span>
+                    </div>
+                    <FaCoins className="portal-stat-icon" />
+                  </div>
+                )}
+
+                <div 
+                  className="portal-stat stat-amber" 
+                  onClick={() => navigate('/due-dashboard?tab=renewals')} 
+                  style={{ cursor: 'pointer' }}
+                >
+                  <div style={{ width: '100%' }}>
+                    <span className="portal-stat-value">{summary?.renewalDueDevices ?? 0}</span>
+                    <div style={{ display: 'flex', justifyContent: 'between', alignItems: 'center', width: '100%' }}>
+                      <span className="portal-stat-label">Renewal Due Devices</span>
+                    </div>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate('/due-dashboard?tab=renewals');
+                      }}
+                      style={{
+                        marginTop: '8px',
+                        background: 'var(--primary-blue)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        padding: '4px 8px',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      View All
+                    </button>
+                  </div>
+                  <FaCalendarAlt className="portal-stat-icon" />
+                </div>
+
+                <div className="portal-stat stat-violet">
+                  <div>
+                    <span className="portal-stat-value">{summary?.renewalDueDevices ?? 0}</span>
+                    <span className="portal-stat-label">Expiring This Month</span>
+                  </div>
+                  <FaHistory className="portal-stat-icon" />
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {!isCustomer ? (
+          <div className="portal-dashboard-actions" key="add-device-actions">
+            <Link className="portal-dashboard-card" to="/add-device">
+              <FaPlus className="portal-dashboard-card-icon" />
+              <strong>Add Device</strong>
+              <span>IMEI / ICCID / Serial No</span>
+            </Link>
+          </div>
+        ) : null}
 
       <div className="portal-split">
         <section className="portal-panel">
@@ -614,7 +686,7 @@ const CustomerDevicePortal = () => {
               <FaMobileAlt />
             </button>
           </div>
-          <div className="portal-table-wrap">
+          <div className="portal-table-wrap dashboard-scrollable-table">
             <table className="portal-table">
               <thead>
                 <tr>
@@ -626,7 +698,7 @@ const CustomerDevicePortal = () => {
                 </tr>
               </thead>
               <tbody>
-                {devices.slice(0, 8).map((device) => (
+                {devices.map((device) => (
                   <tr key={device._id}>
                     <td className="strong">{device.imei}</td>
                     <td>{device.iccid || '-'}</td>
@@ -696,6 +768,7 @@ const CustomerDevicePortal = () => {
       </div>
     </div>
   );
+};
 
   const renderUserForm = (forcedUserType) => (
     <form className="portal-form" onSubmit={(event) => submitUser(event, forcedUserType)}>
@@ -1100,7 +1173,7 @@ const CustomerDevicePortal = () => {
   );
 
   const renderDeviceManagement = () => (
-    <div className="portal-stack">
+    <div className="portal-stack" key="view-devices">
       {!isCustomer && (
         <section className="portal-panel">
           <div className="portal-panel-header">
@@ -1176,8 +1249,8 @@ const CustomerDevicePortal = () => {
             </form>
 
             <div className="portal-history-list">
-              {(selectedDevice?.assignmentHistory || []).slice().reverse().slice(0, 5).map((entry) => (
-                <div className="history-entry" key={entry._id || entry.changedAt}>
+              {(selectedDevice?.assignmentHistory || []).slice().reverse().slice(0, 5).map((entry, index) => (
+                <div className="history-entry" key={entry._id || `history-${entry.changedAt || index}-${index}`}>
                   <strong>{entry.action}</strong>
                   <span>{getName(entry.fromUser)} - {getName(entry.toUser)}</span>
                   <small>{formatDate(entry.changedAt)}</small>
@@ -1202,7 +1275,7 @@ const CustomerDevicePortal = () => {
       : devices.filter((device) => getName(device.assignedTo) === selectedCustomer?.customerName);
 
     return (
-      <div className="portal-stack">
+      <div className="portal-stack" key="view-customers">
         {!isCustomer && (
           <section className="portal-panel">
             <div className="portal-panel-header">
@@ -1327,7 +1400,7 @@ const CustomerDevicePortal = () => {
   };
 
   const renderRenewals = () => (
-    <div className="portal-stack">
+    <div className="portal-stack" key="view-renewals">
       <section className="portal-panel">
         <div className="portal-panel-header">
           <div>
@@ -1415,7 +1488,7 @@ const CustomerDevicePortal = () => {
   );
 
   const renderReports = () => (
-    <div className="portal-stack">
+    <div className="portal-stack" key="view-reports">
       <div className="portal-report-grid">
         {[
           ['Customer Reports', reports?.customerReports],
@@ -1478,7 +1551,7 @@ const CustomerDevicePortal = () => {
   );
 
   const renderProfile = () => (
-    <div className="portal-stack">
+    <div className="portal-stack" key="view-profile">
       <section className="portal-panel">
         <div className="portal-panel-header">
           <div>
@@ -1530,24 +1603,26 @@ const CustomerDevicePortal = () => {
 
   return (
     <div className="portal-page">
-      {notice && <div className="portal-notice">{notice}</div>}
+      {notice ? <div className="portal-notice">{notice}</div> : null}
 
       <div className="portal-titlebar">
         <div>
-          <span className="portal-kicker">Customer Database & Device Management Portal</span>
+          <span className="portal-kicker">Customer Database &amp; Device Management Portal</span>
           <h1>{viewTitles[activeView] || 'Dashboard'}</h1>
         </div>
         <div className="portal-title-actions">
           <button type="button" className={activeView === 'dashboard' ? 'active' : ''} onClick={() => openView('dashboard')}>Dashboard</button>
-          {!isCustomer && <button type="button" className={activeView === 'customers' ? 'active' : ''} onClick={() => openView('customers')}>Customers</button>}
+          {!isCustomer ? <button type="button" className={activeView === 'customers' ? 'active' : ''} onClick={() => openView('customers')}>Customers</button> : null}
           <button type="button" className={activeView === 'devices' || activeView === 'mydevices' ? 'active' : ''} onClick={() => openView(isCustomer ? 'mydevices' : 'devices')}>Devices</button>
           <button type="button" className={activeView === 'renewals' ? 'active' : ''} onClick={() => openView('renewals')}>Renewals</button>
         </div>
       </div>
 
-      {renderContent()}
+      <div key={activeView} className="portal-view-container">
+        {renderContent()}
+      </div>
 
-      {editUser && (
+      {editUser ? (
         <div className="portal-modal-backdrop">
           <section className="portal-modal">
             <div className="portal-panel-header">
@@ -1612,7 +1687,7 @@ const CustomerDevicePortal = () => {
             </form>
           </section>
         </div>
-      )}
+      ) : null}
     </div>
   );
 };

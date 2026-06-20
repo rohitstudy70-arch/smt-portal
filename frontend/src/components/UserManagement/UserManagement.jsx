@@ -360,7 +360,7 @@ const UserManagement = () => {
                       </tr>
                     ) : filteredUsers.length > 0 ? (
                       filteredUsers.map((user, index) => (
-                        <tr key={user._id || index} className={user.status === 'Inactive' ? 'row-inactive' : ''}>
+                        <tr key={user._id || `user-${index}`} className={user.status === 'Inactive' ? 'row-inactive' : ''}>
                           <td>{index + 1}</td>
                           <td className="text-semibold">{user.displayName || user.username}</td>
                           <td>{user.userType || 'N/A'}</td>

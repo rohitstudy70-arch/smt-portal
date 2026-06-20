@@ -2,15 +2,28 @@ import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FaSpinner } from 'react-icons/fa';
 import api from '../../utils/api';
+import { useAuth } from '../../context/AuthContext';
 import './IccidSearch.css';
 
 const IccidSearch = () => {
+  const { user } = useAuth();
   const [device, setDevice] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [latestRequest, setLatestRequest] = useState(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
+
+  const getRole = (u) => {
+    if (u?.role === 'partner') return 'ADMIN';
+    if (u?.userType === 'Administration') return 'ADMIN';
+    if (u?.userType === 'Sub Dealer') return 'SUB_DEALER';
+    if (u?.userType === 'End Customer') return 'CUSTOMER';
+    return 'DEALER';
+  };
+
+  const role = getRole(user);
 
   const getSearchQuery = () => {
     const params = new URLSearchParams(location.search);
@@ -70,7 +83,7 @@ const IccidSearch = () => {
     };
 
     fetchDeviceAndHistory();
-  }, [searchQuery]);
+  }, [searchQuery, refreshTrigger]);
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '00/00/0000';
@@ -122,6 +135,66 @@ State: ${latestRequest?.userId?.state || device.dealerId?.state || '—'}`;
       });
   };
 
+  const handleDirectActivate = async () => {
+    if (!device?.imei) {
+      alert('No device IMEI found to activate.');
+      return;
+    }
+    if (!window.confirm('Are you sure you want to activate this device immediately?')) {
+      return;
+    }
+    try {
+      setLoading(true);
+      await api.post('/activation-requests/direct-activate', { imei: device.imei });
+      alert('Device activated successfully!');
+      setRefreshTrigger(prev => prev + 1);
+    } catch (err) {
+      console.error('Direct activation error:', err);
+      alert(err.response?.data?.message || 'Failed to activate device.');
+      setLoading(false);
+    }
+  };
+
+  const handleQuickActivate = async () => {
+    if (!latestRequest?._id) {
+      // Fallback to direct activation if request ID is not present
+      await handleDirectActivate();
+      return;
+    }
+    if (!window.confirm('Are you sure you want to approve this request and activate this device immediately?')) {
+      return;
+    }
+    try {
+      setLoading(true);
+      await api.put(`/activation-requests/${latestRequest._id}/approve`);
+      alert('Device activated successfully!');
+      setRefreshTrigger(prev => prev + 1);
+    } catch (err) {
+      console.error('Quick activation error:', err);
+      alert(err.response?.data?.message || 'Failed to activate device.');
+      setLoading(false);
+    }
+  };
+
+  const getActivationStatus = () => {
+    if (!device) return 'none';
+    if (device.activationRequestStatus && device.activationRequestStatus !== 'none') {
+      return device.activationRequestStatus;
+    }
+    if (latestRequest) {
+      const status = latestRequest.status?.toLowerCase();
+      if (['requested', 'processing'].includes(status)) {
+        return 'processing';
+      }
+      if (['completed', 'approved', 'active'].includes(status)) {
+        return 'active';
+      }
+    }
+    return 'none';
+  };
+
+  const activationStatus = getActivationStatus();
+
   return (
     <div className="iccid-search-container">
       {loading ? (
@@ -143,17 +216,67 @@ State: ${latestRequest?.userId?.state || device.dealerId?.state || '—'}`;
               <button className="btn-copy-all" onClick={handleCopyDetails}>
                 Copy All Details
               </button>
-              <button 
-                className="btn-raise-req"
-                onClick={() => navigate('/service-requests/activation', { 
-                  state: { 
-                    prefillDevice: device, 
-                    prefillRequest: latestRequest 
-                  } 
-                })}
-              >
-                Raise Request
-              </button>
+              {activationStatus === 'processing' ? (
+                <>
+                  <button className="badge-status-processing" style={{
+                    padding: '8px 16px',
+                    background: '#f0ad4e',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontWeight: 'bold',
+                    cursor: 'default',
+                    display: 'inline-block',
+                    fontSize: '13px'
+                  }}>
+                    Processing
+                  </button>
+                  {role === 'ADMIN' && (
+                    <button 
+                      className="btn-activate-quick" 
+                      onClick={handleQuickActivate}
+                    >
+                      Activate
+                    </button>
+                  )}
+                </>
+              ) : activationStatus === 'active' ? (
+                <button className="badge-status-active" style={{
+                  padding: '8px 16px',
+                  background: '#5cb85c',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontWeight: 'bold',
+                  cursor: 'default',
+                  display: 'inline-block',
+                  fontSize: '13px'
+                }}>
+                  Active
+                </button>
+              ) : (
+                <>
+                  <button 
+                    className="btn-raise-req"
+                    onClick={() => navigate('/service-requests/activation', { 
+                      state: { 
+                        prefillDevice: device, 
+                        prefillRequest: latestRequest 
+                      } 
+                    })}
+                  >
+                    Raise Request
+                  </button>
+                  {role === 'ADMIN' && (
+                    <button 
+                      className="btn-activate-quick" 
+                      onClick={handleDirectActivate}
+                    >
+                      Activate
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           </div>
 

@@ -12,7 +12,8 @@ import {
   FaTachometerAlt,
   FaUserEdit,
   FaUsers,
-  FaWallet,
+  FaCalendarAlt,
+  FaMoneyBillWave,
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import './Sidebar.css';
@@ -131,20 +132,30 @@ const Sidebar = () => {
 
 
 
-        {canShow(operationsRoles) && (
-          <li className={`sidebar-menu-item ${location.pathname === '/ledger' ? 'active' : ''}`}>
-            <NavLink to="/ledger">
-              <FaWallet className="menu-icon" />
-              <span className="menu-text">Dealer Ledger</span>
-            </NavLink>
-          </li>
-        )}
 
         {canShow(operationsRoles) && (
           <li className={`sidebar-menu-item ${location.pathname === '/user-management' ? 'active' : ''}`}>
             <NavLink to="/user-management">
               <FaUsers className="menu-icon" />
               <span className="menu-text">User Management</span>
+            </NavLink>
+          </li>
+        )}
+
+        {canShow(operationsRoles) && (
+          <li className={`sidebar-menu-item ${location.pathname === '/due-dashboard' && new URLSearchParams(location.search).get('tab') === 'renewals' ? 'active' : ''}`}>
+            <NavLink to="/due-dashboard?tab=renewals">
+              <FaCalendarAlt className="menu-icon" />
+              <span className="menu-text">Renewal Due Devices</span>
+            </NavLink>
+          </li>
+        )}
+
+        {canShow(operationsRoles) && (
+          <li className={`sidebar-menu-item ${location.pathname === '/due-dashboard' && new URLSearchParams(location.search).get('tab') !== 'renewals' ? 'active' : ''}`}>
+            <NavLink to="/due-dashboard">
+              <FaMoneyBillWave className="menu-icon" />
+              <span className="menu-text">Due Dashboard</span>
             </NavLink>
           </li>
         )}

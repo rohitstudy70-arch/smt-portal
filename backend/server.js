@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const path = require('path');
+const fs = require('fs');
 const connectDB = require('./config/db');
 
 // Load environment variables
@@ -8,6 +10,16 @@ dotenv.config();
 
 // Connect to MongoDB
 connectDB();
+
+// Ensure upload folders exist
+const uploadDir = path.join(__dirname, 'uploads');
+const screenshotDir = path.join(uploadDir, 'screenshots');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir);
+}
+if (!fs.existsSync(screenshotDir)) {
+  fs.mkdirSync(screenshotDir);
+}
 
 const app = express();
 
@@ -45,6 +57,9 @@ app.options('*', cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Serve static uploads
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Mount routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/activation-requests', require('./routes/activationRequests'));
@@ -53,6 +68,8 @@ app.use('/api/wallet', require('./routes/wallet'));
 app.use('/api/users', require('./routes/subUsers'));
 app.use('/api/devices', require('./routes/devices'));
 app.use('/api/portal', require('./routes/portal'));
+app.use('/api/due-dashboard', require('./routes/dueDashboard'));
+app.use('/api/payment-verification-requests', require('./routes/paymentVerificationRequests'));
 
 // Health check route
 app.get('/api/health', (req, res) => {

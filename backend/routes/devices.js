@@ -13,6 +13,10 @@ const {
   labelForUser,
   requireRoles,
 } = require('../middleware/hierarchy');
+const {
+  getDueOwnerIdsFromDevice,
+  syncDueForUsers,
+} = require('../services/dueService');
 
 const router = express.Router();
 
@@ -238,6 +242,40 @@ const findDuplicateDevice = (input) => Device.findOne({
   ],
 });
 
+const buildCommercialAssignmentUpdate = async (targetUser) => {
+  const targetRole = getPortalRole(targetUser);
+
+  if (targetRole === PORTAL_ROLES.DEALER) {
+    return {
+      userId: targetUser._id,
+      dealerId: targetUser._id,
+      dealerName: labelForUser(targetUser),
+      subDealerId: null,
+      subDealerName: '',
+    };
+  }
+
+  if (targetRole === PORTAL_ROLES.SUB_DEALER) {
+    const parentDealer = targetUser.parentId
+      ? await User.findById(targetUser.parentId).select('-password')
+      : null;
+
+    if (!parentDealer || getPortalRole(parentDealer) !== PORTAL_ROLES.DEALER) {
+      return null;
+    }
+
+    return {
+      userId: targetUser._id,
+      dealerId: parentDealer._id,
+      dealerName: labelForUser(parentDealer),
+      subDealerId: targetUser._id,
+      subDealerName: labelForUser(targetUser),
+    };
+  }
+
+  return null;
+};
+
 // @route   GET /api/devices/stats
 // @desc    Get device summary statistics scoped to current hierarchy
 // @access  Protected
@@ -408,10 +446,23 @@ router.post('/assign', requireRoles(...deviceCreateRoles), async (req, res) => {
     const updatedAt = new Date();
 
     if (action === 'Assign') {
+      const matchQuery = combineQueries(buildDeviceScopeQuery(req.hierarchyScope), { imei: { $in: targetImeis } });
+      const devicesBefore = await Device.find(matchQuery).select('userId dealerId subDealerId');
+      const commercialUpdate = await buildCommercialAssignmentUpdate(subUser);
+
+      if ([PORTAL_ROLES.DEALER, PORTAL_ROLES.SUB_DEALER].includes(getPortalRole(subUser)) && !commercialUpdate) {
+        return res.status(400).json({ message: 'Selected Sub Dealer is not linked to a valid dealer.' });
+      }
+
+      const dueOwnerIds = devicesBefore.flatMap(getDueOwnerIdsFromDevice);
+      if (commercialUpdate) {
+        dueOwnerIds.push(commercialUpdate.subDealerId || commercialUpdate.dealerId);
+      }
+
       const result = await Device.updateMany(
-        combineQueries(buildDeviceScopeQuery(req.hierarchyScope), { imei: { $in: targetImeis } }),
+        matchQuery,
         {
-          $set: { assignedTo: subUserId, updatedAt },
+          $set: { assignedTo: subUserId, updatedAt, ...(commercialUpdate || {}) },
           $push: {
             assignmentHistory: {
               toUser: subUserId,
@@ -423,13 +474,18 @@ router.post('/assign', requireRoles(...deviceCreateRoles), async (req, res) => {
         },
       );
 
+      await syncDueForUsers(dueOwnerIds);
+
       return res.json({
         message: `Successfully assigned ${result.modifiedCount} devices to ${labelForUser(subUser)}`,
       });
     }
 
+    const unassignQuery = combineQueries(buildDeviceScopeQuery(req.hierarchyScope), { imei: { $in: targetImeis }, assignedTo: subUserId });
+    const devicesBefore = await Device.find(unassignQuery).select('userId dealerId subDealerId');
+    const dueOwnerIds = devicesBefore.flatMap(getDueOwnerIdsFromDevice);
     const result = await Device.updateMany(
-      combineQueries(buildDeviceScopeQuery(req.hierarchyScope), { imei: { $in: targetImeis }, assignedTo: subUserId }),
+      unassignQuery,
       {
         $set: { assignedTo: null, updatedAt },
         $push: {
@@ -442,6 +498,8 @@ router.post('/assign', requireRoles(...deviceCreateRoles), async (req, res) => {
         },
       },
     );
+
+    await syncDueForUsers(dueOwnerIds);
 
     return res.json({
       message: `Successfully unassigned ${result.modifiedCount} devices from ${labelForUser(subUser)}`,
@@ -568,6 +626,8 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
         }
       }).catch((e) => console.error('Failed to log audit event:', e.message));
 
+      await syncDueForUsers([ownership.ownerId]);
+
       const populatedDevice = await populateDevice(Device.findById(deviceCreated._id));
       res.status(201).json({ message: 'Device added successfully!', device: populatedDevice });
     } catch (err) {
@@ -651,6 +711,7 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
     const oldUserId = device.userId;
     const newBillAmount = Number(input.billAmount) || 0;
     const newUserId = ownership.ownerId;
+    const oldDueOwnerIds = getDueOwnerIdsFromDevice(device);
 
     const isSameOwner = oldUserId.toString() === newUserId.toString();
     const oldOwner = await User.findById(oldUserId);
@@ -804,6 +865,8 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
         }
       }).catch((e) => console.error('Failed to log audit event:', e.message));
 
+      await syncDueForUsers([...oldDueOwnerIds, ...getDueOwnerIdsFromDevice(device)]);
+
       const populatedDevice = await populateDevice(Device.findById(device._id));
       res.json({ message: 'Device updated successfully!', device: populatedDevice });
 
@@ -862,7 +925,9 @@ router.delete('/:id', async (req, res) => {
       }
     }
 
+    const dueOwnerIds = getDueOwnerIdsFromDevice(device);
     await Device.findByIdAndDelete(device._id);
+    await syncDueForUsers(dueOwnerIds);
     res.json({ message: 'Device deleted successfully.' });
   } catch (error) {
     console.error('Delete device error:', error.message);

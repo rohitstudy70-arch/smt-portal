@@ -6,7 +6,6 @@ import ActivationRequests from './components/ServiceRequests/ActivationRequests'
 import Layout from './components/Layout/Layout';
 import EditProfile from './components/AccountSettings/EditProfile';
 import ChangePassword from './components/AccountSettings/ChangePassword';
-import WalletSystem from './components/WalletSystem/WalletSystem';
 import UserManagement from './components/UserManagement/UserManagement';
 import DeviceManagement from './components/DeviceManagement/DeviceManagement';
 import AddDevice from './components/DeviceManagement/AddDevice';
@@ -14,7 +13,7 @@ import Certificates from './components/Certificates/Certificates';
 import InvoiceGenerator from './components/InvoiceGenerator/InvoiceGenerator';
 import ProformaInvoice from './components/ProformaInvoice/ProformaInvoice';
 import IccidSearch from './components/IccidSearch/IccidSearch';
-import Ledger from './components/Ledger/Ledger';
+import DueDashboard from './components/DueDashboard/DueDashboard';
 
 const getRole = (user) => {
   if (user?.role === 'partner') return 'ADMIN';
@@ -117,27 +116,7 @@ function App() {
           } 
         />
 
-        <Route 
-          path="/wallet-system" 
-          element={
-            <ProtectedRoute allowedRoles={operationsRoles}>
-              <Layout>
-                <WalletSystem />
-              </Layout>
-            </ProtectedRoute>
-          } 
-        />
 
-        <Route 
-          path="/ledger" 
-          element={
-            <ProtectedRoute allowedRoles={operationsRoles}>
-              <Layout>
-                <Ledger />
-              </Layout>
-            </ProtectedRoute>
-          } 
-        />
         
         <Route 
           path="/user-management" 
@@ -145,6 +124,17 @@ function App() {
             <ProtectedRoute allowedRoles={operationsRoles}>
               <Layout>
                 <UserManagement />
+              </Layout>
+            </ProtectedRoute>
+          } 
+        />
+
+        <Route 
+          path="/due-dashboard" 
+          element={
+            <ProtectedRoute allowedRoles={operationsRoles}>
+              <Layout>
+                <DueDashboard />
               </Layout>
             </ProtectedRoute>
           } 

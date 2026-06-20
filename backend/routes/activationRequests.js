@@ -127,7 +127,24 @@ router.post('/', requireRoles(...operationsRoles), async (req, res) => {
     }
 
     const device = await Device.findOne({ imei });
-    const targetUserId = device ? (device.subDealerId || device.dealerId || req.user._id) : req.user._id;
+    if (!device) {
+      return res.status(404).json({ message: 'Device not found.' });
+    }
+
+    // Step 7: Prevent duplicate requests
+    if (device.activationRequestStatus === 'processing' || device.activationRequestStatus === 'active') {
+      return res.status(400).json({ message: 'Activation request already exists.' });
+    }
+
+    const existingRequest = await ActivationRequest.findOne({
+      imei,
+      status: { $in: ['Requested', 'Processing', 'Completed', 'Approved', 'Active'] }
+    });
+    if (existingRequest) {
+      return res.status(400).json({ message: 'Activation request already exists.' });
+    }
+
+    const targetUserId = device.subDealerId || device.dealerId || req.user._id;
 
     const targetUser = await User.findById(targetUserId);
     if (!targetUser) {
@@ -135,17 +152,9 @@ router.post('/', requireRoles(...operationsRoles), async (req, res) => {
     }
 
     const reqAmount = Number(amount) || 0;
+    // Bypassed balance check, but still deduct from availableBalance to update outstanding dues
     if (reqAmount > 0) {
-      if (targetUser.availableBalance < reqAmount) {
-        return res.status(400).json({
-          message: `Insufficient balance in wallet of ${targetUser.displayName || targetUser.username}. Available balance: ₹${targetUser.availableBalance}`
-        });
-      }
-    }
-
-    // Deduct amount from wallet balance
-    if (reqAmount > 0) {
-      targetUser.availableBalance -= reqAmount;
+      targetUser.availableBalance = (targetUser.availableBalance || 0) - reqAmount;
       await targetUser.save();
     }
 
@@ -163,7 +172,7 @@ router.post('/', requireRoles(...operationsRoles), async (req, res) => {
       piNo: piNo || '',
       amount: reqAmount,
       remarks: remarks || '',
-      status: 'Requested',
+      status: 'Processing',
       // Activation form fields
       dealerName: dealerName || '',
       dealerAddress: dealerAddress || '',
@@ -216,11 +225,14 @@ router.post('/', requireRoles(...operationsRoles), async (req, res) => {
       });
     }
 
-    // Automatically assign the device to the dealer/sub-dealer
+    // Automatically assign the device to the dealer/sub-dealer and update status
     try {
       if (device) {
         const fromUser = device.assignedTo;
         device.assignedTo = targetUser._id;
+        device.activationRequestStatus = 'processing';
+        device.deviceStatus = 'inactive';
+        device.status = 'Inactive';
         device.updatedAt = new Date();
         device.assignmentHistory.push({
           fromUser: fromUser || null,
@@ -230,7 +242,7 @@ router.post('/', requireRoles(...operationsRoles), async (req, res) => {
           changedBy: req.user._id,
         });
         await device.save();
-        console.log(`Automatically assigned device ${imei} to user ${targetUser._id}`);
+        console.log(`Automatically assigned device ${imei} and set status to inactive/processing`);
       }
     } catch (assignError) {
       console.error('Error during automatic device assignment:', assignError.message);
@@ -260,6 +272,150 @@ router.get('/:id', async (req, res) => {
     res.json(request);
   } catch (error) {
     console.error('Get activation request error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   PUT /api/activation-requests/:id/approve
+// @desc    Approve and activate the device (Step 5)
+// @access  Protected (Admin only)
+router.put('/:id/approve', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
+  try {
+    const request = await ActivationRequest.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({ message: 'Activation request not found' });
+    }
+
+    if (request.status === 'Completed' || request.status === 'Approved' || request.status === 'Active') {
+      return res.status(400).json({ message: 'Request is already approved/completed.' });
+    }
+
+    // Update request status
+    request.status = 'Completed';
+    await request.save();
+
+    // Find and update device status
+    const device = await Device.findOne({ imei: request.imei });
+    if (device) {
+      const currentDate = new Date();
+      device.activationRequestStatus = 'active';
+      device.deviceStatus = 'active';
+      device.status = 'Active'; // Keep status synced
+      device.activationDate = currentDate;
+      device.presentDate = currentDate; // Sync presentDate as activation date
+      
+      // Calculate expiryDate
+      const validityYears = device.validity === '2 Years' ? 2 : 1;
+      const expiry = new Date(currentDate);
+      expiry.setFullYear(expiry.getFullYear() + validityYears);
+      device.expiryDate = expiry;
+
+      await device.save();
+    }
+
+    res.json({ message: 'Activation request approved and device activated successfully.', request });
+  } catch (error) {
+    console.error('Approve activation request error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   PUT /api/activation-requests/:id/reject
+// @desc    Reject activation request
+// @access  Protected (Admin only)
+router.put('/:id/reject', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
+  try {
+    const { remarks } = req.body;
+    const request = await ActivationRequest.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({ message: 'Activation request not found' });
+    }
+
+    request.status = 'Rejected';
+    if (remarks) {
+      request.remarks = remarks;
+    }
+    await request.save();
+
+    // Reset device activation request status so they can raise a request again
+    const device = await Device.findOne({ imei: request.imei });
+    if (device) {
+      device.activationRequestStatus = 'rejected';
+      device.deviceStatus = 'inactive';
+      await device.save();
+    }
+
+    res.json({ message: 'Activation request rejected.', request });
+  } catch (error) {
+    console.error('Reject activation request error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   POST /api/activation-requests/direct-activate
+// @desc    Directly activate a device (Admin only)
+// @access  Protected (Admin only)
+router.post('/direct-activate', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
+  try {
+    const { imei } = req.body;
+    if (!imei) {
+      return res.status(400).json({ message: 'IMEI is required.' });
+    }
+
+    const device = await Device.findOne({ imei });
+    if (!device) {
+      return res.status(404).json({ message: 'Device not found.' });
+    }
+
+    // Check if already active
+    if (device.deviceStatus === 'active' || device.status === 'Active') {
+      return res.status(400).json({ message: 'Device is already active.' });
+    }
+
+    // Create an approved ActivationRequest
+    const requestId = await generateRequestId();
+    const currentDate = new Date();
+
+    const request = await ActivationRequest.create({
+      requestId,
+      userId: req.user._id,
+      dateTime: currentDate,
+      quantity: 1,
+      requestType: 'Commercial Plan',
+      plan: device.validity || '1 Year',
+      amount: device.billAmount || 0,
+      remarks: 'Directly activated by Admin from Search Page',
+      status: 'Completed',
+      // Prefilled device info
+      dealerName: device.dealerName || '',
+      imei: device.imei,
+      iccid: device.iccid,
+      serialNo: device.serialNo,
+      msisdn1: device.msisdn1 || '',
+      msisdn2: device.msisdn2 || '',
+      validity: device.validity || '1 Year',
+      itrNo: device.itrNo || '',
+      vendor: device.vendor || ''
+    });
+
+    // Update device status to active
+    device.activationRequestStatus = 'active';
+    device.deviceStatus = 'active';
+    device.status = 'Active';
+    device.activationDate = currentDate;
+    device.presentDate = currentDate;
+
+    // Calculate expiryDate
+    const validityYears = device.validity === '2 Years' ? 2 : 1;
+    const expiry = new Date(currentDate);
+    expiry.setFullYear(expiry.getFullYear() + validityYears);
+    device.expiryDate = expiry;
+
+    await device.save();
+
+    res.json({ message: 'Device activated successfully.', device, request });
+  } catch (error) {
+    console.error('Direct activation error:', error.message);
     res.status(500).json({ message: 'Server error' });
   }
 });

@@ -153,6 +153,10 @@ const deviceSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  renewalAmount: {
+    type: Number,
+    default: 0,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
@@ -165,6 +169,20 @@ const deviceSchema = new mongoose.Schema({
   createdByRole: {
     type: String,
     default: '',
+  },
+  activationRequestStatus: {
+    type: String,
+    enum: ['none', 'processing', 'active', 'rejected'],
+    default: 'none',
+  },
+  deviceStatus: {
+    type: String,
+    enum: ['inactive', 'active'],
+    default: 'inactive',
+  },
+  activationDate: {
+    type: Date,
+    default: null,
   },
   updatedAt: {
     type: Date,
