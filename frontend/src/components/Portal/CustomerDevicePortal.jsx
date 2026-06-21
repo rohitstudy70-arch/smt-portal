@@ -45,6 +45,14 @@ const emptyUserForm = {
   pincode: '',
 };
 
+const getLocalDateString = (dateObj) => {
+  const d = dateObj ? new Date(dateObj) : new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const emptyDeviceForm = {
   dealerId: '',
   dealerName: '',
@@ -57,6 +65,7 @@ const emptyDeviceForm = {
   msisdn2: '',
   validity: '1 Year',
   status: 'Active',
+  presentDate: getLocalDateString(),
 };
 
 const viewTitles = {
@@ -143,8 +152,10 @@ const formatDate = (value) => {
   });
 };
 
-const getExpiryDate = (validity) => {
-  const date = new Date();
+const getExpiryDate = (presentDateStr, validity) => {
+  if (!presentDateStr) return new Date();
+  const date = new Date(presentDateStr);
+  if (isNaN(date.getTime())) return new Date();
   date.setFullYear(date.getFullYear() + (validity === '2 Years' ? 2 : 1));
   return date;
 };
@@ -1002,8 +1013,7 @@ const CustomerDevicePortal = () => {
   );
 
   const renderDeviceForm = () => {
-    const presentDate = new Date();
-    const expiryDate = getExpiryDate(deviceForm.validity);
+    const expiryDate = getExpiryDate(deviceForm.presentDate, deviceForm.validity);
 
     return (
       <form className="portal-form" onSubmit={addDevice}>
@@ -1087,7 +1097,12 @@ const CustomerDevicePortal = () => {
           </label>
           <label>
             <span>Activation Date</span>
-            <input value={formatDate(presentDate)} readOnly />
+            <input
+              type="date"
+              value={deviceForm.presentDate || getLocalDateString()}
+              onChange={(event) => updateDeviceForm('presentDate', event.target.value)}
+              required
+            />
           </label>
           <label>
             <span>Expiry Date</span>
@@ -1202,7 +1217,7 @@ const CustomerDevicePortal = () => {
             <form className="portal-form" onSubmit={bulkUploadDevices}>
               <label className="portal-textarea-label">
                 <span>CSV Data</span>
-                <textarea value={bulkText} onChange={(event) => setBulkText(event.target.value)} rows={7} placeholder="imei,iccid,serialNo,msisdn1,msisdn2,dealerName,validity,status,itrNo,vendor" />
+                <textarea value={bulkText} onChange={(event) => setBulkText(event.target.value)} rows={7} placeholder="imei,iccid,serialNo,msisdn1,msisdn2,dealerName,validity,status,itrNo,vendor,presentDate" />
               </label>
               <div className="portal-actions">
                 <button className="portal-primary" type="submit"><FaCloudUploadAlt /> Upload</button>

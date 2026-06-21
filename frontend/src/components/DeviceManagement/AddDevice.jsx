@@ -40,6 +40,14 @@ const formatDate = (value) => {
   });
 };
 
+const getLocalDateString = (dateObj) => {
+  const d = dateObj ? new Date(dateObj) : new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const createEmptyForm = (dealer) => ({
   dealerId: dealer?._id || '',
   dealerName: dealer ? getName(dealer) : '',
@@ -56,6 +64,7 @@ const createEmptyForm = (dealer) => ({
   billAmount: '',
   validity: '1 Year',
   status: 'Active',
+  presentDate: getLocalDateString(),
 });
 
 const AddDevice = () => {
@@ -110,12 +119,13 @@ const AddDevice = () => {
     );
   }, [availableSubDealers, subDealerSearch]);
 
-  const presentDate = useMemo(() => new Date(), []);
   const expiryDate = useMemo(() => {
-    const date = new Date();
+    if (!formData.presentDate) return null;
+    const date = new Date(formData.presentDate);
+    if (isNaN(date.getTime())) return null;
     date.setFullYear(date.getFullYear() + (formData.validity === '2 Years' ? 2 : 1));
     return date;
-  }, [formData.validity]);
+  }, [formData.presentDate, formData.validity]);
 
   const showToast = (type, message) => {
     setToast({ show: true, type, message });
@@ -329,6 +339,7 @@ const AddDevice = () => {
       billAmount: device.billAmount || '',
       validity: device.validity || '1 Year',
       status: device.status || 'Active',
+      presentDate: device.presentDate ? getLocalDateString(device.presentDate) : getLocalDateString(),
     });
     setDealerSearch(getLinkedName(device.dealerId, device.dealerName));
     setSubDealerSearch(getLinkedName(device.subDealerId, device.subDealerName));
@@ -558,7 +569,12 @@ const AddDevice = () => {
 
             <div className="form-group">
               <label>Activation Date</label>
-              <input type="text" value={formatDate(presentDate)} readOnly className="readonly-field" />
+              <input
+                type="date"
+                name="presentDate"
+                value={formData.presentDate}
+                onChange={(event) => updateFormField('presentDate', event.target.value)}
+              />
             </div>
 
             <div className="form-group">

@@ -616,7 +616,18 @@ router.post('/devices/bulk', protect, async (req, res) => {
         }
       }
 
-      const presentDate = new Date();
+      let presentDate = new Date();
+      if (rawDevice.presentDate) {
+        const parsed = new Date(rawDevice.presentDate);
+        if (!isNaN(parsed.getTime())) {
+          presentDate = parsed;
+        }
+      } else if (rawDevice.activationDate) {
+        const parsed = new Date(rawDevice.activationDate);
+        if (!isNaN(parsed.getTime())) {
+          presentDate = parsed;
+        }
+      }
       const validity = rawDevice.validity === '2 Years' || rawDevice.validity === '2 Year' ? '2 Years' : '1 Year';
       const expiryDate = addYears(presentDate, validity === '2 Years' ? 2 : 1);
 

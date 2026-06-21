@@ -43,23 +43,33 @@ const normalizeValidity = (validity) => (
   validity === '2 Year' || validity === '2 Years' ? '2 Years' : '1 Year'
 );
 
-const normalizeDeviceInput = (body) => ({
-  dealerId: String(body.dealerId || '').trim(),
-  dealerName: String(body.dealerName || '').trim(),
-  subDealerId: String(body.subDealerId || '').trim(),
-  subDealerName: String(body.subDealerName || '').trim(),
-  vendor: String(body.vendor || '').trim(),
-  imei: String(body.imei || body.imeiNumber || '').trim(),
-  iccid: String(body.iccid || body.iccidNumber || '').trim(),
-  serialNo: String(body.serialNo || body.serialNumber || '').trim(),
-  msisdn1: String(body.msisdn1 || '').trim(),
-  msisdn2: String(body.msisdn2 || '').trim(),
-  itrNo: String(body.itrNo || '').trim(),
-  deviceName: String(body.deviceName || 'Aquila Track Bharat 101 With IRNSS').trim(),
-  billAmount: Number(body.billAmount) || 0,
-  validity: normalizeValidity(body.validity),
-  status: String(body.status || 'Active').trim() || 'Active',
-});
+const normalizeDeviceInput = (body) => {
+  let parsedPresentDate = null;
+  if (body.presentDate) {
+    const d = new Date(body.presentDate);
+    if (!isNaN(d.getTime())) {
+      parsedPresentDate = d;
+    }
+  }
+  return {
+    dealerId: String(body.dealerId || '').trim(),
+    dealerName: String(body.dealerName || '').trim(),
+    subDealerId: String(body.subDealerId || '').trim(),
+    subDealerName: String(body.subDealerName || '').trim(),
+    vendor: String(body.vendor || '').trim(),
+    imei: String(body.imei || body.imeiNumber || '').trim(),
+    iccid: String(body.iccid || body.iccidNumber || '').trim(),
+    serialNo: String(body.serialNo || body.serialNumber || '').trim(),
+    msisdn1: String(body.msisdn1 || '').trim(),
+    msisdn2: String(body.msisdn2 || '').trim(),
+    itrNo: String(body.itrNo || '').trim(),
+    deviceName: String(body.deviceName || 'Aquila Track Bharat 101 With IRNSS').trim(),
+    billAmount: Number(body.billAmount) || 0,
+    validity: normalizeValidity(body.validity),
+    status: String(body.status || 'Active').trim() || 'Active',
+    presentDate: parsedPresentDate,
+  };
+};
 
 const buildRegexCondition = (value, fields) => {
   if (!value) return null;
@@ -549,7 +559,7 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
     let transactionCreated = null;
 
     try {
-      const presentDate = new Date();
+      const presentDate = input.presentDate || new Date();
       const expiryDate = addYears(presentDate, input.validity === '2 Years' ? 2 : 1);
       const dealerName = labelForUser(ownership.dealer);
       const subDealerName = ownership.subDealer ? labelForUser(ownership.subDealer) : input.subDealerName;
@@ -819,9 +829,13 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
         }
       }
 
+      const presentDate = input.presentDate || device.presentDate || new Date();
       let expiryDate = device.expiryDate;
-      if (input.validity !== device.validity) {
-        expiryDate = addYears(device.presentDate || new Date(), input.validity === '2 Years' ? 2 : 1);
+      const presentDateChanged = input.presentDate && 
+        (!device.presentDate || new Date(input.presentDate).getTime() !== new Date(device.presentDate).getTime());
+
+      if (input.validity !== device.validity || presentDateChanged) {
+        expiryDate = addYears(presentDate, input.validity === '2 Years' ? 2 : 1);
       }
       const dealerName = labelForUser(ownership.dealer);
       const subDealerName = ownership.subDealer ? labelForUser(ownership.subDealer) : input.subDealerName;
@@ -843,6 +857,7 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
       device.itrNo = input.itrNo;
       device.billAmount = newBillAmount;
       device.validity = input.validity;
+      device.presentDate = presentDate;
       device.expiryDate = expiryDate;
       device.status = input.status;
       device.hasSim = Boolean(input.msisdn1 || input.msisdn2 || input.iccid);
