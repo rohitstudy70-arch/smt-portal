@@ -3,9 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../utils/api';
 import {
-  FaDollarSign,
+  FaRupeeSign,
   FaUsers,
-  FaFileInvoiceDollar,
   FaCalendarAlt,
   FaHistory,
   FaCoins,
@@ -20,6 +19,16 @@ import {
   FaMobileAlt,
 } from 'react-icons/fa';
 import './DueDashboard.css';
+
+const getLocalDatetimeString = (dateObj) => {
+  const d = dateObj ? new Date(dateObj) : new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
 
 const DueDashboard = () => {
   const { user } = useAuth();
@@ -93,6 +102,7 @@ const DueDashboard = () => {
     paymentMode: 'UPI',
     referenceNumber: '',
     remarks: '',
+    paymentDate: getLocalDatetimeString(),
   });
   const [selectedScreenshot, setSelectedScreenshot] = useState(null);
   const [submittingReportPayment, setSubmittingReportPayment] = useState(false);
@@ -102,6 +112,12 @@ const DueDashboard = () => {
 
   // Admin Verification States
   const [adminVerificationRequests, setAdminVerificationRequests] = useState([]);
+  const [verificationFilters, setVerificationFilters] = useState({
+    status: 'all',
+    dateRange: 'all',
+    fromDate: '',
+    toDate: '',
+  });
   const [verifyPaymentModalOpen, setVerifyPaymentModalOpen] = useState(false);
   const [selectedVerificationRequest, setSelectedVerificationRequest] = useState(null);
   const [verifyForm, setVerifyForm] = useState({
@@ -211,7 +227,11 @@ const DueDashboard = () => {
     if (!isAdmin) return;
     try {
       setLoadingRequests(true);
-      const res = await api.get('/payment-verification-requests');
+      const params = {};
+      if (verificationFilters.status !== 'all') {
+        params.status = verificationFilters.status;
+      }
+      const res = await api.get('/payment-verification-requests', { params });
       setAdminVerificationRequests(res.data || []);
     } catch (err) {
       console.error('Error fetching admin verification requests:', err);
@@ -219,7 +239,29 @@ const DueDashboard = () => {
     } finally {
       setLoadingRequests(false);
     }
-  }, [isAdmin]);
+  }, [isAdmin, verificationFilters.status, verificationFilters.dateRange]);
+
+  // Parse initial filters from query parameters
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const filterVal = searchParams.get('filter');
+    if (filterVal) {
+      if (filterVal === 'PendingDues') {
+        setDuesFilters(prev => ({ ...prev, status: 'PendingDues', accountType: 'all' }));
+      } else if (filterVal === 'Dealer') {
+        setDuesFilters(prev => ({ ...prev, status: 'all', accountType: 'Dealer' }));
+      } else if (filterVal === 'SubDealer') {
+        setDuesFilters(prev => ({ ...prev, status: 'all', accountType: 'Sub Dealer' }));
+      } else if (filterVal === 'today') {
+        setVerificationFilters({ status: 'Approved', dateRange: 'today' });
+      } else if (filterVal === 'month') {
+        setVerificationFilters({ status: 'Approved', dateRange: 'month' });
+      }
+      
+      const tabVal = searchParams.get('tab') || 'dues';
+      navigate(`/due-dashboard?tab=${tabVal}`, { replace: true });
+    }
+  }, [location.search, navigate]);
 
   // Initialize data based on active tab and role
   useEffect(() => {
@@ -298,6 +340,7 @@ const DueDashboard = () => {
       paymentMode: 'UPI',
       referenceNumber: '',
       remarks: '',
+      paymentDate: getLocalDatetimeString(),
     });
     setSelectedScreenshot(null);
     setReportPaymentModalOpen(true);
@@ -317,6 +360,7 @@ const DueDashboard = () => {
       formDataObj.append('paymentMode', reportForm.paymentMode);
       formDataObj.append('referenceNumber', reportForm.referenceNumber);
       formDataObj.append('remarks', reportForm.remarks);
+      formDataObj.append('paymentDate', reportForm.paymentDate);
       if (selectedScreenshot) {
         formDataObj.append('screenshot', selectedScreenshot);
       }
@@ -432,6 +476,20 @@ const DueDashboard = () => {
     return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
+  const formatDateTime = (dateStr) => {
+    if (!dateStr) return '-';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '-';
+    return d.toLocaleString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
   const getStatusClass = (status) => {
     switch (status) {
       case 'Clear': return 'due-status-clear';
@@ -441,6 +499,79 @@ const DueDashboard = () => {
       case 'Expiring Soon': return 'due-status-partial';
       case 'Expired': return 'due-status-overdue';
       default: return '';
+    }
+  };
+
+  const getFilteredVerificationRequests = () => {
+    return adminVerificationRequests.filter((req) => {
+      const pDate = new Date(req.paymentDate || req.createdAt);
+      if (isNaN(pDate.getTime())) return true;
+      const today = new Date();
+
+      if (verificationFilters.dateRange === 'today') {
+        return pDate.getFullYear() === today.getFullYear() &&
+               pDate.getMonth() === today.getMonth() &&
+               pDate.getDate() === today.getDate();
+      }
+      if (verificationFilters.dateRange === 'month') {
+        return pDate.getFullYear() === today.getFullYear() &&
+               pDate.getMonth() === today.getMonth();
+      }
+      if (verificationFilters.dateRange === 'custom') {
+        const from = verificationFilters.fromDate ? new Date(verificationFilters.fromDate) : null;
+        const to = verificationFilters.toDate ? new Date(verificationFilters.toDate) : null;
+
+        if (from) from.setHours(0, 0, 0, 0);
+        if (to) to.setHours(23, 59, 59, 999);
+
+        if (from && pDate < from) return false;
+        if (to && pDate > to) return false;
+        return true;
+      }
+      return true;
+    });
+  };
+
+  const handleCardClick = (cardType) => {
+    console.log('handleCardClick called for:', cardType, 'isAdmin:', isAdmin);
+    if (!isAdmin) return;
+
+    if (cardType === 'totalDue' || cardType === 'pendingBills') {
+      setDuesFilters({
+        search: '',
+        status: 'PendingDues',
+        accountType: 'all',
+      });
+      setDuesPage(1);
+      navigate(`/due-dashboard?tab=dues`);
+    } else if (cardType === 'totalDealers') {
+      setDuesFilters({
+        search: '',
+        status: 'all',
+        accountType: 'Dealer',
+      });
+      setDuesPage(1);
+      navigate(`/due-dashboard?tab=dues`);
+    } else if (cardType === 'totalSubDealers') {
+      setDuesFilters({
+        search: '',
+        status: 'all',
+        accountType: 'Sub Dealer',
+      });
+      setDuesPage(1);
+      navigate(`/due-dashboard?tab=dues`);
+    } else if (cardType === 'todaysCollection') {
+      setVerificationFilters({
+        status: 'Approved',
+        dateRange: 'today',
+      });
+      navigate(`/due-dashboard?tab=verifications`);
+    } else if (cardType === 'monthlyCollection') {
+      setVerificationFilters({
+        status: 'Approved',
+        dateRange: 'month',
+      });
+      navigate(`/due-dashboard?tab=verifications`);
     }
   };
 
@@ -483,19 +614,19 @@ const DueDashboard = () => {
       </div>
 
       {/* METRIC SUMMARY CARDS */}
-      {activeTab !== 'exports' && activeTab !== 'verifications' && summary && (
+      {activeTab !== 'exports' && summary && (
         <div className="due-summary-cards">
-          <div className="due-summary-card tone-red">
+          <div className={`due-summary-card tone-red ${isAdmin ? 'clickable' : ''}`} onClick={() => handleCardClick('totalDue')}>
             <div className="card-info">
               <span className="card-value">₹{(summary.totalDueAmount || 0).toLocaleString()}</span>
               <span className="card-label">{isAdmin ? 'Total Due Amount' : 'My Current Due'}</span>
             </div>
-            <FaFileInvoiceDollar className="card-icon" />
+            <FaRupeeSign className="card-icon" />
           </div>
 
           {isAdmin && (
             <>
-              <div className="due-summary-card tone-blue">
+              <div className="due-summary-card tone-blue clickable" onClick={() => handleCardClick('totalDealers')}>
                 <div className="card-info">
                   <span className="card-value">{summary.totalDealers || 0}</span>
                   <span className="card-label">Total Dealers</span>
@@ -503,7 +634,7 @@ const DueDashboard = () => {
                 <FaUserTie className="card-icon" />
               </div>
 
-              <div className="due-summary-card tone-green">
+              <div className="due-summary-card tone-green clickable" onClick={() => handleCardClick('totalSubDealers')}>
                 <div className="card-info">
                   <span className="card-value">{summary.totalSubDealers || 0}</span>
                   <span className="card-label">Total Sub Dealers</span>
@@ -511,7 +642,7 @@ const DueDashboard = () => {
                 <FaUsers className="card-icon" />
               </div>
 
-              <div className="due-summary-card tone-amber">
+              <div className="due-summary-card tone-amber clickable" onClick={() => handleCardClick('pendingBills')}>
                 <div className="card-info">
                   <span className="card-value">{summary.totalPendingDevices || 0}</span>
                   <span className="card-label">Dealers Pending Bills</span>
@@ -519,15 +650,15 @@ const DueDashboard = () => {
                 <FaMobileAlt className="card-icon" />
               </div>
 
-              <div className="due-summary-card tone-green">
+              <div className="due-summary-card tone-green clickable" onClick={() => handleCardClick('todaysCollection')}>
                 <div className="card-info">
                   <span className="card-value">₹{(summary.todaysCollection || 0).toLocaleString()}</span>
                   <span className="card-label">Today's Collection</span>
                 </div>
-                <FaDollarSign className="card-icon" />
+                <FaRupeeSign className="card-icon" />
               </div>
 
-              <div className="due-summary-card tone-violet">
+              <div className="due-summary-card tone-violet clickable" onClick={() => handleCardClick('monthlyCollection')}>
                 <div className="card-info">
                   <span className="card-value">₹{(summary.monthlyCollection || 0).toLocaleString()}</span>
                   <span className="card-label">Monthly Collection</span>
@@ -588,6 +719,7 @@ const DueDashboard = () => {
                       <option value="Clear">Clear</option>
                       <option value="Partial">Partial</option>
                       <option value="Overdue">Overdue</option>
+                      <option value="PendingDues">Pending Dues</option>
                     </select>
                   </div>
                 </div>
@@ -805,7 +937,7 @@ const DueDashboard = () => {
                           <table className="due-table compact">
                             <thead>
                               <tr>
-                                <th>Date Reported</th>
+                                <th>Payment Date & Time</th>
                                 <th>Amount</th>
                                 <th>Mode</th>
                                 <th>Reference No</th>
@@ -816,10 +948,24 @@ const DueDashboard = () => {
                             <tbody>
                               {verificationRequests.map((req) => (
                                 <tr key={req._id}>
-                                  <td>{formatDate(req.createdAt)}</td>
+                                  <td>{formatDateTime(req.paymentDate || req.createdAt)}</td>
                                   <td className="amount">₹{req.amount.toLocaleString()}</td>
                                   <td>{req.paymentMode}</td>
-                                  <td>{req.referenceNumber}</td>
+                                  <td>
+                                    <div>{req.referenceNumber}</div>
+                                    {req.screenshotUrl && (
+                                      <div style={{ marginTop: '4px' }}>
+                                        <a 
+                                          href={`${(api.defaults.baseURL || '').replace(/\/api$/, '')}${req.screenshotUrl}`} 
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          style={{ color: '#00bcd4', fontSize: '11px', textDecoration: 'underline', fontWeight: '500', display: 'inline-block' }}
+                                        >
+                                          View Proof
+                                        </a>
+                                      </div>
+                                    )}
+                                  </td>
                                   <td>
                                     <span className={`due-status-badge req-status-${req.status.toLowerCase()}`}>
                                       {req.status}
@@ -828,16 +974,18 @@ const DueDashboard = () => {
                                   <td>
                                     {req.status === 'Rejected' && (
                                       <span className="text-red" title={req.adminRemarks}>
-                                        Rejected: {req.adminRemarks || 'Declined'}
+                                        Rejected: {req.adminRemarks || 'Declined'} (Rejected At: {formatDateTime(req.verifiedAt || req.updatedAt)})
                                       </span>
                                     )}
                                     {req.status === 'Approved' && (
                                       <span className="text-green" title={req.adminRemarks}>
-                                        Approved: {req.adminRemarks || 'Cleared'}
+                                        Approved: {req.adminRemarks || 'Cleared'} (Approved At: {formatDateTime(req.verifiedAt || req.updatedAt)})
                                       </span>
                                     )}
                                     {req.status === 'Pending' && (
-                                      <span className="text-muted">Awaiting Admin Verification</span>
+                                      <span className="text-muted" title={`Submitted At: ${formatDateTime(req.createdAt)}`}>
+                                        Awaiting Admin Verification (Reported: {formatDateTime(req.createdAt)})
+                                      </span>
                                     )}
                                   </td>
                                 </tr>
@@ -1059,7 +1207,7 @@ const DueDashboard = () => {
             <div className="due-exports-grid">
               {/* Report 1: Dealer Dues */}
               <div className="due-export-card">
-                <FaFileInvoiceDollar className="export-icon text-red" />
+                <FaRupeeSign className="export-icon text-red" />
                 <h4>Dealer Due Report</h4>
                 <p>Generates details of total devices, paid amounts, and currently outstanding dues for all Dealers & Sub Dealers.</p>
                 <div className="export-actions">
@@ -1140,6 +1288,62 @@ const DueDashboard = () => {
           <div className="due-panel">
             <div className="due-panel-header">
               <h3>Payment Verification Requests</h3>
+              <div className="due-filters-bar">
+                <div className="filter-select">
+                  <FaFilter />
+                  <select
+                    value={verificationFilters.status}
+                    onChange={(e) => {
+                      setVerificationFilters(prev => ({ ...prev, status: e.target.value }));
+                    }}
+                  >
+                    <option value="all">All Status</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Approved">Approved</option>
+                    <option value="Rejected">Rejected</option>
+                  </select>
+                </div>
+                <div className="filter-select">
+                  <FaFilter />
+                  <select
+                    value={verificationFilters.dateRange}
+                    onChange={(e) => {
+                      setVerificationFilters(prev => ({ ...prev, dateRange: e.target.value }));
+                    }}
+                  >
+                    <option value="all">All Dates</option>
+                    <option value="today">Today</option>
+                    <option value="month">This Month</option>
+                    <option value="custom">Custom Range</option>
+                  </select>
+                </div>
+                {verificationFilters.dateRange === 'custom' && (
+                  <>
+                    <div className="filter-select" style={{ padding: '0 8px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '650' }}>From:</span>
+                      <input
+                        type="date"
+                        value={verificationFilters.fromDate}
+                        onChange={(e) => {
+                          setVerificationFilters(prev => ({ ...prev, fromDate: e.target.value }));
+                        }}
+                        style={{ border: 'none', outline: 'none', fontSize: '11px', background: 'transparent' }}
+                      />
+                    </div>
+                    <div className="filter-select" style={{ padding: '0 8px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '650' }}>To:</span>
+                      <input
+                        type="date"
+                        value={verificationFilters.toDate}
+                        onChange={(e) => {
+                          setVerificationFilters(prev => ({ ...prev, toDate: e.target.value }));
+                        }}
+                        style={{ border: 'none', outline: 'none', fontSize: '11px', background: 'transparent' }}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
             <div className="due-table-wrap">
               {loadingRequests ? (
@@ -1154,21 +1358,37 @@ const DueDashboard = () => {
                       <th>Amount</th>
                       <th>Mode</th>
                       <th>Reference No</th>
+                      <th>Payment Date & Time</th>
                       <th>Date Submitted</th>
                       <th>Status</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {adminVerificationRequests.map((req) => (
+                    {getFilteredVerificationRequests().map((req) => (
                       <tr key={req._id}>
                         <td>{req.userId?.displayName || req.userId?.username || '—'}</td>
                         <td>{req.userId?.companyName || '—'}</td>
                         <td>{req.userId?.mobileNo || '—'}</td>
                         <td className="amount">₹{(req.amount || 0).toLocaleString()}</td>
                         <td>{req.paymentMode}</td>
-                        <td className="strong">{req.referenceNumber}</td>
-                        <td>{formatDate(req.createdAt)}</td>
+                        <td className="strong">
+                          <div>{req.referenceNumber}</div>
+                          {req.screenshotUrl && (
+                            <div style={{ marginTop: '4px' }}>
+                              <a 
+                                href={`${(api.defaults.baseURL || '').replace(/\/api$/, '')}${req.screenshotUrl}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                style={{ color: '#00bcd4', fontSize: '11px', textDecoration: 'underline', fontWeight: '500', display: 'inline-block' }}
+                              >
+                                View Proof
+                              </a>
+                            </div>
+                          )}
+                        </td>
+                        <td>{formatDateTime(req.paymentDate || req.createdAt)}</td>
+                        <td>{formatDateTime(req.createdAt)}</td>
                         <td>
                           <span className={`due-status-badge req-status-${req.status.toLowerCase()}`}>
                             {req.status}
@@ -1184,8 +1404,11 @@ const DueDashboard = () => {
                               Verify
                             </button>
                           ) : (
-                            <span className="verified-info" style={{ fontWeight: '600' }} title={req.adminRemarks}>
+                            <span className="verified-info" style={{ fontWeight: '600', display: 'block', fontSize: '11px' }} title={req.adminRemarks}>
                               {req.status === 'Approved' ? '✅ Approved' : '❌ Rejected'}
+                              <span style={{ display: 'block', fontSize: '9.5px', color: '#888', fontWeight: 'normal', marginTop: '2px' }}>
+                                {req.status === 'Approved' ? 'Approved: ' : 'Rejected: '}{formatDateTime(req.verifiedAt || req.updatedAt)}
+                              </span>
                             </span>
                           )}
                         </td>
@@ -1458,6 +1681,15 @@ const DueDashboard = () => {
                   </select>
                 </div>
                 <div className="form-group">
+                  <label>Payment Date & Time <span className="required" style={{ color: 'red' }}>*</span></label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={reportForm.paymentDate}
+                    onChange={(e) => setReportForm(prev => ({ ...prev, paymentDate: e.target.value }))}
+                  />
+                </div>
+                <div className="form-group">
                   <label>Reference / UTR / Txn Number <span className="required" style={{ color: 'red' }}>*</span></label>
                   <input
                     type="text"
@@ -1513,10 +1745,11 @@ const DueDashboard = () => {
             <div className="due-modal-body">
               <div className="verify-details-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px', background: '#1a1a1a', padding: '12px', borderRadius: '4px', border: '1px solid #333' }}>
                 <div><strong>Dealer Name:</strong> <span style={{ color: '#aaa' }}>{selectedVerificationRequest.userId?.displayName || selectedVerificationRequest.userId?.username}</span></div>
-                <div><strong>Reported Date:</strong> <span style={{ color: '#aaa' }}>{formatDate(selectedVerificationRequest.createdAt)}</span></div>
+                <div><strong>Payment Time:</strong> <span style={{ color: '#00bcd4', fontWeight: 'bold' }}>{formatDateTime(selectedVerificationRequest.paymentDate || selectedVerificationRequest.createdAt)}</span></div>
                 <div><strong>Amount:</strong> <span style={{ color: '#2ecc71', fontWeight: 'bold' }}>₹{selectedVerificationRequest.amount.toLocaleString()}</span></div>
                 <div><strong>Mode:</strong> <span style={{ color: '#aaa' }}>{selectedVerificationRequest.paymentMode}</span></div>
-                <div style={{ gridColumn: 'span 2' }}><strong>Reference No:</strong> <span style={{ color: '#f39c12', fontWeight: 'bold', fontFamily: 'monospace' }}>{selectedVerificationRequest.referenceNumber}</span></div>
+                <div><strong>Submitted Date:</strong> <span style={{ color: '#aaa' }}>{formatDateTime(selectedVerificationRequest.createdAt)}</span></div>
+                <div><strong>Reference No:</strong> <span style={{ color: '#f39c12', fontWeight: 'bold', fontFamily: 'monospace' }}>{selectedVerificationRequest.referenceNumber}</span></div>
                 {selectedVerificationRequest.remarks && <div style={{ gridColumn: 'span 2' }}><strong>Dealer Remarks:</strong> <span style={{ color: '#aaa', fontStyle: 'italic' }}>{selectedVerificationRequest.remarks}</span></div>}
               </div>
 

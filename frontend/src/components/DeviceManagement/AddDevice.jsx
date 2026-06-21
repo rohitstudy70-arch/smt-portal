@@ -90,6 +90,9 @@ const AddDevice = () => {
   // Table search states
   const [tableSearch, setTableSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [filterDateMode, setFilterDateMode] = useState('all');
+  const [filterFromDate, setFilterFromDate] = useState('');
+  const [filterToDate, setFilterToDate] = useState('');
 
   const selectedDealer = useMemo(
     () => dealers.find((dealer) => dealer._id === formData.dealerId),
@@ -132,7 +135,7 @@ const AddDevice = () => {
     window.setTimeout(() => setToast({ show: false, type: '', message: '' }), 4000);
   };
 
-  const fetchDevices = useCallback(async (searchQuery = '') => {
+  const fetchDevices = useCallback(async (searchQuery = '', fromDate = '', toDate = '') => {
     try {
       setDevicesLoading(true);
       const response = await api.get('/devices', {
@@ -140,6 +143,8 @@ const AddDevice = () => {
           limit: 100,
           page: 1,
           search: searchQuery,
+          dateFrom: fromDate,
+          dateTo: toDate,
         },
       });
       setDevices(response.data.devices || []);
@@ -159,12 +164,33 @@ const AddDevice = () => {
     return () => clearTimeout(handler);
   }, [tableSearch]);
 
-  // Fetch devices when search query or role changes
+  // Fetch devices when search query, role or date filters change
   useEffect(() => {
     if (role !== 'CUSTOMER') {
-      fetchDevices(debouncedSearch);
+      fetchDevices(debouncedSearch, filterFromDate, filterToDate);
     }
-  }, [debouncedSearch, fetchDevices, role]);
+  }, [debouncedSearch, filterFromDate, filterToDate, fetchDevices, role]);
+
+  const handleDateModeChange = (mode) => {
+    setFilterDateMode(mode);
+    const todayStr = getLocalDateString();
+    
+    if (mode === 'all') {
+      setFilterFromDate('');
+      setFilterToDate('');
+    } else if (mode === 'today') {
+      setFilterFromDate(todayStr);
+      setFilterToDate(todayStr);
+    } else if (mode === 'yesterday') {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = getLocalDateString(yesterday);
+      setFilterFromDate(yesterdayStr);
+      setFilterToDate(yesterdayStr);
+    } else if (mode === 'custom') {
+      // Keep empty or let them change
+    }
+  };
 
   useEffect(() => {
     const fetchAllUsersAndPopulate = async () => {
@@ -631,9 +657,44 @@ const AddDevice = () => {
           </div>
         </div>
 
-        <div className="device-table-meta">
-          <span>{devices.length} shown</span>
-          <span>{totalDevices} total</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', padding: '16px 24px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <label style={{ fontSize: '12.5px', fontWeight: '700', color: 'var(--text-dark)' }}>Activation Date:</label>
+            <select 
+              value={filterDateMode} 
+              onChange={(e) => handleDateModeChange(e.target.value)}
+              style={{ padding: '6px 10px', fontSize: '12.5px', border: '1.5px solid var(--border-color)', borderRadius: '6px', background: '#ffffff', color: 'var(--text-dark)', outline: 'none' }}
+            >
+              <option value="all">All Time</option>
+              <option value="today">Today</option>
+              <option value="yesterday">Yesterday</option>
+              <option value="custom">Custom Range</option>
+            </select>
+            {filterDateMode === 'custom' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <input 
+                  type="date" 
+                  value={filterFromDate} 
+                  onChange={(e) => setFilterFromDate(e.target.value)}
+                  style={{ padding: '5px 8px', fontSize: '12.5px', border: '1.5px solid var(--border-color)', borderRadius: '6px', outline: 'none' }}
+                />
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>to</span>
+                <input 
+                  type="date" 
+                  value={filterToDate} 
+                  onChange={(e) => setFilterToDate(e.target.value)}
+                  style={{ padding: '5px 8px', fontSize: '12.5px', border: '1.5px solid var(--border-color)', borderRadius: '6px', outline: 'none' }}
+                />
+              </div>
+            )}
+            <span style={{ marginLeft: '12px', padding: '4px 12px', background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)', color: '#ffffff', borderRadius: '20px', fontSize: '11px', fontWeight: '800', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+              {devices.length} Devices
+            </span>
+          </div>
+          <div className="device-table-meta" style={{ padding: 0 }}>
+            <span>{devices.length} shown</span>
+            <span>{totalDevices} total</span>
+          </div>
         </div>
 
         <div className="add-device-table-wrap">

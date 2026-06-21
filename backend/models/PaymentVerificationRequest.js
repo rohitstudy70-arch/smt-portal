@@ -48,6 +48,9 @@ const paymentVerificationRequestSchema = new mongoose.Schema({
   verifiedAt: {
     type: Date,
     default: null,
+  },
+  paymentDate: {
+    type: Date,
   }
 }, {
   timestamps: true,

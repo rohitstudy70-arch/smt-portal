@@ -22,7 +22,7 @@ import {
   FaUsers,
   FaUserTie,
   FaFileInvoiceDollar,
-  FaDollarSign,
+  FaRupeeSign,
   FaCoins,
   FaChartLine,
 } from 'react-icons/fa';
@@ -215,6 +215,9 @@ const CustomerDevicePortal = () => {
   const [renewalForm, setRenewalForm] = useState({ deviceId: '', imei: '', customerId: '', validity: '1 Year', remarks: '' });
   const [resetForm, setResetForm] = useState({ userId: '', password: '' });
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [portalDateMode, setPortalDateMode] = useState('all');
+  const [portalFromDate, setPortalFromDate] = useState('');
+  const [portalToDate, setPortalToDate] = useState('');
 
   const userRole = user?.role === 'partner' ? 'ADMIN' : user?.userType === 'Administration' ? 'ADMIN' : user?.userType === 'Sub Dealer' ? 'SUB_DEALER' : user?.userType === 'End Customer' ? 'CUSTOMER' : 'DEALER';
   const role = summary?.role || userRole;
@@ -249,8 +252,28 @@ const CustomerDevicePortal = () => {
 
   const filteredDevices = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return devices;
-    return devices.filter((device) => (
+    let result = devices;
+
+    if (portalFromDate || portalToDate) {
+      result = result.filter((device) => {
+        if (!device.presentDate) return false;
+        const devDate = new Date(device.presentDate);
+        if (portalFromDate) {
+          const fromD = new Date(portalFromDate);
+          fromD.setHours(0, 0, 0, 0);
+          if (devDate < fromD) return false;
+        }
+        if (portalToDate) {
+          const toD = new Date(portalToDate);
+          toD.setHours(23, 59, 59, 999);
+          if (devDate > toD) return false;
+        }
+        return true;
+      });
+    }
+
+    if (!query) return result;
+    return result.filter((device) => (
       device.imei?.toLowerCase().includes(query)
       || device.iccid?.toLowerCase().includes(query)
       || device.serialNo?.toLowerCase().includes(query)
@@ -262,7 +285,28 @@ const CustomerDevicePortal = () => {
       || getName(device.assignedTo).toLowerCase().includes(query)
       || getLinkedName(device.createdBy).toLowerCase().includes(query)
     ));
-  }, [devices, search]);
+  }, [devices, search, portalFromDate, portalToDate]);
+
+  const handlePortalDateModeChange = (mode) => {
+    setPortalDateMode(mode);
+    const todayStr = getLocalDateString();
+    
+    if (mode === 'all') {
+      setPortalFromDate('');
+      setPortalToDate('');
+    } else if (mode === 'today') {
+      setPortalFromDate(todayStr);
+      setPortalToDate(todayStr);
+    } else if (mode === 'yesterday') {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = getLocalDateString(yesterday);
+      setPortalFromDate(yesterdayStr);
+      setPortalToDate(yesterdayStr);
+    } else if (mode === 'custom') {
+      // Keep empty or let them change
+    }
+  };
 
   const filteredCustomers = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -602,28 +646,36 @@ const CustomerDevicePortal = () => {
               <div className="portal-stats-grid">
                 <div 
                   className="portal-stat stat-red" 
-                  onClick={() => navigate('/due-dashboard')} 
+                  onClick={() => navigate('/due-dashboard?tab=dues&filter=PendingDues')} 
                   style={{ cursor: 'pointer' }}
                 >
                   <div>
                     <span className="portal-stat-value">₹{(dueSummary.totalDueAmount || 0).toLocaleString()}</span>
                     <span className="portal-stat-label">Total Due Amount</span>
                   </div>
-                  <FaFileInvoiceDollar className="portal-stat-icon" />
+                  <FaRupeeSign className="portal-stat-icon" />
                 </div>
 
                 {isAdmin && (
-                  <div className="portal-stat stat-green">
+                  <div 
+                    className="portal-stat stat-green"
+                    onClick={() => navigate('/due-dashboard?tab=verifications&filter=today')}
+                    style={{ cursor: 'pointer' }}
+                  >
                     <div>
                       <span className="portal-stat-value">₹{(dueSummary.todaysCollection || 0).toLocaleString()}</span>
                       <span className="portal-stat-label">Today's Collection</span>
                     </div>
-                    <FaDollarSign className="portal-stat-icon" />
+                    <FaRupeeSign className="portal-stat-icon" />
                   </div>
                 )}
 
                 {isAdmin && (
-                  <div className="portal-stat stat-blue">
+                  <div 
+                    className="portal-stat stat-blue"
+                    onClick={() => navigate('/due-dashboard?tab=verifications&filter=month')}
+                    style={{ cursor: 'pointer' }}
+                  >
                     <div>
                       <span className="portal-stat-value">₹{(dueSummary.monthlyCollection || 0).toLocaleString()}</span>
                       <span className="portal-stat-label">Monthly Collection</span>
@@ -1162,6 +1214,42 @@ const CustomerDevicePortal = () => {
           </button>
         </div>
       </div>
+      
+      {/* Date Filter Bar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '16px 20px', borderBottom: '1px solid var(--border-color)', flexWrap: 'wrap' }}>
+        <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)' }}>Filter by Activation Date:</label>
+        <select 
+          value={portalDateMode} 
+          onChange={(e) => handlePortalDateModeChange(e.target.value)}
+          style={{ padding: '6px 10px', fontSize: '12px', border: '1.5px solid var(--border-color)', borderRadius: '4px', background: 'var(--bg-card)', color: 'var(--text-dark)', outline: 'none' }}
+        >
+          <option value="all">All Time</option>
+          <option value="today">Today</option>
+          <option value="yesterday">Yesterday</option>
+          <option value="custom">Custom Range</option>
+        </select>
+        {portalDateMode === 'custom' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <input 
+              type="date" 
+              value={portalFromDate} 
+              onChange={(e) => setPortalFromDate(e.target.value)}
+              style={{ padding: '5px 8px', fontSize: '12px', border: '1.5px solid var(--border-color)', borderRadius: '4px', background: 'var(--bg-card)', color: 'var(--text-dark)', outline: 'none' }}
+            />
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>to</span>
+            <input 
+              type="date" 
+              value={portalToDate} 
+              onChange={(e) => setPortalToDate(e.target.value)}
+              style={{ padding: '5px 8px', fontSize: '12px', border: '1.5px solid var(--border-color)', borderRadius: '4px', background: 'var(--bg-card)', color: 'var(--text-dark)', outline: 'none' }}
+            />
+          </div>
+        )}
+        <span style={{ marginLeft: '12px', padding: '4px 12px', background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)', color: '#ffffff', borderRadius: '20px', fontSize: '11px', fontWeight: '800', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+          {records.length} Devices
+        </span>
+      </div>
+
       <div className="portal-table-wrap">
         <table className="portal-table wide">
           <thead>

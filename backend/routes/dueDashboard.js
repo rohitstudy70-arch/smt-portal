@@ -389,7 +389,13 @@ router.get('/dealers', async (req, res) => {
     const { search = '', status = '', accountType = '', limit = 10, page = 1 } = req.query;
     const query = { userId: { $in: userIds } };
 
-    if (status && status !== 'all') query.status = status;
+    if (status && status !== 'all') {
+      if (status === 'PendingDues') {
+        query.currentDue = { $gt: 0 };
+      } else {
+        query.status = status;
+      }
+    }
     if (accountType && accountType !== 'all') query.accountType = accountType;
     if (search) {
       const regex = new RegExp(escapeRegExp(search), 'i');

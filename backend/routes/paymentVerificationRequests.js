@@ -87,6 +87,14 @@ router.post('/', upload.single('screenshot'), async (req, res) => {
       return res.status(400).json({ message: 'Payment screenshot proof is required for digital payments.' });
     }
 
+    let paymentDate = new Date();
+    if (req.body.paymentDate) {
+      const parsed = new Date(req.body.paymentDate);
+      if (!isNaN(parsed.getTime())) {
+        paymentDate = parsed;
+      }
+    }
+
     const request = await PaymentVerificationRequest.create({
       userId: req.user._id,
       amount,
@@ -94,6 +102,7 @@ router.post('/', upload.single('screenshot'), async (req, res) => {
       referenceNumber: referenceNumber.trim(),
       remarks: (remarks || '').trim(),
       screenshotUrl,
+      paymentDate,
       status: 'Pending'
     });
 
@@ -177,7 +186,7 @@ router.put('/:id/verify', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => 
         dealerDueId: due._id,
         userId: request.userId,
         amount: request.amount,
-        paymentDate: new Date(),
+        paymentDate: request.paymentDate || new Date(),
         paymentMode: mappedMode,
         referenceNumber: request.referenceNumber,
         remarks: request.remarks ? `Reported: ${request.remarks}` : 'Approved payment verification request',
