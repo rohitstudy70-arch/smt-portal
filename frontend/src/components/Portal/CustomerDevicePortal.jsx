@@ -642,6 +642,16 @@ const CustomerDevicePortal = () => {
                   </div>
                 )}
 
+                {isAdmin && (
+                  <div className="portal-stat stat-slate">
+                    <div>
+                      <span className="portal-stat-value">₹{(dueSummary.monthlyRevenue || 0).toLocaleString()}</span>
+                      <span className="portal-stat-label">Monthly Revenue</span>
+                    </div>
+                    <FaChartLine className="portal-stat-icon" />
+                  </div>
+                )}
+
                 <div 
                   className="portal-stat stat-amber" 
                   onClick={() => navigate('/due-dashboard?tab=renewals')} 

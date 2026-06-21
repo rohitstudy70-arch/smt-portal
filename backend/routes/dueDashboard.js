@@ -360,10 +360,11 @@ router.get('/summary', async (req, res) => {
     const monthStart = startOfMonth(new Date());
     const monthEnd = endOfMonth(new Date());
 
-    const [todaysCollection, monthlyCollection, todaysRevenue] = await Promise.all([
+    const [todaysCollection, monthlyCollection, todaysRevenue, monthlyRevenue] = await Promise.all([
       sumPayments({ userId: { $in: userIds }, paymentDate: { $gte: todayStart, $lte: todayEnd } }),
       sumPayments({ userId: { $in: userIds }, paymentDate: { $gte: monthStart, $lte: monthEnd } }),
       sumDeviceRevenue({ userId: { $in: userIds }, createdAt: { $gte: todayStart, $lte: todayEnd } }),
+      sumDeviceRevenue({ userId: { $in: userIds }, createdAt: { $gte: monthStart, $lte: monthEnd } }),
     ]);
 
     res.json({
@@ -374,6 +375,7 @@ router.get('/summary', async (req, res) => {
       todaysCollection,
       monthlyCollection,
       todaysRevenue,
+      monthlyRevenue,
     });
   } catch (error) {
     console.error('Due summary error:', error.message);
