@@ -1,11 +1,43 @@
 const express = require('express');
 const ExcelJS = require('exceljs');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const DealerDue = require('../models/DealerDue');
 const Device = require('../models/Device');
 const DuePayment = require('../models/DuePayment');
 const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
 const { protect } = require('../middleware/auth');
+
+// Multer Storage Configuration for screenshots
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = path.join(__dirname, '..', 'uploads', 'screenshots');
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|pdf/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (extname && mimetype) {
+      return cb(null, true);
+    }
+    cb(new Error('Only images (jpg, jpeg, png, gif) and PDF files are allowed.'));
+  },
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+});
 const {
   PORTAL_ROLES,
   attachHierarchyScope,
@@ -469,7 +501,7 @@ router.get('/dealers/:userId/payments', async (req, res) => {
   }
 });
 
-router.post('/dealers/:userId/payments', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
+router.post('/dealers/:userId/payments', requireRoles(PORTAL_ROLES.ADMIN), upload.single('screenshot'), async (req, res) => {
   try {
     const user = await ensureDueUserAccess(req, req.params.userId);
     if (!user) return res.status(404).json({ message: 'Due account not found or access denied.' });
@@ -497,6 +529,14 @@ router.post('/dealers/:userId/payments', requireRoles(PORTAL_ROLES.ADMIN), async
       return res.status(400).json({ message: 'Payment amount cannot be greater than current due.' });
     }
 
+    let screenshotUrl = '';
+    if (req.file) {
+      screenshotUrl = `/uploads/screenshots/${req.file.filename}`;
+    } else if (paymentMode === 'UPI') {
+      // Require screenshot for UPI if admin records it
+      return res.status(400).json({ message: 'UPI screenshot receipt is required.' });
+    }
+
     const payment = await DuePayment.create({
       dealerDueId: due._id,
       userId: user._id,
@@ -505,6 +545,7 @@ router.post('/dealers/:userId/payments', requireRoles(PORTAL_ROLES.ADMIN), async
       paymentMode,
       referenceNumber,
       remarks,
+      screenshotUrl,
       updatedBy: req.user._id,
     });
 

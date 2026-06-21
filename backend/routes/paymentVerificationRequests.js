@@ -190,6 +190,7 @@ router.put('/:id/verify', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => 
         paymentMode: mappedMode,
         referenceNumber: request.referenceNumber,
         remarks: request.remarks ? `Reported: ${request.remarks}` : 'Approved payment verification request',
+        screenshotUrl: request.screenshotUrl,
         updatedBy: req.user._id,
       });
 

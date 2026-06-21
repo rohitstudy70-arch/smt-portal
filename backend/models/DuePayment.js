@@ -35,6 +35,10 @@ const duePaymentSchema = new mongoose.Schema({
     default: '',
     trim: true,
   },
+  screenshotUrl: {
+    type: String,
+    default: '',
+  },
   updatedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

@@ -105,6 +105,7 @@ const DueDashboard = () => {
     paymentDate: getLocalDatetimeString(),
   });
   const [selectedScreenshot, setSelectedScreenshot] = useState(null);
+  const [selectedPaymentScreenshot, setSelectedPaymentScreenshot] = useState(null);
   const [submittingReportPayment, setSubmittingReportPayment] = useState(false);
   const [verificationRequests, setVerificationRequests] = useState([]);
   const [selfListTab, setSelfListTab] = useState('payments'); // 'payments' or 'requests'
@@ -297,6 +298,7 @@ const DueDashboard = () => {
       remarks: '',
       referenceNumber: `TXN-${Date.now()}`,
     });
+    setSelectedPaymentScreenshot(null);
     setPaymentModalOpen(true);
   };
 
@@ -304,23 +306,35 @@ const DueDashboard = () => {
     e.preventDefault();
     if (!selectedDealerDue) return;
 
+    if (paymentForm.paymentMode === 'UPI' && !selectedPaymentScreenshot) {
+      alert('Please upload the UPI screenshot.');
+      return;
+    }
+
     const targetUserId = selectedDealerDue.userId?._id || selectedDealerDue.userId;
     if (!targetUserId) return;
 
     try {
       setSubmittingPayment(true);
-      const payload = {
-        amount: Number(paymentForm.amount),
-        paymentMode: paymentForm.paymentMode,
-        paymentDate: paymentForm.paymentDate,
-        remarks: paymentForm.remarks,
-        referenceNumber: paymentForm.referenceNumber,
-      };
+      const formDataObj = new FormData();
+      formDataObj.append('amount', Number(paymentForm.amount));
+      formDataObj.append('paymentMode', paymentForm.paymentMode);
+      formDataObj.append('paymentDate', paymentForm.paymentDate);
+      formDataObj.append('remarks', paymentForm.remarks);
+      formDataObj.append('referenceNumber', paymentForm.referenceNumber);
+      if (selectedPaymentScreenshot) {
+        formDataObj.append('screenshot', selectedPaymentScreenshot);
+      }
 
-      await api.post(`/due-dashboard/dealers/${targetUserId}/payments`, payload);
-      showNotice(`Payment of ₹${payload.amount.toLocaleString()} received successfully for ${selectedDealerDue.dealerName}`);
+      await api.post(`/due-dashboard/dealers/${targetUserId}/payments`, formDataObj, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      showNotice(`Payment of ₹${Number(paymentForm.amount).toLocaleString()} received successfully for ${selectedDealerDue.dealerName}`);
       setPaymentModalOpen(false);
       setSelectedDealerDue(null);
+      setSelectedPaymentScreenshot(null);
       
       // Refresh views
       fetchSummary();
@@ -917,7 +931,21 @@ const DueDashboard = () => {
                                   <td>{formatDate(payment.paymentDate)}</td>
                                   <td className="amount">₹{(payment.amount || 0).toLocaleString()}</td>
                                   <td>{payment.paymentMode}</td>
-                                  <td>{payment.referenceNumber || '-'}</td>
+                                  <td>
+                                    <div>{payment.referenceNumber || '-'}</div>
+                                    {payment.screenshotUrl && (
+                                      <div style={{ marginTop: '4px' }}>
+                                        <a 
+                                          href={`${(api.defaults.baseURL || '').replace(/\/api$/, '')}${payment.screenshotUrl}`} 
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          style={{ color: '#00bcd4', fontSize: '11px', textDecoration: 'underline', fontWeight: '500', display: 'inline-block' }}
+                                        >
+                                          View Proof
+                                        </a>
+                                      </div>
+                                    )}
+                                  </td>
                                   <td>{payment.remarks || '-'}</td>
                                 </tr>
                               ))}
@@ -1492,6 +1520,18 @@ const DueDashboard = () => {
                     />
                   </div>
                 </div>
+                {paymentForm.paymentMode === 'UPI' && (
+                  <div className="form-group">
+                    <label>UPI Screenshot Proof <span className="required" style={{ color: 'red' }}>*</span></label>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      required
+                      onChange={(e) => setSelectedPaymentScreenshot(e.target.files[0])}
+                      style={{ border: 'none', background: 'transparent', padding: '5px 0' }}
+                    />
+                  </div>
+                )}
                 <div className="form-group">
                   <label>Remarks</label>
                   <textarea
@@ -1582,7 +1622,21 @@ const DueDashboard = () => {
                                 <td>{formatDate(payment.paymentDate)}</td>
                                 <td className="amount">₹{(payment.amount || 0).toLocaleString()}</td>
                                 <td>{payment.paymentMode}</td>
-                                <td>{payment.referenceNumber || '-'}</td>
+                                <td>
+                                   <div>{payment.referenceNumber || '-'}</div>
+                                   {payment.screenshotUrl && (
+                                     <div style={{ marginTop: '4px' }}>
+                                       <a 
+                                         href={`${(api.defaults.baseURL || '').replace(/\/api$/, '')}${payment.screenshotUrl}`} 
+                                         target="_blank" 
+                                         rel="noopener noreferrer"
+                                         style={{ color: '#00bcd4', fontSize: '11px', textDecoration: 'underline', fontWeight: '500', display: 'inline-block' }}
+                                       >
+                                         View Proof
+                                       </a>
+                                     </div>
+                                   )}
+                                 </td>
                                 <td>{payment.remarks || '-'}</td>
                                 <td>{payment.updatedBy?.displayName || 'System'}</td>
                               </tr>
