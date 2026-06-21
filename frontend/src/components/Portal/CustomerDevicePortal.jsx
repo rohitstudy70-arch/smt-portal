@@ -24,6 +24,7 @@ import {
   FaFileInvoiceDollar,
   FaDollarSign,
   FaCoins,
+  FaChartLine,
 } from 'react-icons/fa';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
@@ -628,6 +629,16 @@ const CustomerDevicePortal = () => {
                       <span className="portal-stat-label">Monthly Collection</span>
                     </div>
                     <FaCoins className="portal-stat-icon" />
+                  </div>
+                )}
+
+                {isAdmin && (
+                  <div className="portal-stat stat-violet">
+                    <div>
+                      <span className="portal-stat-value">₹{(dueSummary.todaysRevenue || 0).toLocaleString()}</span>
+                      <span className="portal-stat-label">Today's Revenue</span>
+                    </div>
+                    <FaChartLine className="portal-stat-icon" />
                   </div>
                 )}
 

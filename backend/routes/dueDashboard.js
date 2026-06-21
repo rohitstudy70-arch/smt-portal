@@ -113,6 +113,14 @@ const sumPayments = async (match) => {
   return summary?.total || 0;
 };
 
+const sumDeviceRevenue = async (match) => {
+  const [summary] = await Device.aggregate([
+    { $match: match },
+    { $group: { _id: null, total: { $sum: '$billAmount' } } },
+  ]);
+  return summary?.total || 0;
+};
+
 const getRenewalStatus = (expiryDate) => {
   if (!expiryDate) return 'Expired';
   const now = startOfDay();
@@ -352,9 +360,10 @@ router.get('/summary', async (req, res) => {
     const monthStart = startOfMonth(new Date());
     const monthEnd = endOfMonth(new Date());
 
-    const [todaysCollection, monthlyCollection] = await Promise.all([
+    const [todaysCollection, monthlyCollection, todaysRevenue] = await Promise.all([
       sumPayments({ userId: { $in: userIds }, paymentDate: { $gte: todayStart, $lte: todayEnd } }),
       sumPayments({ userId: { $in: userIds }, paymentDate: { $gte: monthStart, $lte: monthEnd } }),
+      sumDeviceRevenue({ userId: { $in: userIds }, createdAt: { $gte: todayStart, $lte: todayEnd } }),
     ]);
 
     res.json({
@@ -364,6 +373,7 @@ router.get('/summary', async (req, res) => {
       totalPendingDevices: dues.reduce((sum, due) => sum + (due.currentDue > 0 ? due.totalDevicesAssigned || 0 : 0), 0),
       todaysCollection,
       monthlyCollection,
+      todaysRevenue,
     });
   } catch (error) {
     console.error('Due summary error:', error.message);
