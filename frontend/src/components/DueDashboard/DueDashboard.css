@@ -955,3 +955,57 @@
 .due-modal-btn.approve:hover {
   background-color: #059669;
 }
+
+/* Responsive Styles for Due Dashboard */
+@media (max-width: 920px) {
+  .due-split-view {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .due-tab-btn {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  .due-panel-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .due-filters-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .due-filters-bar .search-box, 
+  .due-filters-bar .filter-select {
+    width: 100%;
+    min-width: 0;
+  }
+  .due-filters-bar .filter-select select {
+    width: 100%;
+  }
+  .due-details-grid-layout {
+    grid-template-columns: 1fr;
+  }
+  .due-details-grid-layout .full-width {
+    grid-column: span 1;
+  }
+}
+
+@media (max-width: 480px) {
+  .due-summary-cards {
+    grid-template-columns: 1fr;
+  }
+  .due-modal-backdrop {
+    padding: 10px;
+  }
+  .due-modal-header {
+    padding: 12px 16px;
+  }
+  .due-modal-body {
+    padding: 12px 16px;
+  }
+  .due-modal-footer {
+    padding: 12px 16px;
+  }
+}

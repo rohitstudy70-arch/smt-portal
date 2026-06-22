@@ -10,6 +10,7 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  transition: margin-left 0.3s ease;
 }
 
 .page-content {
@@ -25,4 +26,33 @@
   font-size: 11.5px;
   color: var(--text-muted);
   font-weight: 500;
+}
+
+.sidebar-overlay {
+  display: none;
+}
+
+/* Responsive styles */
+@media (max-width: 992px) {
+  .main-content {
+    margin-left: 0;
+  }
+
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(2px);
+    z-index: 999;
+  }
+}
+
+@media (max-width: 576px) {
+  .page-content {
+    padding: 12px;
+  }
 }

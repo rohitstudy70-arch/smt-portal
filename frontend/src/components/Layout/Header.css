@@ -246,3 +246,58 @@
 .upload-bar button:hover {
   background: var(--primary-blue-hover);
 }
+
+/* Responsive styles for Header */
+@media (max-width: 992px) {
+  .header {
+    padding: 0 16px;
+  }
+  .breadcrumb-bar {
+    padding: 0 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .header-right {
+    gap: 12px;
+  }
+  
+  .search-box input {
+    width: 150px;
+  }
+}
+
+@media (max-width: 576px) {
+  .header {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 8px 12px;
+    gap: 8px;
+  }
+  
+  .header-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .search-box {
+    flex: 1;
+  }
+  
+  .search-box input {
+    width: 100%;
+  }
+
+  .breadcrumb-bar {
+    padding: 8px 12px;
+    height: auto;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  
+  .upload-bar {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

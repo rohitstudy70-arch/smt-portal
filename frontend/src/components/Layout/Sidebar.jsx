@@ -26,7 +26,7 @@ const getRole = (user) => {
   return 'DEALER';
 };
 
-const Sidebar = () => {
+const Sidebar = ({ isOpen, setIsOpen }) => {
   const { user } = useAuth();
   const location = useLocation();
   const [serviceRequestsOpen, setServiceRequestsOpen] = useState(
@@ -65,7 +65,7 @@ const Sidebar = () => {
   const brandLogoText = role === 'ADMIN' ? 'AE' : getInitials(brandName);
 
   return (
-    <div className="sidebar">
+    <div className={`sidebar ${isOpen ? 'open' : ''}`}>
       <div className="sidebar-brand">
         <div className="brand-logo-container">
           <span className="brand-logo-text">{brandLogoText}</span>
@@ -76,7 +76,11 @@ const Sidebar = () => {
         </div>
       </div>
 
-      <ul className="sidebar-menu">
+      <ul className="sidebar-menu" onClick={(e) => {
+        if (e.target.closest('a')) {
+          setIsOpen(false);
+        }
+      }}>
         <li className={`sidebar-menu-item ${isDashboardActive ? 'active' : ''}`}>
           <NavLink to="/dashboard?view=dashboard">
             <FaTachometerAlt className="menu-icon" />

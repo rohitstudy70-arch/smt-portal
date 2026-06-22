@@ -4,7 +4,7 @@ import { FaBars, FaBell, FaUser, FaCaretDown, FaSignOutAlt } from 'react-icons/f
 import { useAuth } from '../../context/AuthContext';
 import './Header.css';
 
-const Header = () => {
+const Header = ({ toggleSidebar }) => {
   const { user, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const location = useLocation();
@@ -164,7 +164,7 @@ const Header = () => {
     <div className="header-wrapper">
       <div className="header">
         <div className="header-left">
-          <FaBars className="menu-toggle" />
+          <FaBars className="menu-toggle" onClick={toggleSidebar} />
         </div>
 
         <div className="header-right">
