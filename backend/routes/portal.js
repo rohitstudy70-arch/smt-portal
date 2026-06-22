@@ -213,7 +213,7 @@ router.get('/summary', protect, async (req, res) => {
       Device.countDocuments(deviceScopeQuery),
       Device.countDocuments({ ...deviceScopeQuery, status: { $in: ['Active', 'Activated'] } }),
       Device.countDocuments({ ...deviceScopeQuery, expiryDate: { $lt: now, $ne: null } }),
-      Device.countDocuments({ ...deviceScopeQuery, createdAt: { $gte: todayStart, $lte: todayEnd } }),
+      Device.countDocuments({ ...deviceScopeQuery, presentDate: { $gte: todayStart, $lte: todayEnd } }),
       Device.countDocuments({ ...deviceScopeQuery, assignedTo: null }),
       Device.countDocuments({ ...deviceScopeQuery, assignedTo: { $ne: null } }),
       Device.countDocuments({ ...deviceScopeQuery, expiryDate: { $gte: now, $lte: dueDate } }),
