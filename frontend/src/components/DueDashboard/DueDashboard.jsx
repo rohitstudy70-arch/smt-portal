@@ -350,7 +350,7 @@ const DueDashboard = () => {
   // Dealer Report Payment Handlers
   const openReportPaymentModal = () => {
     setReportForm({
-      amount: detailsData?.due?.currentDue ? String(detailsData.due.currentDue) : '',
+      amount: detailsData?.due?.totalOutstanding ? String(detailsData.due.totalOutstanding) : '',
       paymentMode: 'UPI',
       referenceNumber: '',
       remarks: '',
@@ -550,7 +550,7 @@ const DueDashboard = () => {
     console.log('handleCardClick called for:', cardType, 'isAdmin:', isAdmin);
     if (!isAdmin) return;
 
-    if (cardType === 'totalDue' || cardType === 'pendingBills') {
+    if (cardType === 'totalOutstanding' || cardType === 'totalDue' || cardType === 'pendingBills') {
       setDuesFilters({
         search: '',
         status: 'PendingDues',
@@ -630,10 +630,18 @@ const DueDashboard = () => {
       {/* METRIC SUMMARY CARDS */}
       {activeTab !== 'exports' && summary && (
         <div className="due-summary-cards">
-          <div className={`due-summary-card tone-red ${isAdmin ? 'clickable' : ''}`} onClick={() => handleCardClick('totalDue')}>
+          <div className={`due-summary-card tone-red ${isAdmin ? 'clickable' : ''}`} onClick={() => handleCardClick('totalOutstanding')}>
+            <div className="card-info">
+              <span className="card-value">₹{(summary.totalOutstandingAmount || 0).toLocaleString()}</span>
+              <span className="card-label">{isAdmin ? 'Total Outstanding Amount' : 'My Total Outstanding'}</span>
+            </div>
+            <FaRupeeSign className="card-icon" />
+          </div>
+
+          <div className={`due-summary-card tone-amber ${isAdmin ? 'clickable' : ''}`} onClick={() => handleCardClick('totalDue')}>
             <div className="card-info">
               <span className="card-value">₹{(summary.totalDueAmount || 0).toLocaleString()}</span>
-              <span className="card-label">{isAdmin ? 'Total Due Amount' : 'My Current Due'}</span>
+              <span className="card-label">{isAdmin ? 'Total Due Amount (Over 30 Days)' : 'My Current Due (Over 30 Days)'}</span>
             </div>
             <FaRupeeSign className="card-icon" />
           </div>
@@ -752,7 +760,8 @@ const DueDashboard = () => {
                         <th>Devices Assigned</th>
                         <th>Total Bill Amount</th>
                         <th>Total Paid Amount</th>
-                        <th>Current Due</th>
+                        <th>Total Outstanding</th>
+                        <th>Current Due (Over 30 Days)</th>
                         <th>Last Payment Date</th>
                         <th>Status</th>
                         <th>Actions</th>
@@ -775,6 +784,7 @@ const DueDashboard = () => {
                           <td className="center">{due.totalDevicesAssigned}</td>
                           <td className="amount">₹{(due.totalBillAmount || 0).toLocaleString()}</td>
                           <td className="amount">₹{(due.totalPaidAmount || 0).toLocaleString()}</td>
+                          <td className="amount" style={{ fontWeight: '500' }}>₹{(due.totalOutstanding || 0).toLocaleString()}</td>
                           <td className="amount current-due-col">₹{(due.currentDue || 0).toLocaleString()}</td>
                           <td>{formatDate(due.lastPaymentDate)}</td>
                           <td>
@@ -783,7 +793,7 @@ const DueDashboard = () => {
                             </span>
                           </td>
                           <td>
-                            {due.currentDue > 0 && (
+                            {due.totalOutstanding > 0 && (
                               <button
                                 className="due-action-btn primary"
                                 onClick={() => openPaymentModal(due)}
@@ -868,7 +878,11 @@ const DueDashboard = () => {
                         <strong className="text-green">₹{(detailsData.due?.totalPaidAmount || 0).toLocaleString()}</strong>
                       </div>
                       <div className="stat-row highlight">
-                        <span>Current Due Amount:</span>
+                        <span>Total Outstanding:</span>
+                        <strong>₹{(detailsData.due?.totalOutstanding || 0).toLocaleString()}</strong>
+                      </div>
+                      <div className="stat-row highlight">
+                        <span>Current Due Amount (Over 30 Days):</span>
                         <strong className="text-red">₹{(detailsData.due?.currentDue || 0).toLocaleString()}</strong>
                       </div>
                       <div className="stat-row">
@@ -877,7 +891,7 @@ const DueDashboard = () => {
                           {detailsData.due?.status}
                         </span>
                       </div>
-                      {detailsData.due?.currentDue > 0 && (
+                      {detailsData.due?.totalOutstanding > 0 && (
                         <button
                           type="button"
                           className="due-action-btn primary"
@@ -1472,8 +1486,12 @@ const DueDashboard = () => {
                   <input type="text" value={selectedDealerDue.dealerName} readOnly className="readonly-input" />
                 </div>
                 <div className="form-group">
-                  <label>Current Outstanding Due</label>
-                  <div className="highlight-amount red">₹{(selectedDealerDue.currentDue || 0).toLocaleString()}</div>
+                  <label>Total Outstanding Due</label>
+                  <div className="highlight-amount red">₹{(selectedDealerDue.totalOutstanding || 0).toLocaleString()}</div>
+                </div>
+                <div className="form-group">
+                  <label>Current Due (Over 30 Days)</label>
+                  <div className="highlight-amount" style={{ color: '#f59e0b', fontSize: '18px', fontWeight: 'bold' }}>₹{(selectedDealerDue.currentDue || 0).toLocaleString()}</div>
                 </div>
                 <div className="form-row">
                   <div className="form-group">
@@ -1482,7 +1500,7 @@ const DueDashboard = () => {
                       type="number"
                       required
                       min="1"
-                      max={selectedDealerDue.currentDue}
+                      max={selectedDealerDue.totalOutstanding}
                       placeholder="Enter amount..."
                       value={paymentForm.amount}
                       onChange={(e) => setPaymentForm(prev => ({ ...prev, amount: e.target.value }))}
@@ -1595,10 +1613,14 @@ const DueDashboard = () => {
                         <span>Total Paid Amount:</span>
                         <strong className="text-green">₹{(detailsData.due?.totalPaidAmount || 0).toLocaleString()}</strong>
                       </div>
-                      <div className="stat-flex border-top">
-                        <span>Current Due Amount:</span>
-                        <strong className="text-red">₹{(detailsData.due?.currentDue || 0).toLocaleString()}</strong>
-                      </div>
+                       <div className="stat-flex border-top">
+                         <span>Total Outstanding:</span>
+                         <strong>₹{(detailsData.due?.totalOutstanding || 0).toLocaleString()}</strong>
+                       </div>
+                       <div className="stat-flex border-top">
+                         <span>Current Due Amount (Over 30 Days):</span>
+                         <strong className="text-red">₹{(detailsData.due?.currentDue || 0).toLocaleString()}</strong>
+                       </div>
                     </div>
 
                     {/* Lower Area: Devices & Payments List */}

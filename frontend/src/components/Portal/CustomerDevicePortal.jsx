@@ -650,8 +650,20 @@ const CustomerDevicePortal = () => {
                   style={{ cursor: 'pointer' }}
                 >
                   <div>
+                    <span className="portal-stat-value">₹{(dueSummary.totalOutstandingAmount || 0).toLocaleString()}</span>
+                    <span className="portal-stat-label">{isAdmin ? 'Total Outstanding Amount' : 'My Total Outstanding'}</span>
+                  </div>
+                  <FaRupeeSign className="portal-stat-icon" />
+                </div>
+
+                <div 
+                  className="portal-stat stat-amber" 
+                  onClick={() => navigate('/due-dashboard?tab=dues&filter=PendingDues')} 
+                  style={{ cursor: 'pointer' }}
+                >
+                  <div>
                     <span className="portal-stat-value">₹{(dueSummary.totalDueAmount || 0).toLocaleString()}</span>
-                    <span className="portal-stat-label">Total Due Amount</span>
+                    <span className="portal-stat-label">{isAdmin ? 'Total Due Amount (Over 30 Days)' : 'My Current Due (Over 30 Days)'}</span>
                   </div>
                   <FaRupeeSign className="portal-stat-icon" />
                 </div>

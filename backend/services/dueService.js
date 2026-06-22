@@ -34,16 +34,12 @@ const getAccountType = (user) => (
   getPortalRole(user) === PORTAL_ROLES.SUB_DEALER ? 'Sub Dealer' : 'Dealer'
 );
 
-const getStatus = ({ totalBillAmount, totalPaidAmount, currentDue, oldestPendingDate }) => {
-  if (currentDue <= 0 || totalBillAmount <= 0) return 'Clear';
-  if (totalPaidAmount > 0) return 'Partial';
-
-  if (oldestPendingDate) {
-    const ageInDays = Math.floor((Date.now() - new Date(oldestPendingDate).getTime()) / DAY_MS);
-    if (ageInDays >= 30) return 'Overdue';
+const getStatus = ({ totalOutstanding, currentDue, totalPaidAmount }) => {
+  if (totalOutstanding <= 0) return 'Clear';
+  if (currentDue > 0) {
+    return totalPaidAmount > 0 ? 'Partial' : 'Overdue';
   }
-
-  return 'Overdue';
+  return 'Clear';
 };
 
 const buildDeviceDueQuery = (user) => {
@@ -79,6 +75,8 @@ const syncDueForUser = async (userId) => {
     return null;
   }
 
+  const thirtyDaysAgo = new Date(Date.now() - 30 * DAY_MS);
+
   const dueQuery = buildDeviceDueQuery(user);
   const [deviceSummary] = await Device.aggregate([
     { $match: dueQuery },
@@ -87,6 +85,15 @@ const syncDueForUser = async (userId) => {
         _id: null,
         totalDevicesAssigned: { $sum: 1 },
         totalBillAmount: { $sum: { $ifNull: ['$billAmount', 0] } },
+        dueBillAmount: {
+          $sum: {
+            $cond: [
+              { $lte: [{ $ifNull: ['$presentDate', '$createdAt'] }, thirtyDaysAgo] },
+              { $ifNull: ['$billAmount', 0] },
+              0
+            ]
+          }
+        },
         oldestPendingDate: { $min: { $ifNull: ['$presentDate', '$createdAt'] } },
       },
     },
@@ -110,9 +117,12 @@ const syncDueForUser = async (userId) => {
 
   const totalDevicesAssigned = deviceSummary?.totalDevicesAssigned || 0;
   const totalBillAmount = deviceSummary?.totalBillAmount || 0;
+  const dueBillAmount = deviceSummary?.dueBillAmount || 0;
   const totalPaidAmount = paymentSummary?.totalPaidAmount || 0;
-  const currentDue = Math.max(totalBillAmount - totalPaidAmount, 0);
-  const oldestPendingDate = totalBillAmount > totalPaidAmount
+
+  const totalOutstanding = Math.max(totalBillAmount - totalPaidAmount, 0);
+  const currentDue = Math.max(dueBillAmount - totalPaidAmount, 0);
+  const oldestPendingDate = totalOutstanding > 0
     ? deviceSummary?.oldestPendingDate || null
     : null;
 
@@ -123,10 +133,11 @@ const syncDueForUser = async (userId) => {
   dueRecord.totalDevicesAssigned = totalDevicesAssigned;
   dueRecord.totalBillAmount = totalBillAmount;
   dueRecord.totalPaidAmount = totalPaidAmount;
+  dueRecord.totalOutstanding = totalOutstanding;
   dueRecord.currentDue = currentDue;
   dueRecord.lastPaymentDate = paymentSummary?.lastPaymentDate || null;
   dueRecord.oldestPendingDate = oldestPendingDate;
-  dueRecord.status = getStatus({ totalBillAmount, totalPaidAmount, currentDue, oldestPendingDate });
+  dueRecord.status = getStatus({ totalOutstanding, currentDue, totalPaidAmount });
   dueRecord.lastSyncedAt = new Date();
 
   await dueRecord.save();

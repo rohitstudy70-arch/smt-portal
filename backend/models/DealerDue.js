@@ -41,6 +41,10 @@ const dealerDueSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  totalOutstanding: {
+    type: Number,
+    default: 0,
+  },
   lastPaymentDate: {
     type: Date,
     default: null,
@@ -64,6 +68,7 @@ const dealerDueSchema = new mongoose.Schema({
 
 dealerDueSchema.index({ accountType: 1 });
 dealerDueSchema.index({ status: 1 });
+dealerDueSchema.index({ totalOutstanding: -1 });
 dealerDueSchema.index({ currentDue: -1 });
 
 module.exports = mongoose.model('DealerDue', dealerDueSchema);

@@ -401,9 +401,10 @@ router.get('/summary', async (req, res) => {
 
     res.json({
       totalDueAmount: dues.reduce((sum, due) => sum + (due.currentDue || 0), 0),
+      totalOutstandingAmount: dues.reduce((sum, due) => sum + (due.totalOutstanding || 0), 0),
       totalDealers: users.filter((user) => getPortalRole(user) === PORTAL_ROLES.DEALER).length,
       totalSubDealers: users.filter((user) => getPortalRole(user) === PORTAL_ROLES.SUB_DEALER).length,
-      totalPendingDevices: dues.reduce((sum, due) => sum + (due.currentDue > 0 ? due.totalDevicesAssigned || 0 : 0), 0),
+      totalPendingDevices: dues.reduce((sum, due) => sum + (due.totalOutstanding > 0 ? due.totalDevicesAssigned || 0 : 0), 0),
       todaysCollection,
       monthlyCollection,
       todaysRevenue,
@@ -423,7 +424,7 @@ router.get('/dealers', async (req, res) => {
 
     if (status && status !== 'all') {
       if (status === 'PendingDues') {
-        query.currentDue = { $gt: 0 };
+        query.totalOutstanding = { $gt: 0 };
       } else {
         query.status = status;
       }
@@ -445,7 +446,7 @@ router.get('/dealers', async (req, res) => {
       DealerDue.find(query)
         .populate('userId', 'displayName companyName username userType mobileNo email address city state pincode')
         .populate('parentDealerId', 'displayName companyName username userType')
-        .sort({ currentDue: -1, updatedAt: -1 })
+        .sort({ totalOutstanding: -1, currentDue: -1, updatedAt: -1 })
         .skip((parsedPage - 1) * parsedLimit)
         .limit(parsedLimit),
       DealerDue.countDocuments(query),
@@ -521,12 +522,12 @@ router.post('/dealers/:userId/payments', requireRoles(PORTAL_ROLES.ADMIN), uploa
     }
 
     const due = await syncDueForUser(user._id);
-    if (!due || due.currentDue <= 0) {
-      return res.status(400).json({ message: 'This account has no pending due.' });
+    if (!due || due.totalOutstanding <= 0) {
+      return res.status(400).json({ message: 'This account has no pending outstanding balance.' });
     }
 
-    if (amount > due.currentDue) {
-      return res.status(400).json({ message: 'Payment amount cannot be greater than current due.' });
+    if (amount > due.totalOutstanding) {
+      return res.status(400).json({ message: 'Payment amount cannot be greater than total outstanding balance.' });
     }
 
     let screenshotUrl = '';
@@ -639,9 +640,9 @@ router.get('/export', async (req, res) => {
       const userIds = await getScopedDueUserIds(req);
       const dues = await DealerDue.find({ userId: { $in: userIds } })
         .populate('userId', 'displayName companyName username userType')
-        .sort({ currentDue: -1 });
+        .sort({ totalOutstanding: -1, currentDue: -1 });
 
-      headers = ['Dealer Name', 'Dealer ID', 'Account Type', 'Total Devices Assigned', 'Total Bill Amount', 'Total Paid Amount', 'Current Due', 'Last Payment Date', 'Status'];
+      headers = ['Dealer Name', 'Dealer ID', 'Account Type', 'Total Devices Assigned', 'Total Bill Amount', 'Total Paid Amount', 'Total Outstanding', 'Current Due', 'Last Payment Date', 'Status'];
       rows = dues.map((due) => ({
         'Dealer Name': due.dealerName || (due.userId ? labelForUser(due.userId) : ''),
         'Dealer ID': due.dealerCode || due.userId?.username || '',
@@ -649,6 +650,7 @@ router.get('/export', async (req, res) => {
         'Total Devices Assigned': due.totalDevicesAssigned || 0,
         'Total Bill Amount': due.totalBillAmount || 0,
         'Total Paid Amount': due.totalPaidAmount || 0,
+        'Total Outstanding': due.totalOutstanding || 0,
         'Current Due': due.currentDue || 0,
         'Last Payment Date': due.lastPaymentDate ? due.lastPaymentDate.toISOString().slice(0, 10) : '',
         Status: due.status,
