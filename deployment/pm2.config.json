@@ -1,0 +1,13 @@
+{
+  "apps": [
+    {
+      "name": "smt-portal-backend",
+      "script": "server.js",
+      "cwd": "/var/www/smt-portal/backend",
+      "env": {
+        "NODE_ENV": "production",
+        "PORT": 5000
+      }
+    }
+  ]
+}
