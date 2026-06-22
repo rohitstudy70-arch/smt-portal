@@ -471,3 +471,52 @@
     background: transparent;
   }
 }
+
+@media screen and (max-width: 768px) {
+  .proforma-action-bar {
+    justify-content: center;
+  }
+  .proforma-page {
+    padding: 20px;
+  }
+  .proforma-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 15px;
+  }
+  .proforma-invoice-title-block {
+    text-align: left;
+  }
+  .proforma-info-grid {
+    grid-template-columns: 1fr;
+  }
+  .proforma-info-box {
+    border-right: none;
+    border-bottom: 1px solid #cce4e8;
+  }
+  .proforma-info-box:last-child {
+    border-bottom: none;
+  }
+  .proforma-bottom {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+  .proforma-tax-block {
+    border-left: none;
+    border-top: 1px solid #cce4e8;
+    padding-left: 0;
+    padding-top: 15px;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .proforma-page {
+    padding: 12px;
+  }
+  .proforma-brand-name {
+    font-size: 24px;
+  }
+  .proforma-inv-label {
+    font-size: 16px;
+  }
+}

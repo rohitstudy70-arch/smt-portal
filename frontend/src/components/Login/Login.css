@@ -192,3 +192,15 @@
 .password-toggle-btn:hover {
   color: var(--accent-color);
 }
+
+@media (max-width: 480px) {
+  .login-top-bar {
+    padding: 14px 16px;
+  }
+  .login-body {
+    padding: 30px 20px;
+  }
+  .login-header {
+    padding: 30px 20px;
+  }
+}

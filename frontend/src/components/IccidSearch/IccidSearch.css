@@ -201,3 +201,34 @@
 .btn-activate-quick:active {
   transform: scale(0.98);
 }
+
+@media (max-width: 600px) {
+  .top-info-container {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .top-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .top-actions button, .top-actions a {
+    width: 100%;
+    text-align: center;
+  }
+  .details-grid-table, 
+  .details-grid-table tbody, 
+  .details-grid-table tr, 
+  .details-grid-table td {
+    display: block;
+    width: 100% !important;
+  }
+  .details-grid-table td {
+    border: none;
+    border-bottom: 1px solid #cbd5e1;
+    padding: 10px 14px;
+  }
+  .details-grid-table tr {
+    border: none;
+  }
+}
