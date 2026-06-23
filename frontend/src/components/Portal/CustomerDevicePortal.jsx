@@ -29,6 +29,7 @@ import {
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import './CustomerDevicePortal.css';
+import RevenueBreakdownModal from './RevenueBreakdownModal';
 
 const emptyUserForm = {
   userType: 'End Customer',
@@ -218,6 +219,10 @@ const CustomerDevicePortal = () => {
   const [portalDateMode, setPortalDateMode] = useState('all');
   const [portalFromDate, setPortalFromDate] = useState('');
   const [portalToDate, setPortalToDate] = useState('');
+
+  // Revenue Breakdown Modal State
+  const [isRevenueModalOpen, setIsRevenueModalOpen] = useState(false);
+  const [revenueModalTab, setRevenueModalTab] = useState('today');
 
   const userRole = user?.role === 'partner' ? 'ADMIN' : user?.userType === 'Administration' ? 'ADMIN' : user?.userType === 'Sub Dealer' ? 'SUB_DEALER' : user?.userType === 'End Customer' ? 'CUSTOMER' : 'DEALER';
   const role = summary?.role || userRole;
@@ -696,8 +701,12 @@ const CustomerDevicePortal = () => {
                   </div>
                 )}
 
-                {isAdmin && (
-                  <div className="portal-stat stat-violet">
+                {isOps && dueSummary && (
+                  <div 
+                    className="portal-stat stat-violet" 
+                    onClick={() => { setRevenueModalTab('today'); setIsRevenueModalOpen(true); }}
+                    style={{ cursor: 'pointer' }}
+                  >
                     <div>
                       <span className="portal-stat-value">₹{(dueSummary.todaysRevenue || 0).toLocaleString()}</span>
                       <span className="portal-stat-label">Today's Revenue</span>
@@ -707,7 +716,11 @@ const CustomerDevicePortal = () => {
                 )}
 
                 {isAdmin && (
-                  <div className="portal-stat stat-slate">
+                  <div 
+                    className="portal-stat stat-slate"
+                    onClick={() => { setRevenueModalTab('month'); setIsRevenueModalOpen(true); }}
+                    style={{ cursor: 'pointer' }}
+                  >
                     <div>
                       <span className="portal-stat-value">₹{(dueSummary.monthlyRevenue || 0).toLocaleString()}</span>
                       <span className="portal-stat-label">Monthly Revenue</span>
@@ -1824,6 +1837,12 @@ const CustomerDevicePortal = () => {
           </section>
         </div>
       ) : null}
+
+      <RevenueBreakdownModal 
+        isOpen={isRevenueModalOpen}
+        onClose={() => setIsRevenueModalOpen(false)}
+        initialTab={revenueModalTab}
+      />
     </div>
   );
 };

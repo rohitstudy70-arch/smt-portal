@@ -668,4 +668,57 @@ router.get('/export', async (req, res) => {
   }
 });
 
+router.get('/revenue-breakdown', async (req, res) => {
+  try {
+    const { period } = req.query; // 'today', 'month', 'year'
+    
+    let startDate, endDate;
+    const now = new Date();
+    if (period === 'today') {
+      startDate = startOfDay();
+      endDate = endOfDay();
+    } else if (period === 'month') {
+      startDate = startOfMonth(now);
+      endDate = endOfMonth(now);
+    } else if (period === 'year') {
+      startDate = new Date(now.getFullYear(), 0, 1);
+      endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+    } else {
+      return res.status(400).json({ message: 'Invalid period. Use today, month, or year.' });
+    }
+
+    const users = await getScopedDueUsers(req);
+    const userIds = users.map((u) => u._id);
+
+    const devices = await Device.find({
+      userId: { $in: userIds },
+      presentDate: { $gte: startDate, $lte: endDate },
+      billAmount: { $gt: 0 }
+    })
+    .populate('assignedTo dealerId subDealerId')
+    .sort({ presentDate: -1 });
+
+    const breakdown = devices.map(d => ({
+      _id: d._id,
+      imei: d.imei || d.imeiNumber || 'N/A',
+      dealerName: d.dealerId ? labelForUser(d.dealerId) : (d.dealerName || 'N/A'),
+      subDealerName: d.subDealerId ? labelForUser(d.subDealerId) : (d.subDealerName || 'N/A'),
+      customerName: d.assignedTo ? labelForUser(d.assignedTo) : 'N/A',
+      presentDate: d.presentDate,
+      billAmount: d.billAmount
+    }));
+
+    const totalRevenue = breakdown.reduce((sum, d) => sum + d.billAmount, 0);
+
+    res.json({
+      period,
+      breakdown,
+      totalRevenue
+    });
+  } catch (error) {
+    console.error('Revenue breakdown error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;
