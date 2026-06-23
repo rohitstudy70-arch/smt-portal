@@ -327,8 +327,8 @@ const ProformaInvoice = () => {
                 <li data-n="1.">Payment 100% in Advance.</li>
                 <li data-n="2.">Price are further negotiable if quantity increases.</li>
                 <li data-n="3.">Goods once sold cannot be taken back.</li>
-                <li data-n="4.">Installation Charges (@INR500) is extra applicable on per unit. (Installation charges are further negotiable if quantity increases and vehicles are received in Bulk at one location)</li>
-                <li data-n="5.">Warranty - 12 Months from the date of Supply, Warranty applicable before 15days of due date.</li>
+                <li data-n="4.">Installation Charges (@INR500) is extra applicable  per unit.  (Installation charges  are further negotiable if quantity increases and vehicles are received in Bulk at one location)</li>
+                <li data-n="5.">Warranty. - 12 Months from the date of Supply, Warranty applicable before 15days of due date.</li>
                 <li data-n="6.">Courier if any to be paid by customer.</li>
                 <li data-n="7.">Standard Force Majeure will apply. (No warranty of burnt damaged goods)</li>
                 <li data-n="8.">If any service is required during the year, then it’s charges @INR500 per unit will be applicable.</li>
@@ -543,8 +543,8 @@ const ProformaInvoice = () => {
               <li data-n="1.">Payment 100% in Advance.</li>
               <li data-n="2.">Price are further negotiable if quantity increases.</li>
               <li data-n="3.">Goods once sold cannot be taken back.</li>
-              <li data-n="4.">Installation Charges (@INR500) is extra applicable on per unit. (Installation charges are further negotiable if quantity increases and vehicles are received in Bulk at one location)</li>
-              <li data-n="5.">Warranty - 12 Months from the date of Supply, Warranty applicable before 15days of due date.</li>
+              <li data-n="4.">Installation Charges (@INR500) is extra applicable  per unit.  (Installation charges  are further negotiable if quantity increases and vehicles are received in Bulk at one location)</li>
+              <li data-n="5.">Warranty. - 12 Months from the date of Supply, Warranty applicable before 15days of due date.</li>
               <li data-n="6.">Courier if any to be paid by customer.</li>
               <li data-n="7.">Standard Force Majeure will apply. (No warranty of burnt damaged goods)</li>
               <li data-n="8.">If any service is required during the year, then it’s charges @INR500 per unit will be applicable.</li>
