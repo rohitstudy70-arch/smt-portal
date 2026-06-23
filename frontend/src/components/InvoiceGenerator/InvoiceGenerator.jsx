@@ -386,10 +386,15 @@ const InvoiceGenerator = () => {
       itemCount = req.items.length;
       itemsHtml = req.items.map((item, index) => {
         const unitPrice = parseFloat(item.unitPrice) || 0;
-        const cgstRate = parseFloat(item.cgst) || 0;
-        const sgstRate = parseFloat(item.sgst) || 0;
-        const igstRate = parseFloat(item.igst) || 0;
         const qty = parseInt(item.qty) || 0;
+
+        let cgstRate = 0, sgstRate = 0, igstRate = 0;
+        if (isIntraState) {
+          cgstRate = parseFloat(item.cgst) || (parseFloat(item.igst) / 2) || 9;
+          sgstRate = parseFloat(item.sgst) || (parseFloat(item.igst) / 2) || 9;
+        } else {
+          igstRate = parseFloat(item.igst) || (parseFloat(item.cgst) + parseFloat(item.sgst)) || 18;
+        }
 
         const itemSubtotal = unitPrice * qty;
         subtotal += itemSubtotal;

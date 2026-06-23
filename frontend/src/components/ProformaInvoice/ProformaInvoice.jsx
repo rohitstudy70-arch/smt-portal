@@ -73,6 +73,9 @@ const ProformaInvoice = () => {
   const calculateTotals = () => {
     if (!invoice || !invoice.items) return { subtotal: 0, sgst: 0, cgst: 0, igst: 0, total: 0 };
 
+    const targetState = invoice.isSubDealer ? (invoice.dealerState || 'Bihar') : (invoice.customerState || 'Bihar');
+    const isIntraState = targetState && targetState.toLowerCase() === 'bihar';
+
     let subtotal = 0;
     let sgst = 0;
     let cgst = 0;
@@ -81,15 +84,19 @@ const ProformaInvoice = () => {
     invoice.items.forEach(item => {
       const unitPrice = parseFloat(item.unitPrice) || 0;
       const qty = parseInt(item.qty) || 1;
-      const cgstRate = parseFloat(item.cgst) || 0;
-      const sgstRate = parseFloat(item.sgst) || 0;
-      const igstRate = parseFloat(item.igst) || 0;
 
       const itemSubtotal = unitPrice * qty;
       subtotal += itemSubtotal;
-      cgst += (itemSubtotal * cgstRate) / 100;
-      sgst += (itemSubtotal * sgstRate) / 100;
-      igst += (itemSubtotal * igstRate) / 100;
+
+      if (isIntraState) {
+        const cgstRate = parseFloat(item.cgst) || (parseFloat(item.igst) / 2) || 9;
+        const sgstRate = parseFloat(item.sgst) || (parseFloat(item.igst) / 2) || 9;
+        cgst += (itemSubtotal * cgstRate) / 100;
+        sgst += (itemSubtotal * sgstRate) / 100;
+      } else {
+        const igstRate = parseFloat(item.igst) || (parseFloat(item.cgst) + parseFloat(item.sgst)) || 18;
+        igst += (itemSubtotal * igstRate) / 100;
+      }
     });
 
     return {
@@ -278,15 +285,19 @@ const ProformaInvoice = () => {
               ${invoice.items.map((item, index) => {
                 const unitPrice = parseFloat(item.unitPrice) || 0;
                 const qty = parseInt(item.qty) || 1;
-                const cgstRate = parseFloat(item.cgst) || 0;
-                const sgstRate = parseFloat(item.sgst) || 0;
-                const igstRate = parseFloat(item.igst) || 0;
+                let cgstRate = 0, sgstRate = 0, igstRate = 0;
+                if (isIntraState) {
+                  cgstRate = parseFloat(item.cgst) || (parseFloat(item.igst) / 2) || 9;
+                  sgstRate = parseFloat(item.sgst) || (parseFloat(item.igst) / 2) || 9;
+                } else {
+                  igstRate = parseFloat(item.igst) || (parseFloat(item.cgst) + parseFloat(item.sgst)) || 18;
+                }
                 const cgstAmt = (unitPrice * cgstRate) / 100;
                 const sgstAmt = (unitPrice * sgstRate) / 100;
                 const igstAmt = (unitPrice * igstRate) / 100;
                 const priceWithGst = unitPrice + cgstAmt + sgstAmt + igstAmt;
                 const grossAmt = priceWithGst * qty;
-                const displayGstRate = isIntraState ? (cgstRate + sgstRate || 18) : (igstRate || 18);
+                const displayGstRate = isIntraState ? (cgstRate + sgstRate) : igstRate;
                 return `
                   <tr>
                     <td>${index + 1}</td>
@@ -489,9 +500,13 @@ const ProformaInvoice = () => {
             {invoice.items && invoice.items.map((item, index) => {
               const unitPrice = parseFloat(item.unitPrice) || 0;
               const qty = parseInt(item.qty) || 1;
-              const cgstRate = parseFloat(item.cgst) || 0;
-              const sgstRate = parseFloat(item.sgst) || 0;
-              const igstRate = parseFloat(item.igst) || 0;
+              let cgstRate = 0, sgstRate = 0, igstRate = 0;
+              if (isIntraState) {
+                cgstRate = parseFloat(item.cgst) || (parseFloat(item.igst) / 2) || 9;
+                sgstRate = parseFloat(item.sgst) || (parseFloat(item.igst) / 2) || 9;
+              } else {
+                igstRate = parseFloat(item.igst) || (parseFloat(item.cgst) + parseFloat(item.sgst)) || 18;
+              }
               const cgstAmt = Math.round((unitPrice * cgstRate) / 100);
               const sgstAmt = Math.round((unitPrice * sgstRate) / 100);
               const igstAmt = Math.round((unitPrice * igstRate) / 100);
@@ -504,7 +519,7 @@ const ProformaInvoice = () => {
                   <td style={{ textAlign: 'left' }}>{item.description}</td>
                   <td style={{ textAlign: 'center' }}>{qty}</td>
                   <td style={{ textAlign: 'right' }}>₹{unitPrice.toFixed(2)}</td>
-                  <td style={{ textAlign: 'center' }}>{isIntraState ? (item.cgst + item.sgst || 18) : (item.igst || 18)}%</td>
+                  <td style={{ textAlign: 'center' }}>{isIntraState ? (cgstRate + sgstRate) : igstRate}%</td>
                   <td style={{ textAlign: 'right' }}>₹{grossAmt.toFixed(2)}</td>
                 </tr>
               );
