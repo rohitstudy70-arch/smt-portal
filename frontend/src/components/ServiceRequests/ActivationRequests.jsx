@@ -196,7 +196,7 @@ const ActivationRequests = () => {
 
   // Auto-fetch existing activation data by IMEI
   useEffect(() => {
-    if (formData.imei && formData.imei.length >= 15) {
+    if (formData.imei && formData.imei.length >= 10) {
       const fetchCustomerByImei = async () => {
         try {
           const res = await api.get(`/activation-requests/device/${formData.imei}`);
@@ -209,21 +209,21 @@ const ActivationRequests = () => {
             const existingData = res.data;
             setFormData(prev => ({
               ...prev,
-              customerName: prev.customerName || existingData.customerName || '',
-              address: prev.address || existingData.address || '',
-              aadharNo: prev.aadharNo || existingData.aadharNo || '',
-              regMobNo: prev.regMobNo || existingData.regMobNo || '',
-              regMobNo2: prev.regMobNo2 || existingData.regMobNo2 || '',
-              vehicleMake: prev.vehicleMake || existingData.vehicleMake || '',
-              vehicleModel: prev.vehicleModel || existingData.vehicleModel || '',
-              rto: prev.rto || existingData.rto || '',
-              vehicleNo: prev.vehicleNo || existingData.vehicleNo || '',
-              engineNo: prev.engineNo || existingData.engineNo || '',
-              chassisNo: prev.chassisNo || existingData.chassisNo || '',
-              registrationYear: prev.registrationYear || existingData.registrationYear || '',
-              vehicleCondition: prev.vehicleCondition || existingData.vehicleCondition || '',
-              activationMode: prev.activationMode || existingData.activationMode || '',
-              installationDate: prev.installationDate || (existingData.installationDate ? existingData.installationDate.substring(0, 10) : ''),
+              customerName: existingData.customerName || prev.customerName || '',
+              address: existingData.address || prev.address || '',
+              aadharNo: existingData.aadharNo || prev.aadharNo || '',
+              regMobNo: existingData.regMobNo || prev.regMobNo || '',
+              regMobNo2: existingData.regMobNo2 || prev.regMobNo2 || '',
+              vehicleMake: existingData.vehicleMake || prev.vehicleMake || '',
+              vehicleModel: existingData.vehicleModel || prev.vehicleModel || '',
+              rto: existingData.rto || prev.rto || '',
+              vehicleNo: existingData.vehicleNo || prev.vehicleNo || '',
+              engineNo: existingData.engineNo || prev.engineNo || '',
+              chassisNo: existingData.chassisNo || prev.chassisNo || '',
+              registrationYear: existingData.registrationYear || prev.registrationYear || '',
+              vehicleCondition: existingData.vehicleCondition || prev.vehicleCondition || '',
+              activationMode: existingData.activationMode || prev.activationMode || '',
+              installationDate: (existingData.installationDate ? existingData.installationDate.substring(0, 10) : prev.installationDate),
             }));
           }
         } catch (error) {

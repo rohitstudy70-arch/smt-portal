@@ -115,7 +115,7 @@ router.get('/device/:imei', requireRoles(...operationsRoles), async (req, res) =
     if (!imei) return res.status(400).json({ message: 'IMEI required' });
 
     const query = buildScopedOwnerQuery(req.hierarchyScope);
-    query.imei = imei;
+    query.imei = new RegExp('^' + String(imei).trim() + '$', 'i');
 
     const request = await ActivationRequest.findOne(query).sort({ dateTime: -1 });
 
