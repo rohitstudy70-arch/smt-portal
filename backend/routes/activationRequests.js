@@ -484,7 +484,7 @@ router.post('/direct-activate', requireRoles(PORTAL_ROLES.ADMIN), async (req, re
 // @route   DELETE /api/activation-requests/:id
 // @desc    Delete an activation request
 // @access  Private
-router.delete('/:id', auth, async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const request = await ActivationRequest.findById(req.params.id);
     if (!request) {
@@ -497,6 +497,28 @@ router.delete('/:id', auth, async (req, res) => {
 
     if (req.user.role !== 'ADMIN' && request.userId.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Unauthorized to delete this request' });
+    }
+
+    if (request.imei) {
+      const device = await Device.findOne({ imei: request.imei });
+      if (device) {
+        device.activationRequestStatus = 'none';
+        await device.save();
+      }
+    }
+
+    if (request.amount > 0 && request.status !== 'Completed') {
+      const transaction = await Transaction.findOne({ paymentId: request.requestId });
+      if (transaction && transaction.status === 'Success') {
+        const targetUser = await User.findById(transaction.userId);
+        if (targetUser) {
+          targetUser.availableBalance = (targetUser.availableBalance || 0) + request.amount;
+          await targetUser.save();
+        }
+        transaction.status = 'Refunded';
+        transaction.remarks = 'Refunded due to deleted activation request';
+        await transaction.save();
+      }
     }
 
     await ActivationRequest.findByIdAndDelete(req.params.id);
