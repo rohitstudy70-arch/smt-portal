@@ -36,8 +36,8 @@ const ProformaInvoice = () => {
     const isAdmin = !userObj || userObj.role === 'partner' || userObj.userType === 'Administration';
     if (isAdmin) {
       return {
-        brandName: 'Arshi GPS',
-        companyName: 'Arshi Enterprises',
+        brandName: 'Arshi Enterprises',
+        companyName: '',
         address: 'Near Brajesh Auto Mobile Maranga',
         cityStatePin: 'Purnea, Bihar, 854304',
         gstNo: '10ATIPK1589P1ZA'
@@ -208,7 +208,7 @@ const ProformaInvoice = () => {
           <div class="header">
             <div>
               <div style="display:flex;align-items:center;gap:12px">
-                <img src="${INVOICE_LOGO}" style="height: 48px; border-radius: 8px;" alt="Arshi GPS Logo" />
+                <img src="${INVOICE_LOGO}" style="height: 48px; border-radius: 8px;" alt="Arshi Enterprises Logo" />
                 <div class="brand-name">${sender.brandName}</div>
               </div>
               <div class="brand-sub">
@@ -286,9 +286,10 @@ const ProformaInvoice = () => {
                 <li data-n="7.">Service during warranty year @INR 500 per unit will be applicable.</li>
               </ul>
               <div class="section-title">Bank Details</div>
-              <div class="bank-row"><span>Account Number</span><input type="text" placeholder="_______________"></div>
-              <div class="bank-row"><span>Bank &amp; Branch</span><input type="text" placeholder="_______________"></div>
-              <div class="bank-row"><span>IFSC Code</span><input type="text" placeholder="_______________"></div>
+              <div class="bank-row"><span>Account Name</span><span style="font-weight:700;color:var(--text)">ARSHI ENTERPRISES</span></div>
+              <div class="bank-row"><span>Account Number</span><span style="font-weight:700;color:var(--text)">071205500764</span></div>
+              <div class="bank-row"><span>Bank &amp; Branch</span><span style="font-weight:700;color:var(--text)">ICICI, Purnea</span></div>
+              <div class="bank-row"><span>IFSC Code</span><span style="font-weight:700;color:var(--text)">ICIC0000712</span></div>
             </div>
             <div>
               <div class="section-title">Tax Summary</div>
@@ -371,7 +372,7 @@ const ProformaInvoice = () => {
         <div className="proforma-header">
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <img src={INVOICE_LOGO} style={{ height: '48px', borderRadius: '8px' }} alt="Arshi GPS Logo" />
+              <img src={INVOICE_LOGO} style={{ height: '48px', borderRadius: '8px' }} alt="Arshi Enterprises Logo" />
               <div className="proforma-brand-name">{sender.brandName}</div>
             </div>
             <div className="proforma-brand-sub">
@@ -472,9 +473,10 @@ const ProformaInvoice = () => {
             </ul>
 
             <div className="proforma-section-title">Bank Details</div>
-            <div className="proforma-bank-row"><span>Account Number</span><input type="text" placeholder="_______________" readOnly /></div>
-            <div className="proforma-bank-row"><span>Bank &amp; Branch</span><input type="text" placeholder="_______________" readOnly /></div>
-            <div className="proforma-bank-row"><span>IFSC Code</span><input type="text" placeholder="_______________" readOnly /></div>
+            <div className="proforma-bank-row"><span>Account Name</span><span style={{fontWeight: 700, color: '#1a2a30'}}>ARSHI ENTERPRISES</span></div>
+            <div className="proforma-bank-row"><span>Account Number</span><span style={{fontWeight: 700, color: '#1a2a30'}}>071205500764</span></div>
+            <div className="proforma-bank-row"><span>Bank &amp; Branch</span><span style={{fontWeight: 700, color: '#1a2a30'}}>ICICI, Purnea</span></div>
+            <div className="proforma-bank-row"><span>IFSC Code</span><span style={{fontWeight: 700, color: '#1a2a30'}}>ICIC0000712</span></div>
           </div>
           <div className="proforma-tax-block">
             <div className="proforma-section-title">Tax Summary</div>

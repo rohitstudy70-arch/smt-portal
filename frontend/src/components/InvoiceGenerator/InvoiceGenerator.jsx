@@ -539,11 +539,10 @@ const InvoiceGenerator = () => {
         <div class="header">
           <div>
             <div style="display:flex;align-items:center;gap:12px">
-              <img src="${INVOICE_LOGO}" style="height: 48px; border-radius: 8px;" alt="Arshi GPS Logo" />
-              <div class="brand-name">Arshi GPS</div>
+              <img src="${INVOICE_LOGO}" style="height: 48px; border-radius: 8px;" alt="Arshi Enterprises Logo" />
+              <div class="brand-name">Arshi Enterprises</div>
             </div>
             <div class="brand-sub">
-              Arshi Enterprises<br>
               Near Brajesh Auto Mobile Maranga,<br>
               Purnea, Bihar, 854304<br>
               GST No: 10ATIPK1589P1ZA
@@ -628,9 +627,10 @@ const InvoiceGenerator = () => {
             </ul>
 
             <div class="section-title">Bank Details</div>
-            <div class="bank-row"><span>Account Number</span><input type="text" placeholder="_______________"></div>
-            <div class="bank-row"><span>Bank &amp; Branch</span><input type="text" placeholder="_______________"></div>
-            <div class="bank-row"><span>IFSC Code</span><input type="text" placeholder="_______________"></div>
+            <div class="bank-row"><span>Account Name</span><span style="font-weight:700;color:var(--text)">ARSHI ENTERPRISES</span></div>
+            <div class="bank-row"><span>Account Number</span><span style="font-weight:700;color:var(--text)">071205500764</span></div>
+            <div class="bank-row"><span>Bank &amp; Branch</span><span style="font-weight:700;color:var(--text)">ICICI, Purnea</span></div>
+            <div class="bank-row"><span>IFSC Code</span><span style="font-weight:700;color:var(--text)">ICIC0000712</span></div>
           </div>
 
           <div class="tax-block">
