@@ -546,7 +546,7 @@ const InvoiceGenerator = () => {
         body{font-family:'Nunito Sans',sans-serif;background:#fff;color:var(--text);padding:20px;min-height:100vh;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
 
         /* Page */
-        .page{background:var(--white);max-width:210mm;min-height:297mm;margin:0 auto;border-radius:12px;overflow:hidden;border:1px solid var(--border);display:flex;flex-direction:column;}
+        .page{background:var(--white);max-width:210mm;min-height:297mm;margin:0 auto;border-radius:12px;overflow:visible;border:1px solid var(--border);display:flex;flex-direction:column;}
 
         /* Header */
         .header{background:var(--teal);padding:28px 36px 22px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px}
@@ -614,7 +614,7 @@ const InvoiceGenerator = () => {
         @media print{
           @page { size: A4 portrait; margin: 0; }
           body{background:#fff;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;zoom:0.95;}
-          .page{box-shadow:none;border:none;border-radius:0;max-width:100%;min-height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+          .page{box-shadow:none;border:none;border-radius:0;max-width:100%;min-height:auto;height:auto;overflow:visible;display:block;}
           .header{padding:12px 16px 8px}
           .info-box{padding:8px 16px}
           .table-wrap{padding:0 16px}

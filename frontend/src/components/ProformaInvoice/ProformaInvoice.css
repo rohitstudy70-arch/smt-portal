@@ -428,6 +428,10 @@
     margin: 0;
     padding: 10px 15px;
     max-width: 100%;
+    min-height: auto;
+    height: auto;
+    overflow: visible;
+    display: block;
   }
 
   /* Reduce spacing during print to fit on one page */
@@ -464,6 +468,7 @@
 
   .proforma-bottom {
     margin-top: 10px;
+    page-break-inside: avoid;
   }
 
   .proforma-amount-words {
@@ -520,6 +525,11 @@
   .proforma-footer {
     margin-top: 12px;
     padding-top: 8px;
+    page-break-inside: avoid;
+  }
+
+  .proforma-table tbody tr {
+    page-break-inside: avoid;
   }
 
   .proforma-table tbody tr:hover {

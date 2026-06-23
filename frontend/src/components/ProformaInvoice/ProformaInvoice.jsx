@@ -166,7 +166,7 @@ const ProformaInvoice = () => {
             --accent:#f0a500;--bg:#eef4f6;--white:#ffffff;--text:#1a2a30;--muted:#5a7a82;--border:#cce4e8
           }
           body{font-family:'Nunito Sans',sans-serif;background:var(--bg);color:var(--text);padding:32px 16px;min-height:100vh}
-          .page{background:var(--white);max-width:210mm;min-height:297mm;margin:0 auto;border-radius:12px;overflow:hidden;box-shadow:0 6px 30px rgba(0,80,100,0.12);border:1px solid var(--border);padding:36px;display:flex;flex-direction:column;}
+          .page{background:var(--white);max-width:210mm;min-height:297mm;margin:0 auto;border-radius:12px;overflow:visible;box-shadow:0 6px 30px rgba(0,80,100,0.12);border:1px solid var(--border);padding:36px;display:flex;flex-direction:column;}
           .header{margin-bottom:22px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px}
           .brand-name{font-family:'Nunito',sans-serif;font-size:34px;font-weight:800;color:#007B8A;letter-spacing:-0.5px}
           .brand-sub{color:#5a7a82;font-size:13px;margin-top:4px;line-height:1.65}
@@ -214,7 +214,7 @@ const ProformaInvoice = () => {
           @media print{
             @page { size: A4 portrait; margin: 0; }
             body{background:#fff;padding:0;zoom:0.95;}
-            .page{box-shadow:none;border:none;border-radius:0;padding:20px;min-height:100vh;overflow:hidden;display:flex;flex-direction:column;max-width:100%}
+            .page{box-shadow:none;border:none;border-radius:0;padding:20px;min-height:auto;height:auto;overflow:visible;display:block;max-width:100%}
             tbody tr:hover{background:transparent}
             .bottom{page-break-inside:avoid;}
             .footer{page-break-inside:avoid;}
