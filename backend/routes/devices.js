@@ -302,7 +302,7 @@ router.get('/stats', async (req, res) => {
     todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
-    const devicesAddedToday = await Device.countDocuments({ ...query, createdAt: { $gte: todayStart, $lte: todayEnd } });
+    const devicesAddedToday = await Device.countDocuments({ ...query, presentDate: { $gte: todayStart, $lte: todayEnd } });
 
     res.json({ totalDevices, activeDevices, expiredDevices, devicesAddedToday });
   } catch (error) {
