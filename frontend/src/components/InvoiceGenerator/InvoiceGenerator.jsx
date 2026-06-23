@@ -566,8 +566,9 @@ const InvoiceGenerator = () => {
               <div class="brand-name">Arshi Enterprises</div>
             </div>
             <div class="brand-sub">
-              Near Brajesh Auto Mobile Maranga,<br>
-              Purnea, Bihar, 854304<br>
+              Near-Brajesh Automobiles(Mahindra Showroom) NH-31,Maranga,<br>
+              Pin Code-854303 Purnia(BIHAR)<br>
+              Ph:-7782808063,919905959287<br>
               GST No: 10ATIPK1589P1ZA
             </div>
           </div>

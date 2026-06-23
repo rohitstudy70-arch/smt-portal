@@ -81,15 +81,15 @@ const generateNextInvoiceNo = async () => {
 };
 
 const generateNextPiNo = async () => {
-  const lastInvoice = await Invoice.findOne({
-    piNo: /^AE-\d+$/,
-  }).sort({ piNo: -1 });
-
-  if (lastInvoice?.piNo) {
-    const numPart = parseInt(lastInvoice.piNo.replace('AE-', ''), 10);
-    if (!Number.isNaN(numPart)) {
-      return `AE-${String(numPart + 1).padStart(2, '0')}`;
-    }
+  const allInvoices = await Invoice.find({ piNo: /^AE-\d+$/ }).select('piNo');
+  
+  if (allInvoices.length > 0) {
+    const nums = allInvoices.map(inv => {
+      const numPart = parseInt(inv.piNo.replace('AE-', ''), 10);
+      return isNaN(numPart) ? 0 : numPart;
+    });
+    const maxNum = Math.max(...nums);
+    return `AE-${String(maxNum + 1).padStart(2, '0')}`;
   }
 
   return 'AE-01';

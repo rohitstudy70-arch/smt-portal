@@ -38,8 +38,8 @@ const ProformaInvoice = () => {
       return {
         brandName: 'Arshi Enterprises',
         companyName: '',
-        address: 'Near Brajesh Auto Mobile Maranga',
-        cityStatePin: 'Purnea, Bihar, 854304',
+        address: 'Near-Brajesh Automobiles(Mahindra Showroom) NH-31,Maranga',
+        cityStatePin: 'Pin Code-854303 Purnia(BIHAR) Ph:-7782808063,919905959287',
         gstNo: '10ATIPK1589P1ZA'
       };
     }
