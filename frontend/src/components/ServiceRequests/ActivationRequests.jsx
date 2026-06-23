@@ -65,6 +65,8 @@ const ActivationRequests = () => {
   };
 
   const [showModal, setShowModal] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editRequestId, setEditRequestId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState(initialFormState);
   const [imeiError, setImeiError] = useState('');
@@ -417,6 +419,49 @@ const ActivationRequests = () => {
     }
   };
 
+  const handleEditClick = (req) => {
+    setFormData({
+      quantity: req.quantity || 1,
+      requestType: req.requestType || 'Commercial Plan',
+      plan: req.plan || '',
+      piNo: req.piNo || '',
+      amount: req.amount || 0,
+      remarks: req.remarks || '',
+      dealerName: req.dealerName || '',
+      dealerAddress: req.dealerAddress || '',
+      imei: req.imei || '',
+      iccid: req.iccid || '',
+      serialNo: req.serialNo || '',
+      msisdn1: req.msisdn1 || '',
+      msisdn2: req.msisdn2 || '',
+      validity: req.validity || '',
+      expiryDate: req.expiryDate ? formatDateForInput(req.expiryDate) : '',
+      itrNo: req.itrNo || '',
+      vendor: req.vendor || '',
+      installationDate: req.installationDate ? formatDateForInput(req.installationDate) : '',
+      activationMode: req.activationMode || 'NIC',
+      vehicleCondition: req.vehicleCondition || 'New',
+      vehicleMake: req.vehicleMake || '',
+      vehicleModel: req.vehicleModel || '',
+      registrationYear: req.registrationYear || '',
+      vehicleNo: req.vehicleNo || '',
+      rto: req.rto || '',
+      engineNo: req.engineNo || '',
+      chassisNo: req.chassisNo || '',
+      regMobNo: req.regMobNo || '',
+      regMobNo2: req.regMobNo2 || '',
+      customerName: req.customerName || '',
+      aadharNo: req.aadharNo || '',
+      address: req.address || '',
+      isSubDealer: req.isSubDealer || false,
+      subDealerName: req.subDealerName || '',
+      deviceBillAmount: null
+    });
+    setEditRequestId(req._id);
+    setIsEditing(true);
+    setShowModal(true);
+  };
+
   const handleSubmitRequest = async (e) => {
     e.preventDefault();
     if (formData.rto && !/^[A-Z0-9]{4}$/.test(formData.rto)) {
@@ -425,17 +470,23 @@ const ActivationRequests = () => {
     }
     setSubmitting(true);
     try {
-      await api.post('/activation-requests', formData);
+      if (isEditing) {
+        await api.put(`/activation-requests/${editRequestId}`, formData);
+        alert('Activation Request updated successfully!');
+      } else {
+        await api.post('/activation-requests', formData);
+        alert('Activation Request raised successfully!');
+      }
       setShowModal(false);
       setSubmitting(false);
+      setIsEditing(false);
+      setEditRequestId(null);
       setFormData(initialFormState);
-      // Refresh list
       handleRefresh();
-      alert('Activation Request raised successfully!');
     } catch (err) {
-      console.error('Error creating request:', err);
+      console.error('Error submitting request:', err);
       setSubmitting(false);
-      alert(err.response?.data?.message || 'Failed to raise request.');
+      alert(err.response?.data?.message || 'Failed to submit request.');
     }
   };
 
@@ -500,7 +551,12 @@ const ActivationRequests = () => {
           LATEST UPLOADED REQUESTS
         </span>
         {role !== 'CUSTOMER' && (
-          <button className="btn-raise" onClick={() => setShowModal(true)}>
+          <button className="btn-raise" onClick={() => {
+            setFormData(initialFormState);
+            setIsEditing(false);
+            setEditRequestId(null);
+            setShowModal(true);
+          }}>
             <FaPlus /> Raise Request
           </button>
         )}
@@ -510,8 +566,13 @@ const ActivationRequests = () => {
         <div className="modal-overlay">
           <div className="modal-container">
             <div className="modal-header">
-              <h3>Raise Activation Request</h3>
-              <FaTimes className="modal-close-icon" onClick={() => setShowModal(false)} />
+              <h3>{isEditing ? 'Edit Activation Request' : 'Raise Activation Request'}</h3>
+              <FaTimes className="modal-close-icon" onClick={() => {
+                setShowModal(false);
+                setIsEditing(false);
+                setEditRequestId(null);
+                setFormData(initialFormState);
+              }} />
             </div>
 
             <form onSubmit={handleSubmitRequest} className="activation-form">
@@ -1055,12 +1116,22 @@ const ActivationRequests = () => {
                             ) : (
                               <span style={{ fontSize: '11px', color: '#999', fontStyle: 'italic', display: 'none' }}></span>
                             )}
-                            <button
-                              onClick={() => handleDeleteRequest(req._id)}
-                              style={{ padding: '4px 8px', background: '#d9534f', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', marginLeft: 'auto' }}
-                            >
-                              Delete
-                            </button>
+                            <div style={{ display: 'flex', gap: '5px', marginLeft: 'auto' }}>
+                              {(req.status !== 'Completed' || role === 'ADMIN') && (
+                                <button
+                                  onClick={() => handleEditClick(req)}
+                                  style={{ padding: '4px 8px', background: '#337ab7', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
+                                >
+                                  Edit
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleDeleteRequest(req._id)}
+                                style={{ padding: '4px 8px', background: '#d9534f', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
+                              >
+                                Delete
+                              </button>
+                            </div>
                           </div>
                         </td>
                       </tr>
@@ -1100,12 +1171,20 @@ const ActivationRequests = () => {
                       </td>
                       <td>
                         {(req.status !== 'Completed' || role === 'ADMIN') && (
-                          <button
-                            onClick={() => handleDeleteRequest(req._id)}
-                            style={{ padding: '4px 8px', background: '#d9534f', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
-                          >
-                            Delete
-                          </button>
+                          <div style={{ display: 'flex', gap: '5px' }}>
+                            <button
+                              onClick={() => handleEditClick(req)}
+                              style={{ padding: '4px 8px', background: '#337ab7', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteRequest(req._id)}
+                              style={{ padding: '4px 8px', background: '#d9534f', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
+                            >
+                              Delete
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>

@@ -482,6 +482,51 @@ router.post('/direct-activate', requireRoles(PORTAL_ROLES.ADMIN), async (req, re
   }
 });
 
+// @route   PUT /api/activation-requests/:id
+// @desc    Edit an activation request (only allowed if not completed, or if Admin)
+// @access  Private
+router.put('/:id', async (req, res) => {
+  try {
+    const request = await ActivationRequest.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({ message: 'Request not found' });
+    }
+
+    if (request.status === 'Completed' && req.user.role !== 'ADMIN') {
+      return res.status(400).json({ message: 'Cannot edit a completed request' });
+    }
+
+    if (req.user.role !== 'ADMIN' && !isIdInScope(req.scope, request.userId)) {
+      return res.status(403).json({ message: 'Unauthorized to edit this request' });
+    }
+
+    const updatableFields = [
+      'subDealerName', 'quantity', 'requestType', 'plan', 'piNo', 'remarks',
+      'dealerName', 'dealerAddress', 'msisdn1', 'msisdn2', 'validity',
+      'itrNo', 'vendor', 'installationDate', 'activationMode',
+      'vehicleCondition', 'vehicleMake', 'vehicleModel', 'registrationYear',
+      'vehicleNo', 'rto', 'engineNo', 'chassisNo', 'regMobNo', 'regMobNo2',
+      'customerName', 'aadharNo', 'address'
+    ];
+
+    updatableFields.forEach((field) => {
+      if (req.body[field] !== undefined) {
+        request[field] = req.body[field];
+      }
+    });
+
+    if (req.body.expiryDate) {
+      request.expiryDate = new Date(req.body.expiryDate);
+    }
+
+    await request.save();
+    res.json({ message: 'Request updated successfully', request });
+  } catch (error) {
+    console.error('Update request error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // @route   DELETE /api/activation-requests/:id
 // @desc    Delete an activation request
 // @access  Private
