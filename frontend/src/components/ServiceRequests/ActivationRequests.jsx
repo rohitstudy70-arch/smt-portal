@@ -464,10 +464,6 @@ const ActivationRequests = () => {
 
   const handleSubmitRequest = async (e) => {
     e.preventDefault();
-    if (formData.rto && !/^[A-Z0-9]{4}$/.test(formData.rto)) {
-      alert('RTO must be exactly 4 alphanumeric characters (e.g. RJ14)');
-      return;
-    }
     setSubmitting(true);
     try {
       if (isEditing) {
