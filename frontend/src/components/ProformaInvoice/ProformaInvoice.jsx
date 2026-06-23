@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { FaDownload, FaPrint, FaSpinner } from 'react-icons/fa';
 import api from '../../utils/api';
+import { INVOICE_LOGO } from '../../utils/invoiceLogo';
 import './ProformaInvoice.css';
 
 const ProformaInvoice = () => {
@@ -179,7 +180,15 @@ const ProformaInvoice = () => {
           .bottom{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:20px 0;align-items:start}
           .amount-words{font-size:12.5px;color:var(--text);margin-bottom:14px;line-height:1.6}
           .amount-words strong{color:#005a66}
-          .section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#007B8A;margin-bottom:10px}
+          .section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#007B8A;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+          .section-title::before{content:'';display:inline-block;width:3px;height:11px;background:var(--accent);border-radius:2px}
+          .tc-list{list-style:none;padding:0;margin-bottom:18px}
+          .tc-list li{font-size:11.5px;color:#2a4a52;line-height:1.65;padding:3px 0 3px 20px;position:relative}
+          .tc-list li::before{content:attr(data-n);position:absolute;left:0;font-weight:700;color:var(--teal);font-size:11px}
+          .bank-row{font-size:12px;color:var(--muted);padding:4px 0;display:flex;gap:8px;align-items:center}
+          .bank-row span:first-child{font-weight:600;color:var(--text);min-width:115px}
+          .bank-row input{border:none;border-bottom:1.5px dashed var(--border);background:transparent;font-size:12px;color:var(--text);width:160px;outline:none;font-family:inherit;padding:1px 2px}
+          .bank-row input:focus{border-color:var(--teal)}
           .tax-row{display:flex;justify-content:space-between;font-size:12.5px;padding:4.5px 0;border-bottom:1px solid #eef4f6;color:var(--text)}
           .tax-row:last-child{border-bottom:none}
           .tax-row.hl{color:#005a66;font-weight:700}
@@ -198,7 +207,10 @@ const ProformaInvoice = () => {
         <div class="page" id="invoice">
           <div class="header">
             <div>
-              <div class="brand-name">${sender.brandName}</div>
+              <div style="display:flex;align-items:center;gap:12px">
+                <img src="${INVOICE_LOGO}" style="height: 48px; border-radius: 8px;" alt="Arshi GPS Logo" />
+                <div class="brand-name">${sender.brandName}</div>
+              </div>
               <div class="brand-sub">
                 ${sender.companyName ? `${sender.companyName}<br>` : ''}
                 ${sender.address ? `${sender.address}<br>` : ''}
@@ -263,6 +275,20 @@ const ProformaInvoice = () => {
               <div class="amount-words">
                 <strong>Amount in Words:</strong> ${amountInWords}
               </div>
+              <div class="section-title">Terms &amp; Conditions</div>
+              <ul class="tc-list">
+                <li data-n="1.">100% Advance payment required.</li>
+                <li data-n="2.">Goods once sold cannot be taken back.</li>
+                <li data-n="3.">Installation Charges (@INR 500) extra per unit. (Negotiable in bulk orders at one location.)</li>
+                <li data-n="4.">Courier charges to be paid by customer.</li>
+                <li data-n="5.">Warranty — 12 Months from date of Supply; applicable before 15 days of due date.</li>
+                <li data-n="6.">Standard Force Majeure will apply. No warranty on burnt/damaged goods.</li>
+                <li data-n="7.">Service during warranty year @INR 500 per unit will be applicable.</li>
+              </ul>
+              <div class="section-title">Bank Details</div>
+              <div class="bank-row"><span>Account Number</span><input type="text" placeholder="_______________"></div>
+              <div class="bank-row"><span>Bank &amp; Branch</span><input type="text" placeholder="_______________"></div>
+              <div class="bank-row"><span>IFSC Code</span><input type="text" placeholder="_______________"></div>
             </div>
             <div>
               <div class="section-title">Tax Summary</div>
@@ -344,7 +370,10 @@ const ProformaInvoice = () => {
       <div className="proforma-page">
         <div className="proforma-header">
           <div>
-            <div className="proforma-brand-name">{sender.brandName}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <img src={INVOICE_LOGO} style={{ height: '48px', borderRadius: '8px' }} alt="Arshi GPS Logo" />
+              <div className="proforma-brand-name">{sender.brandName}</div>
+            </div>
             <div className="proforma-brand-sub">
               {sender.companyName && <>{sender.companyName}<br /></>}
               {sender.address && <>{sender.address}<br /></>}
@@ -430,6 +459,22 @@ const ProformaInvoice = () => {
             <div className="proforma-amount-words">
               <strong>Amount in Words:</strong> {amountInWords}
             </div>
+
+            <div className="proforma-section-title">Terms &amp; Conditions</div>
+            <ul className="proforma-tc-list">
+              <li data-n="1.">100% Advance payment required.</li>
+              <li data-n="2.">Goods once sold cannot be taken back.</li>
+              <li data-n="3.">Installation Charges (@INR 500) extra per unit. (Negotiable in bulk orders at one location.)</li>
+              <li data-n="4.">Courier charges to be paid by customer.</li>
+              <li data-n="5.">Warranty — 12 Months from date of Supply; applicable before 15 days of due date.</li>
+              <li data-n="6.">Standard Force Majeure will apply. No warranty on burnt/damaged goods.</li>
+              <li data-n="7.">Service during warranty year @INR 500 per unit will be applicable.</li>
+            </ul>
+
+            <div className="proforma-section-title">Bank Details</div>
+            <div className="proforma-bank-row"><span>Account Number</span><input type="text" placeholder="_______________" readOnly /></div>
+            <div className="proforma-bank-row"><span>Bank &amp; Branch</span><input type="text" placeholder="_______________" readOnly /></div>
+            <div className="proforma-bank-row"><span>IFSC Code</span><input type="text" placeholder="_______________" readOnly /></div>
           </div>
           <div className="proforma-tax-block">
             <div className="proforma-section-title">Tax Summary</div>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FaDownload, FaSpinner, FaFileInvoiceDollar, FaPlus, FaTrash, FaEye } from 'react-icons/fa';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
+import { INVOICE_LOGO } from '../../utils/invoiceLogo';
 import './InvoiceGenerator.css';
 
 const InvoiceGenerator = () => {
@@ -531,6 +532,7 @@ const InvoiceGenerator = () => {
         <div class="header">
           <div>
             <div style="display:flex;align-items:center;gap:12px">
+              <img src="${INVOICE_LOGO}" style="height: 48px; border-radius: 8px;" alt="Arshi GPS Logo" />
               <div class="brand-name">Arshi GPS</div>
             </div>
             <div class="brand-sub">
