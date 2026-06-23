@@ -193,6 +193,41 @@ const ActivationRequests = () => {
     }
   }, [formData.regMobNo]);
 
+  // Auto-fetch existing activation data by IMEI
+  useEffect(() => {
+    if (formData.imei && formData.imei.length >= 15) {
+      const fetchCustomerByImei = async () => {
+        try {
+          const res = await api.get(`/activation-requests/device/${formData.imei}`);
+          if (res.data) {
+            const existingData = res.data;
+            setFormData(prev => ({
+              ...prev,
+              customerName: prev.customerName || existingData.customerName || '',
+              address: prev.address || existingData.address || '',
+              aadharNo: prev.aadharNo || existingData.aadharNo || '',
+              regMobNo: prev.regMobNo || existingData.regMobNo || '',
+              regMobNo2: prev.regMobNo2 || existingData.regMobNo2 || '',
+              vehicleMake: prev.vehicleMake || existingData.vehicleMake || '',
+              vehicleModel: prev.vehicleModel || existingData.vehicleModel || '',
+              rto: prev.rto || existingData.rto || '',
+              vehicleNo: prev.vehicleNo || existingData.vehicleNo || '',
+              engineNo: prev.engineNo || existingData.engineNo || '',
+              chassisNo: prev.chassisNo || existingData.chassisNo || '',
+              registrationYear: prev.registrationYear || existingData.registrationYear || '',
+              vehicleCondition: prev.vehicleCondition || existingData.vehicleCondition || '',
+              activationMode: prev.activationMode || existingData.activationMode || '',
+              installationDate: prev.installationDate || (existingData.installationDate ? existingData.installationDate.substring(0, 10) : ''),
+            }));
+          }
+        } catch (error) {
+          // If not found, do nothing.
+        }
+      };
+      fetchCustomerByImei();
+    }
+  }, [formData.imei]);
+
   // Fetch Requests
   useEffect(() => {
     const fetchRequests = async () => {

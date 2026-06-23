@@ -106,6 +106,30 @@ router.get('/customer/:phone', async (req, res) => {
   }
 });
 
+// @route   GET /api/activation-requests/device/:imei
+// @desc    Fetch latest activation request details by IMEI
+// @access  Protected
+router.get('/device/:imei', requireRoles(...operationsRoles), async (req, res) => {
+  try {
+    const { imei } = req.params;
+    if (!imei) return res.status(400).json({ message: 'IMEI required' });
+
+    const query = buildScopedOwnerQuery(req.hierarchyScope);
+    query.imei = imei;
+
+    const request = await ActivationRequest.findOne(query).sort({ dateTime: -1 });
+
+    if (!request) {
+      return res.status(404).json({ message: 'No request found for this IMEI' });
+    }
+
+    res.json(request);
+  } catch (error) {
+    console.error('Fetch request by imei error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // @route   POST /api/activation-requests
 // @desc    Create a new activation request
 // @access  Protected
