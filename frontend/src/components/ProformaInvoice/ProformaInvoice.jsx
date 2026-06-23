@@ -107,7 +107,7 @@ const ProformaInvoice = () => {
     const totals = calculateTotals();
     const amountInWords = numberToWords(totals.total);
     const targetState = invoice.isSubDealer ? (invoice.dealerState || 'Bihar') : (invoice.customerState || 'Bihar');
-    const isIntraState = targetState === 'Bihar';
+    const isIntraState = targetState && targetState.toLowerCase() === 'bihar';
     const piDate = new Date(invoice.dateTime).toLocaleDateString('en-GB').replace(/\//g, '.');
     const customerName = invoice.endCustomerName || 'JYOTI CONSTRUCTION AND ENGINEERING Pvt. Ltd';
     const customerAddress = invoice.address || 'PAPRAPUR, Begusarai, Bihar, 851210';
@@ -121,10 +121,12 @@ const ProformaInvoice = () => {
       const qty = parseInt(item.qty) || 1;
       const cgstRate = parseFloat(item.cgst) || 0;
       const sgstRate = parseFloat(item.sgst) || 0;
+      const igstRate = parseFloat(item.igst) || 0;
 
       const cgstAmt = Math.round((unitPrice * cgstRate) / 100);
       const sgstAmt = Math.round((unitPrice * sgstRate) / 100);
-      const priceWithGst = unitPrice + cgstAmt + sgstAmt;
+      const igstAmt = Math.round((unitPrice * igstRate) / 100);
+      const priceWithGst = unitPrice + cgstAmt + sgstAmt + igstAmt;
       const grossAmt = priceWithGst * qty;
 
       itemsHtml += `
@@ -411,7 +413,8 @@ const ProformaInvoice = () => {
   const customerGstin = invoice.poaNo || '10AAECJ5132H1Z3';
   const sender = getSenderDetails(invoice.userId);
   const targetState = invoice.isSubDealer ? (invoice.dealerState || 'Bihar') : (invoice.customerState || 'Bihar');
-  const isIntraState = targetState === 'Bihar';
+  const isIntraState = targetState && targetState.toLowerCase() === 'bihar';
+
 
   return (
     <div className="proforma-invoice-wrapper">
@@ -488,9 +491,11 @@ const ProformaInvoice = () => {
               const qty = parseInt(item.qty) || 1;
               const cgstRate = parseFloat(item.cgst) || 0;
               const sgstRate = parseFloat(item.sgst) || 0;
+              const igstRate = parseFloat(item.igst) || 0;
               const cgstAmt = Math.round((unitPrice * cgstRate) / 100);
               const sgstAmt = Math.round((unitPrice * sgstRate) / 100);
-              const priceWithGst = unitPrice + cgstAmt + sgstAmt;
+              const igstAmt = Math.round((unitPrice * igstRate) / 100);
+              const priceWithGst = unitPrice + cgstAmt + sgstAmt + igstAmt;
               const grossAmt = priceWithGst * qty;
 
               return (

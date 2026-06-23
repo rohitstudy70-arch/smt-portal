@@ -85,7 +85,7 @@ const InvoiceGenerator = () => {
   ]);
 
   const activeState = isSubDealer ? dealerState : customerState;
-  const isIntraState = activeState === 'Bihar';
+  const isIntraState = activeState && activeState.toLowerCase() === 'bihar';
 
   // Helper to calculate details for one item
   const calculateItemDetails = (item) => {
@@ -380,7 +380,7 @@ const InvoiceGenerator = () => {
     let itemCount = 0;
 
     const targetState = req.isSubDealer ? (req.dealerState || 'Bihar') : (req.customerState || 'Bihar');
-    const isIntraState = targetState === 'Bihar';
+    const isIntraState = targetState && targetState.toLowerCase() === 'bihar';
 
     if (req.items && req.items.length > 0) {
       itemCount = req.items.length;
