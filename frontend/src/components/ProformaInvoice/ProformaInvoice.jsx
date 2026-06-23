@@ -230,8 +230,8 @@ const ProformaInvoice = () => {
 
           <div class="info-grid">
             <div class="info-box">
-              <div class="info-box-head">Customer</div>
-              <p class="co-name">${customerName}</p>
+              <div class="info-box-head">${invoice.isSubDealer ? 'Dealer / Sub-Dealer' : 'Customer'}</div>
+              <p class="co-name">${invoice.isSubDealer && invoice.subDealerName ? invoice.subDealerName : (invoice.endCustomerName || 'Customer Name')}</p>
               <p>${customerAddress}</p>
               <p>GSTIN: ${customerGstin}</p>
             </div>
@@ -410,8 +410,8 @@ const ProformaInvoice = () => {
 
         <div className="proforma-info-grid">
           <div className="proforma-info-box">
-            <div className="proforma-info-box-head">Customer</div>
-            <p className="proforma-co-name">{customerName}</p>
+            <div className="proforma-info-box-head">{invoice.isSubDealer ? 'Dealer / Sub-Dealer' : 'Customer'}</div>
+            <p className="proforma-co-name">{invoice.isSubDealer && invoice.subDealerName ? invoice.subDealerName : (invoice.endCustomerName || 'Customer Name')}</p>
             <p>{customerAddress}</p>
             <p>GSTIN: {customerGstin}</p>
           </div>

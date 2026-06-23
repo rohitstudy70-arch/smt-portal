@@ -23,6 +23,8 @@ const InvoiceGenerator = () => {
   const [rmn, setRmn] = useState('');
   const [address, setAddress] = useState('');
   const [poaNo, setPoaNo] = useState(''); // GSTIN/PAN/Aadhaar
+  const [isSubDealer, setIsSubDealer] = useState(false);
+  const [subDealerName, setSubDealerName] = useState('');
   const [vehicleType, setVehicleType] = useState('Truck');
   const [validity, setValidity] = useState('1 Year');
   const [searchImei, setSearchImei] = useState('');
@@ -204,8 +206,8 @@ const InvoiceGenerator = () => {
         validity,
         imei: searchImei || 'N/A',
         iccid: searchImei || 'N/A',
-        isSubDealer: false,
-        subDealerName: '',
+        isSubDealer: isSubDealer,
+        subDealerName: subDealerName,
         piNo: piNo || 'AE-01',
         piValue: totalVal,
         invoiceNo,
@@ -239,6 +241,8 @@ const InvoiceGenerator = () => {
       setRmn('');
       setAddress('');
       setPoaNo('');
+      setIsSubDealer(false);
+      setSubDealerName('');
       setSearchImei('');
       setVehicleNo('');
       setEngineNo('');
@@ -305,7 +309,7 @@ const InvoiceGenerator = () => {
   };
 
   const handleDownloadInvoice = (req) => {
-    const customerName = req.endCustomerName || 'JYOTI CONSTRUCTION AND ENGINEERING Pvt. Ltd';
+    const customerName = (req.isSubDealer && req.subDealerName ? req.subDealerName : req.endCustomerName) || 'JYOTI CONSTRUCTION AND ENGINEERING Pvt. Ltd';
     const customerAddress = req.address || 'PAPRAUR, Begusarai, Bihar, 851210';
     const customerMob = req.rmn || '9031622921';
     const customerGstin = req.poaNo || '10AAECJ5132H1Z3';
@@ -563,7 +567,7 @@ const InvoiceGenerator = () => {
         <!-- Customer / Ship To / Shipping -->
         <div class="info-grid">
           <div class="info-box">
-            <div class="info-box-head">Customer</div>
+            <div class="info-box-head">${req.isSubDealer ? 'Dealer / Sub-Dealer' : 'Customer'}</div>
             <p class="co-name">${customerName}</p>
             <p>${customerAddress}</p>
             <p>GSTIN: ${customerGstin}</p>
@@ -731,6 +735,33 @@ const InvoiceGenerator = () => {
           {/* Section 1: Customer & Billing Info */}
           <div className="form-section-title">1. Customer & Billing Info</div>
           <div className="ig-grid-inputs">
+            
+            <div className="form-field" style={{ gridColumn: '1 / -1', flexDirection: 'row', alignItems: 'center', gap: '8px', background: '#f0fdfa', padding: '12px 15px', borderRadius: '6px', border: '1px solid #ccfbf1' }}>
+              <input 
+                type="checkbox" 
+                id="isDealerCheck"
+                checked={isSubDealer}
+                onChange={(e) => setIsSubDealer(e.target.checked)}
+                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+              />
+              <label htmlFor="isDealerCheck" style={{ margin: 0, cursor: 'pointer', fontWeight: 'bold', color: '#0f766e' }}>
+                Generate Bill for a Dealer / Sub-Dealer
+              </label>
+            </div>
+
+            {isSubDealer && (
+              <div className="form-field" style={{ gridColumn: 'span 2' }}>
+                <label>Dealer / Sub-Dealer Name*</label>
+                <input 
+                  type="text" 
+                  value={subDealerName}
+                  onChange={(e) => setSubDealerName(e.target.value)}
+                  placeholder="Enter Dealer Name"
+                  required={isSubDealer}
+                />
+              </div>
+            )}
+
             <div className="form-field">
               <label>Customer Name*</label>
               <input 
