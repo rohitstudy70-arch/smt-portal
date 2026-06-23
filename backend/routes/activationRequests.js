@@ -481,4 +481,30 @@ router.post('/direct-activate', requireRoles(PORTAL_ROLES.ADMIN), async (req, re
   }
 });
 
+// @route   DELETE /api/activation-requests/:id
+// @desc    Delete an activation request
+// @access  Private
+router.delete('/:id', auth, async (req, res) => {
+  try {
+    const request = await ActivationRequest.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({ message: 'Request not found' });
+    }
+
+    if (request.status === 'Completed' && req.user.role !== 'ADMIN') {
+      return res.status(400).json({ message: 'Cannot delete a completed request' });
+    }
+
+    if (req.user.role !== 'ADMIN' && request.userId.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Unauthorized to delete this request' });
+    }
+
+    await ActivationRequest.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Request deleted successfully' });
+  } catch (error) {
+    console.error('Delete request error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;

@@ -396,6 +396,20 @@ const ActivationRequests = () => {
     }
   };
 
+  const handleDeleteRequest = async (requestId) => {
+    if (!window.confirm('Are you sure you want to delete this request? This will allow you to assign the IMEI to another customer.')) {
+      return;
+    }
+    try {
+      await api.delete(`/activation-requests/${requestId}`);
+      alert('Request deleted successfully!');
+      handleRefresh();
+    } catch (err) {
+      console.error('Delete request error:', err);
+      alert(err.response?.data?.message || 'Failed to delete request.');
+    }
+  };
+
   const handleRejectClick = (requestId) => {
     const remarks = window.prompt('Enter rejection remarks (optional):');
     if (remarks !== null) {
@@ -968,6 +982,7 @@ const ActivationRequests = () => {
                   <th>Amount (₹)</th>
                   <th>Remarks</th>
                   <th>Status</th>
+                  <th>Actions</th>
                 </tr>
               )}
             </thead>
@@ -1038,8 +1053,14 @@ const ActivationRequests = () => {
                                 </button>
                               </>
                             ) : (
-                              <span style={{ fontSize: '11px', color: '#999', fontStyle: 'italic' }}>No actions</span>
+                              <span style={{ fontSize: '11px', color: '#999', fontStyle: 'italic', display: 'none' }}></span>
                             )}
+                            <button
+                              onClick={() => handleDeleteRequest(req._id)}
+                              style={{ padding: '4px 8px', background: '#d9534f', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', marginLeft: 'auto' }}
+                            >
+                              Delete
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -1076,6 +1097,16 @@ const ActivationRequests = () => {
                         <span className={`status-badge ${statusClass}`}>
                           {displayStatus}
                         </span>
+                      </td>
+                      <td>
+                        {(req.status !== 'Completed' || role === 'ADMIN') && (
+                          <button
+                            onClick={() => handleDeleteRequest(req._id)}
+                            style={{ padding: '4px 8px', background: '#d9534f', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
+                          >
+                            Delete
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
