@@ -517,8 +517,15 @@ const InvoiceGenerator = () => {
 
         /* Print */
         @media print{
-          body{background:#fff;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+          @page { size: A4 portrait; margin: 3mm 5mm; }
+          body{background:#fff;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;zoom:0.92;}
           .page{box-shadow:none;border:none;border-radius:0;max-width:100%}
+          .header{padding:15px 20px 10px}
+          .info-box{padding:10px 20px}
+          .table-wrap{padding:0 20px}
+          .bottom{padding:0 20px 15px;margin-top:10px}
+          .footer{margin:10px 20px 15px;padding-top:10px}
+          table{margin-top:12px}
           .bank-row input{border-bottom:1px dashed #aaa}
           tbody tr:hover{background:transparent}
         }

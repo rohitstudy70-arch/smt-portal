@@ -399,7 +399,7 @@
 @media print {
   @page {
     size: A4 portrait;
-    margin: 6mm 8mm;
+    margin: 3mm 5mm;
   }
   
   body {
@@ -408,6 +408,7 @@
     padding: 0;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+    zoom: 0.92;
   }
 
   .proforma-invoice-wrapper {
