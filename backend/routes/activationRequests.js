@@ -77,6 +77,35 @@ router.get('/', async (req, res) => {
   }
 });
 
+// @route   GET /api/activation-requests/customer/:phone
+// @desc    Fetch latest customer details by phone number
+// @access  Protected
+router.get('/customer/:phone', async (req, res) => {
+  try {
+    const { phone } = req.params;
+    if (!phone) return res.status(400).json({ message: 'Phone number required' });
+
+    const query = buildScopedOwnerQuery(req.hierarchyScope);
+    query.$or = [
+      { regMobNo: phone },
+      { regMobNo2: phone }
+    ];
+
+    const customerReq = await ActivationRequest.findOne(query)
+      .sort({ dateTime: -1 })
+      .select('customerName address aadharNo regMobNo regMobNo2 vehicleMake vehicleModel rto -_id');
+
+    if (!customerReq) {
+      return res.status(404).json({ message: 'Customer not found' });
+    }
+
+    res.json(customerReq);
+  } catch (error) {
+    console.error('Fetch customer by phone error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // @route   POST /api/activation-requests
 // @desc    Create a new activation request
 // @access  Protected

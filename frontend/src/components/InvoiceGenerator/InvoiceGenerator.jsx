@@ -145,6 +145,25 @@ const InvoiceGenerator = () => {
     fetchNextPiNo();
   }, []);
 
+  // Auto-fetch customer details by RMN
+  useEffect(() => {
+    if (rmn && rmn.length === 10) {
+      const fetchCustomerInfo = async () => {
+        try {
+          const res = await api.get(`/activation-requests/customer/${rmn}`);
+          if (res.data) {
+            setEndCustomerName(prev => prev || res.data.customerName || '');
+            setAddress(prev => prev || res.data.address || '');
+            setPoaNo(prev => prev || res.data.aadharNo || '');
+          }
+        } catch (error) {
+          // Ignore if not found
+        }
+      };
+      fetchCustomerInfo();
+    }
+  }, [rmn]);
+
   useEffect(() => {
     const fetchRequests = async () => {
       try {

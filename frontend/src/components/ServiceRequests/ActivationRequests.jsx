@@ -167,6 +167,32 @@ const ActivationRequests = () => {
     }
   }, [location.state, user, role]);
 
+  // Auto-fetch customer details by RMN
+  useEffect(() => {
+    if (formData.regMobNo && formData.regMobNo.length === 10) {
+      const fetchCustomerInfo = async () => {
+        try {
+          const res = await api.get(`/activation-requests/customer/${formData.regMobNo}`);
+          if (res.data) {
+            setFormData(prev => ({
+              ...prev,
+              customerName: prev.customerName || res.data.customerName || '',
+              address: prev.address || res.data.address || '',
+              aadharNo: prev.aadharNo || res.data.aadharNo || '',
+              regMobNo2: prev.regMobNo2 || res.data.regMobNo2 || '',
+              vehicleMake: prev.vehicleMake || res.data.vehicleMake || '',
+              vehicleModel: prev.vehicleModel || res.data.vehicleModel || '',
+              rto: prev.rto || res.data.rto || ''
+            }));
+          }
+        } catch (error) {
+          // If not found (404), do nothing.
+        }
+      };
+      fetchCustomerInfo();
+    }
+  }, [formData.regMobNo]);
+
   // Fetch Requests
   useEffect(() => {
     const fetchRequests = async () => {
