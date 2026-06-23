@@ -231,14 +231,15 @@ State: ${latestRequest?.userId?.state || device.dealerId?.state || '—'}`;
                   }}>
                     Processing
                   </button>
-                  {role === 'ADMIN' && (
-                    <button 
-                      className="btn-activate-quick" 
-                      onClick={handleQuickActivate}
-                    >
-                      Activate
-                    </button>
-                  )}
+                  {role === 'ADMIN' && getActivationStatus() === 'none' && (
+                      <button 
+                        className="btn-activate-quick" 
+                        onClick={handleQuickActivate}
+                        disabled={loading}
+                      >
+                        {loading ? <FaSpinner className="fa-spin" /> : 'Activate'}
+                      </button>
+                    )}
                 </>
               ) : activationStatus === 'active' ? (
                 <button className="badge-status-active" style={{
@@ -267,14 +268,15 @@ State: ${latestRequest?.userId?.state || device.dealerId?.state || '—'}`;
                   >
                     Raise Request
                   </button>
-                  {role === 'ADMIN' && (
-                    <button 
-                      className="btn-activate-quick" 
-                      onClick={handleDirectActivate}
-                    >
-                      Activate
-                    </button>
-                  )}
+                  {role === 'ADMIN' && getActivationStatus() === 'none' && (
+                      <button 
+                        className="btn-activate-quick" 
+                        onClick={handleDirectActivate}
+                        disabled={loading}
+                      >
+                        {loading ? <FaSpinner className="fa-spin" /> : 'Activate'}
+                      </button>
+                    )}
                 </>
               )}
             </div>

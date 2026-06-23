@@ -160,17 +160,16 @@ router.post('/', requireRoles(...operationsRoles), async (req, res) => {
       return res.status(404).json({ message: 'Device not found.' });
     }
 
-    // Step 7: Prevent duplicate requests
-    if (device.activationRequestStatus === 'processing' || device.activationRequestStatus === 'active') {
-      return res.status(400).json({ message: 'Activation request already exists.' });
-    }
-
-    const existingRequest = await ActivationRequest.findOne({
-      imei,
-      status: { $in: ['Requested', 'Processing', 'Completed', 'Approved', 'Active'] }
-    });
-    if (existingRequest) {
-      return res.status(400).json({ message: 'Activation request already exists.' });
+    // Step 7: Prevent duplicate requests for initial activations
+    if (requestType === 'Commercial Plan') {
+      const existingRequest = await ActivationRequest.findOne({
+        imei,
+        requestType: 'Commercial Plan',
+        status: { $ne: 'Rejected' }
+      });
+      if (existingRequest) {
+        return res.status(400).json({ message: `Activation request already exists (Status: ${existingRequest.status}).` });
+      }
     }
 
     const targetUserId = device.subDealerId || device.dealerId || req.user._id;
@@ -397,8 +396,17 @@ router.post('/direct-activate', requireRoles(PORTAL_ROLES.ADMIN), async (req, re
     }
 
     // Check if already active
-    if (device.deviceStatus === 'active' || device.status === 'Active') {
+    if (device.deviceStatus?.toLowerCase() === 'active' || device.status?.toLowerCase() === 'active') {
       return res.status(400).json({ message: 'Device is already active.' });
+    }
+
+    const existingRequest = await ActivationRequest.findOne({
+      imei,
+      requestType: 'Commercial Plan',
+      status: { $ne: 'Rejected' }
+    });
+    if (existingRequest) {
+      return res.status(400).json({ message: `Activation request already exists (Status: ${existingRequest.status}).` });
     }
 
     // Create an approved ActivationRequest
