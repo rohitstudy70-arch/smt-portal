@@ -692,8 +692,7 @@ router.get('/revenue-breakdown', async (req, res) => {
 
     const devices = await Device.find({
       userId: { $in: userIds },
-      presentDate: { $gte: startDate, $lte: endDate },
-      billAmount: { $gt: 0 }
+      presentDate: { $gte: startDate, $lte: endDate }
     })
     .populate('assignedTo dealerId subDealerId')
     .sort({ presentDate: -1 });

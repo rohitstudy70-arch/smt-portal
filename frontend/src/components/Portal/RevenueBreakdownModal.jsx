@@ -75,6 +75,8 @@ const RevenueBreakdownModal = ({ isOpen, onClose, initialTab = 'today' }) => {
                     <tr style={{ backgroundColor: '#f4f4f9', textAlign: 'left' }}>
                       <th style={{ padding: '10px', borderBottom: '2px solid #ddd' }}>IMEI No</th>
                       <th style={{ padding: '10px', borderBottom: '2px solid #ddd' }}>Dealer</th>
+                      <th style={{ padding: '10px', borderBottom: '2px solid #ddd' }}>Sub-Dealer</th>
+                      <th style={{ padding: '10px', borderBottom: '2px solid #ddd' }}>Customer</th>
                       <th style={{ padding: '10px', borderBottom: '2px solid #ddd' }}>Added Date</th>
                       <th style={{ padding: '10px', borderBottom: '2px solid #ddd', textAlign: 'right' }}>Revenue (₹)</th>
                     </tr>
@@ -82,13 +84,15 @@ const RevenueBreakdownModal = ({ isOpen, onClose, initialTab = 'today' }) => {
                   <tbody>
                     {breakdown.length === 0 ? (
                       <tr>
-                        <td colSpan="4" className="text-center" style={{ padding: '20px' }}>No revenue records found for this period.</td>
+                        <td colSpan="6" className="text-center" style={{ padding: '20px' }}>No revenue records found for this period.</td>
                       </tr>
                     ) : (
                       breakdown.map((item) => (
                         <tr key={item._id} style={{ borderBottom: '1px solid #eee' }}>
                           <td style={{ padding: '10px' }}>{item.imei}</td>
                           <td style={{ padding: '10px' }}>{item.dealerName}</td>
+                          <td style={{ padding: '10px' }}>{item.subDealerName}</td>
+                          <td style={{ padding: '10px' }}>{item.customerName}</td>
                           <td style={{ padding: '10px' }}>{new Date(item.presentDate).toLocaleDateString('en-GB')}</td>
                           <td style={{ padding: '10px', textAlign: 'right', fontWeight: '500' }}>{item.billAmount.toLocaleString()}</td>
                         </tr>
