@@ -646,6 +646,19 @@ const InvoiceGenerator = () => {
               <div class="total-label">Total Amount</div>
               <div class="total-amount">INR ${formatCurrencyIG(totalAmt)}</div>
             </div>
+
+            <div style="margin-top:20px;">
+              <div class="section-title">Features &amp; Benefits (FaB)</div>
+              <ul class="tc-list" style="margin-bottom:0;">
+                <li data-n="1.">Multiple Mobile Axes.</li>
+                <li data-n="2.">Real time Track your Vehicle Anywhere via your mob. &amp; pc.</li>
+                <li data-n="3.">Direction /Speed &amp; Ignition On/Off Detection.</li>
+                <li data-n="4.">Ignition Cut off Alarm.</li>
+                <li data-n="5.">Multiple Geo-Fence setup &amp; alarm.</li>
+                <li data-n="6.">Back-up data from 01hrs to last 30days.</li>
+                <li data-n="7.">Moving overview km/Per day, Stay Detail’s &amp; Alarm Detail’s etc.</li>
+              </ul>
+            </div>
           </div>
         </div>
 
