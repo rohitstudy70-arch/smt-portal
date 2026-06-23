@@ -197,9 +197,14 @@ const ProformaInvoice = () => {
           .total-amount{font-family:'Nunito',sans-serif;font-size:23px;font-weight:800;letter-spacing:-0.5px}
           .footer{margin-top:22px;padding-top:14px;border-top:1.5px solid var(--border);text-align:center;font-size:11px;color:#5a7a82;font-style:italic}
           @media print{
-            body{background:#fff;padding:0}
-            .page{box-shadow:none;border:none;border-radius:0}
+            @page { size: A4 portrait; margin: 3mm 5mm; }
+            body{background:#fff;padding:0;zoom:0.80;}
+            .page{box-shadow:none;border:none;border-radius:0;padding:20px;overflow:visible;display:block;max-width:100%}
             tbody tr:hover{background:transparent}
+            .bottom{page-break-inside:avoid;}
+            .footer{page-break-inside:avoid;}
+            td, th { padding: 6px 10px; font-size: 12px; }
+            tr { page-break-inside: avoid; }
           }
         </style>
       </head>

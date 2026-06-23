@@ -541,14 +541,16 @@ const InvoiceGenerator = () => {
         /* Print */
         @media print{
           @page { size: A4 portrait; margin: 3mm 5mm; }
-          body{background:#fff;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;zoom:0.92;}
-          .page{box-shadow:none;border:none;border-radius:0;max-width:100%}
-          .header{padding:15px 20px 10px}
-          .info-box{padding:10px 20px}
-          .table-wrap{padding:0 20px}
-          .bottom{padding:0 20px 15px;margin-top:10px}
-          .footer{margin:10px 20px 15px;padding-top:10px}
+          body{background:#fff;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;zoom:0.80;}
+          .page{box-shadow:none;border:none;border-radius:0;max-width:100%;overflow:visible;display:block;}
+          .header{padding:12px 16px 8px}
+          .info-box{padding:8px 16px}
+          .table-wrap{padding:0 16px}
+          .bottom{padding:0 16px 12px;margin-top:8px;page-break-inside:avoid;}
+          .footer{margin:8px 16px 12px;padding-top:8px;page-break-inside:avoid;}
           table{margin-top:12px}
+          td, th { padding: 6px 10px; font-size: 12px; }
+          tr { page-break-inside: avoid; }
           .bank-row input{border-bottom:1px dashed #aaa}
           tbody tr:hover{background:transparent}
         }
