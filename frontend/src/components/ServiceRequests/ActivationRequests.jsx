@@ -67,6 +67,7 @@ const ActivationRequests = () => {
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState(initialFormState);
+  const [imeiError, setImeiError] = useState('');
 
   // Device dropdown list state
   const [availableDevices, setAvailableDevices] = useState([]);
@@ -200,6 +201,11 @@ const ActivationRequests = () => {
         try {
           const res = await api.get(`/activation-requests/device/${formData.imei}`);
           if (res.data) {
+            if (res.data.status !== 'Rejected') {
+              setImeiError('ALREADY RAISED REQUEST');
+            } else {
+              setImeiError('');
+            }
             const existingData = res.data;
             setFormData(prev => ({
               ...prev,
@@ -222,9 +228,12 @@ const ActivationRequests = () => {
           }
         } catch (error) {
           // If not found, do nothing.
+          setImeiError('');
         }
       };
       fetchCustomerByImei();
+    } else {
+      setImeiError('');
     }
   }, [formData.imei]);
 
@@ -591,6 +600,7 @@ const ActivationRequests = () => {
                         readOnly 
                         placeholder="Auto-filled"
                       />
+                      {imeiError && <span style={{ color: 'red', fontSize: '12px', marginTop: '4px', display: 'block', fontWeight: 'bold' }}>{imeiError}</span>}
                     </div>
 
                     <div className="form-group-custom">
@@ -888,7 +898,7 @@ const ActivationRequests = () => {
                 </button>
                 <button 
                   type="submit" 
-                  disabled={submitting || !formData.imei}
+                  disabled={submitting || !formData.imei || !!imeiError}
                   className="btn-submit-custom"
                 >
                   {submitting ? 'Submitting...' : 'Submit'}
