@@ -18,7 +18,7 @@ const RevenueBreakdownModal = ({ isOpen, onClose, initialTab = 'today' }) => {
   const fetchBreakdown = async (period) => {
     try {
       setLoading(true);
-      const res = await api.get('/dues/revenue-breakdown', { params: { period } });
+      const res = await api.get('/due-dashboard/revenue-breakdown', { params: { period } });
       setBreakdown(res.data.breakdown || []);
       setTotalRevenue(res.data.totalRevenue || 0);
     } catch (err) {
