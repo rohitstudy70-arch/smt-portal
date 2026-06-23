@@ -231,7 +231,7 @@ State: ${latestRequest?.userId?.state || device.dealerId?.state || '—'}`;
                   }}>
                     Processing
                   </button>
-                  {role === 'ADMIN' && getActivationStatus() === 'none' && (
+                  {role === 'ADMIN' && (
                       <button 
                         className="btn-activate-quick" 
                         onClick={handleQuickActivate}
@@ -268,7 +268,7 @@ State: ${latestRequest?.userId?.state || device.dealerId?.state || '—'}`;
                   >
                     Raise Request
                   </button>
-                  {role === 'ADMIN' && getActivationStatus() === 'none' && (
+                  {role === 'ADMIN' && (
                       <button 
                         className="btn-activate-quick" 
                         onClick={handleDirectActivate}
