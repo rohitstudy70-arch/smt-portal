@@ -9,6 +9,7 @@ const {
   attachHierarchyScope,
   buildScopedOwnerQuery,
   requireRoles,
+  isIdInScope,
 } = require('../middleware/hierarchy');
 
 const router = express.Router();
@@ -495,7 +496,7 @@ router.delete('/:id', async (req, res) => {
       return res.status(400).json({ message: 'Cannot delete a completed request' });
     }
 
-    if (req.user.role !== 'ADMIN' && request.userId.toString() !== req.user.id) {
+    if (req.user.role !== 'ADMIN' && !isIdInScope(req.scope, request.userId)) {
       return res.status(403).json({ message: 'Unauthorized to delete this request' });
     }
 
