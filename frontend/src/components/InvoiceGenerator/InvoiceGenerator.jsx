@@ -58,6 +58,8 @@ const InvoiceGenerator = () => {
 
   const [singleSubmitting, setSingleSubmitting] = useState(false);
   const [credentialsToShow, setCredentialsToShow] = useState(null);
+  const [dealersList, setDealersList] = useState([]);
+  const [isCustomDealer, setIsCustomDealer] = useState(false);
 
   // Dynamic invoice items state (preloaded with default rows shown in the screenshot)
   const [items, setItems] = useState([
@@ -168,6 +170,22 @@ const InvoiceGenerator = () => {
 
   useEffect(() => {
     fetchNextPiNo();
+  }, []);
+
+  // Fetch dealers list for dropdown
+  useEffect(() => {
+    const fetchDealers = async () => {
+      try {
+        const res = await api.get('/users/sub-users');
+        if (res.data) {
+          const filtered = res.data.filter(u => u.userType === 'Dealer' || u.userType === 'Sub Dealer');
+          setDealersList(filtered);
+        }
+      } catch (err) {
+        console.error('Error fetching dealers for dropdown:', err);
+      }
+    };
+    fetchDealers();
   }, []);
 
   // Auto-fetch customer details by RMN
@@ -836,14 +854,54 @@ const InvoiceGenerator = () => {
             {isSubDealer && (
               <>
                 <div className="form-field">
-                  <label>Dealer / Sub-Dealer Name*</label>
-                  <input 
-                    type="text" 
-                    value={subDealerName}
-                    onChange={(e) => setSubDealerName(e.target.value)}
-                    placeholder="Enter Dealer Name"
-                    required={isSubDealer}
-                  />
+                  <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Dealer / Sub-Dealer Name*</span>
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        setIsCustomDealer(!isCustomDealer);
+                        setSubDealerName('');
+                      }}
+                      style={{ background: 'none', border: 'none', color: 'var(--primary-blue)', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                    >
+                      {isCustomDealer ? 'Choose from list' : 'Type custom name'}
+                    </button>
+                  </label>
+                  {isCustomDealer ? (
+                    <input 
+                      type="text" 
+                      value={subDealerName}
+                      onChange={(e) => setSubDealerName(e.target.value)}
+                      placeholder="Enter Dealer Name"
+                      required={isSubDealer}
+                    />
+                  ) : (
+                    <select
+                      value={subDealerName}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSubDealerName(val);
+                        const dealerInfo = dealersList.find(d => (d.companyName || d.displayName) === val);
+                        if (dealerInfo) {
+                          setDealerState(dealerInfo.state || 'Bihar');
+                          setAddress(dealerInfo.address || '');
+                          setRmn(dealerInfo.mobileNo || '');
+                          setPoaNo(dealerInfo.gstNo || '');
+                        }
+                      }}
+                      required={isSubDealer}
+                    >
+                      <option value="">Select Dealer</option>
+                      {dealersList.map(d => {
+                        const name = d.companyName || d.displayName;
+                        return (
+                          <option key={d._id} value={name}>
+                            {name} ({d.userType})
+                          </option>
+                        );
+                      })}
+                    </select>
+                  )}
                 </div>
                 <div className="form-field">
                   <label>Dealer State*</label>
