@@ -40,6 +40,14 @@ const invoiceSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  customerState: {
+    type: String,
+    default: 'Bihar',
+  },
+  dealerState: {
+    type: String,
+    default: 'Bihar',
+  },
   piNo: {
     type: String,
     default: '',
@@ -128,6 +136,7 @@ const invoiceSchema = new mongoose.Schema({
       unitPrice: { type: Number, default: 0 },
       cgst: { type: Number, default: 0 },
       sgst: { type: Number, default: 0 },
+      igst: { type: Number, default: 0 },
       priceWithGst: { type: Number, default: 0 },
       qty: { type: Number, default: 1 },
       grossAmt: { type: Number, default: 0 },

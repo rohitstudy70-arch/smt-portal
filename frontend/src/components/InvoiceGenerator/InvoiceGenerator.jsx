@@ -6,6 +6,16 @@ import { useAuth } from '../../context/AuthContext';
 import { INVOICE_LOGO } from '../../utils/invoiceLogo';
 import './InvoiceGenerator.css';
 
+const INDIAN_STATES = [
+  "Andaman and Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam",
+  "Bihar", "Chandigarh", "Chhattisgarh", "Dadra and Nagar Haveli and Daman and Diu",
+  "Delhi", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jammu and Kashmir",
+  "Jharkhand", "Karnataka", "Kerala", "Ladakh", "Lakshadweep", "Madhya Pradesh",
+  "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha",
+  "Puducherry", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana",
+  "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"
+];
+
 const InvoiceGenerator = () => {
   const { user } = useAuth();
   const [requests, setRequests] = useState([]);
@@ -23,8 +33,10 @@ const InvoiceGenerator = () => {
   const [rmn, setRmn] = useState('');
   const [address, setAddress] = useState('');
   const [poaNo, setPoaNo] = useState(''); // GSTIN/PAN/Aadhaar
+  const [customerState, setCustomerState] = useState('Bihar');
   const [isSubDealer, setIsSubDealer] = useState(false);
   const [subDealerName, setSubDealerName] = useState('');
+  const [dealerState, setDealerState] = useState('Bihar');
   const [vehicleType, setVehicleType] = useState('Truck');
   const [validity, setValidity] = useState('1 Year');
   const [searchImei, setSearchImei] = useState('');
@@ -53,44 +65,58 @@ const InvoiceGenerator = () => {
       description: 'iTriangle (Bharat101 Plus) Ais140 2G\nVLTD Device with including Dual profile E-sim & Software + 01 Panic Switch',
       validity: '12 Month',
       unitPrice: 4300,
-      cgst: 9,
-      sgst: 9,
+      gstRate: 18,
       qty: 1
     },
     {
       description: 'iTriangle (Bharat101 Plus) Ais140 _2G',
       validity: '24 Month',
       unitPrice: 5600,
-      cgst: 9,
-      sgst: 9,
+      gstRate: 18,
       qty: 1
     },
     {
       description: 'Installation',
       validity: 'One Time',
       unitPrice: 400,
-      cgst: 9,
-      sgst: 9,
+      gstRate: 18,
       qty: 1
     }
   ]);
 
+  const activeState = isSubDealer ? dealerState : customerState;
+  const isIntraState = activeState === 'Bihar';
+
   // Helper to calculate details for one item
   const calculateItemDetails = (item) => {
     const unitPrice = parseFloat(item.unitPrice) || 0;
-    const cgstRate = parseFloat(item.cgst) || 0;
-    const sgstRate = parseFloat(item.sgst) || 0;
+    const gstRate = parseFloat(item.gstRate) || 0;
     const qty = parseInt(item.qty) || 0;
+
+    let cgstRate = 0, sgstRate = 0, igstRate = 0;
+    
+    if (isIntraState) {
+      cgstRate = gstRate / 2;
+      sgstRate = gstRate / 2;
+    } else {
+      igstRate = gstRate;
+    }
 
     const cgstAmt = Math.round((unitPrice * cgstRate) / 100);
     const sgstAmt = Math.round((unitPrice * sgstRate) / 100);
-    const priceWithGst = unitPrice + cgstAmt + sgstAmt;
+    const igstAmt = Math.round((unitPrice * igstRate) / 100);
+    
+    const priceWithGst = unitPrice + cgstAmt + sgstAmt + igstAmt;
     const grossAmt = priceWithGst * qty;
 
     return {
       ...item,
+      cgstRate,
+      sgstRate,
+      igstRate,
       cgstAmt,
       sgstAmt,
+      igstAmt,
       priceWithGst,
       grossAmt
     };
@@ -103,8 +129,7 @@ const InvoiceGenerator = () => {
         description: '',
         validity: '12 Month',
         unitPrice: 0,
-        cgst: 9,
-        sgst: 9,
+        gstRate: 18,
         qty: 1
       }
     ]);
@@ -208,8 +233,9 @@ const InvoiceGenerator = () => {
         description: det.description,
         validity: det.validity,
         unitPrice: parseFloat(det.unitPrice) || 0,
-        cgst: parseFloat(det.cgst) || 0,
-        sgst: parseFloat(det.sgst) || 0,
+        cgst: parseFloat(det.cgstRate) || 0,
+        sgst: parseFloat(det.sgstRate) || 0,
+        igst: parseFloat(det.igstRate) || 0,
         priceWithGst: det.priceWithGst,
         qty: parseInt(det.qty) || 1,
         grossAmt: det.grossAmt
@@ -227,6 +253,8 @@ const InvoiceGenerator = () => {
         iccid: searchImei || 'N/A',
         isSubDealer: isSubDealer,
         subDealerName: subDealerName,
+        customerState,
+        dealerState,
         piNo: piNo || 'AE-01',
         piValue: totalVal,
         invoiceNo,
@@ -347,8 +375,12 @@ const InvoiceGenerator = () => {
     let subtotal = 0;
     let sgstTotal = 0;
     let cgstTotal = 0;
+    let igstTotal = 0;
     let totalAmt = 0;
     let itemCount = 0;
+
+    const targetState = req.isSubDealer ? (req.dealerState || 'Bihar') : (req.customerState || 'Bihar');
+    const isIntraState = targetState === 'Bihar';
 
     if (req.items && req.items.length > 0) {
       itemCount = req.items.length;
@@ -356,6 +388,7 @@ const InvoiceGenerator = () => {
         const unitPrice = parseFloat(item.unitPrice) || 0;
         const cgstRate = parseFloat(item.cgst) || 0;
         const sgstRate = parseFloat(item.sgst) || 0;
+        const igstRate = parseFloat(item.igst) || 0;
         const qty = parseInt(item.qty) || 0;
 
         const itemSubtotal = unitPrice * qty;
@@ -363,10 +396,14 @@ const InvoiceGenerator = () => {
         
         const cgstAmt = (itemSubtotal * cgstRate) / 100;
         const sgstAmt = (itemSubtotal * sgstRate) / 100;
+        const igstAmt = (itemSubtotal * igstRate) / 100;
+        
         cgstTotal += cgstAmt;
         sgstTotal += sgstAmt;
+        igstTotal += igstAmt;
 
-        const totalWithGst = Math.round(unitPrice + (unitPrice * cgstRate / 100) + (unitPrice * sgstRate / 100)) * qty;
+        const totalWithGst = Math.round(unitPrice + (unitPrice * cgstRate / 100) + (unitPrice * sgstRate / 100) + (unitPrice * igstRate / 100)) * qty;
+        const displayGstRate = isIntraState ? (cgstRate + sgstRate) : igstRate;
 
         return `
           <tr>
@@ -374,7 +411,7 @@ const InvoiceGenerator = () => {
             <td class="desc">${item.description.replace(/\n/g, '<br/>')}</td>
             <td class="num">${qty}</td>
             <td class="num">${formatCurrencyIG(unitPrice)}</td>
-            <td class="num">${cgstRate + sgstRate}%</td>
+            <td class="num">${displayGstRate}%</td>
             <td class="num">${formatCurrencyIG(totalWithGst)}</td>
           </tr>
         `;
@@ -383,7 +420,8 @@ const InvoiceGenerator = () => {
       subtotal = Math.round(subtotal);
       cgstTotal = Math.round(cgstTotal);
       sgstTotal = Math.round(sgstTotal);
-      totalAmt = req.piValue || Math.round(subtotal + cgstTotal + sgstTotal);
+      igstTotal = Math.round(igstTotal);
+      totalAmt = req.piValue || Math.round(subtotal + cgstTotal + sgstTotal + igstTotal);
     } else {
       const is2Years = req.validity === '2 Years' || req.validity === '24 Month';
       const is5Years = req.validity === '5 Years' || req.validity === '60 Month';
@@ -404,21 +442,32 @@ const InvoiceGenerator = () => {
       // Item 1
       const qty1 = 1;
       const subtotal1 = unitPrice * qty1;
-      const cgstAmt1 = (subtotal1 * cgstRate) / 100;
-      const sgstAmt1 = (subtotal1 * sgstRate) / 100;
-      const totalWithGst1 = Math.round(unitPrice + (unitPrice * cgstRate / 100) + (unitPrice * sgstRate / 100)) * qty1;
+      let cgstAmt1 = 0, sgstAmt1 = 0, igstAmt1 = 0;
+      if (isIntraState) {
+        cgstAmt1 = (subtotal1 * cgstRate) / 100;
+        sgstAmt1 = (subtotal1 * sgstRate) / 100;
+      } else {
+        igstAmt1 = (subtotal1 * 18) / 100;
+      }
+      const totalWithGst1 = Math.round(unitPrice + (unitPrice * (isIntraState ? cgstRate : 0) / 100) + (unitPrice * (isIntraState ? sgstRate : 0) / 100) + (unitPrice * (isIntraState ? 0 : 18) / 100)) * qty1;
 
       // Item 2 (Installation)
       const unitPrice2 = 400;
       const qty2 = 1;
       const subtotal2 = unitPrice2 * qty2;
-      const cgstAmt2 = (subtotal2 * cgstRate) / 100;
-      const sgstAmt2 = (subtotal2 * sgstRate) / 100;
-      const totalWithGst2 = Math.round(unitPrice2 + (unitPrice2 * cgstRate / 100) + (unitPrice2 * sgstRate / 100)) * qty2;
+      let cgstAmt2 = 0, sgstAmt2 = 0, igstAmt2 = 0;
+      if (isIntraState) {
+        cgstAmt2 = (subtotal2 * cgstRate) / 100;
+        sgstAmt2 = (subtotal2 * sgstRate) / 100;
+      } else {
+        igstAmt2 = (subtotal2 * 18) / 100;
+      }
+      const totalWithGst2 = Math.round(unitPrice2 + (unitPrice2 * (isIntraState ? cgstRate : 0) / 100) + (unitPrice2 * (isIntraState ? sgstRate : 0) / 100) + (unitPrice2 * (isIntraState ? 0 : 18) / 100)) * qty2;
 
       subtotal = Math.round(subtotal1 + subtotal2);
       cgstTotal = Math.round(cgstAmt1 + cgstAmt2);
       sgstTotal = Math.round(sgstAmt1 + sgstAmt2);
+      igstTotal = Math.round(igstAmt1 + igstAmt2);
       totalAmt = Math.round(totalWithGst1 + totalWithGst2);
       itemCount = 2;
 
@@ -428,7 +477,7 @@ const InvoiceGenerator = () => {
           <td class="desc">iTriangle (Bharat101 Plus) Ais140 ${is2Years ? '_2G' : is5Years ? '_5G' : '2G'}<br/><small style="color: #555;">VLTD Device including Dual profile E-sim & Software + 01 Panic Switch (Validity: ${validityPeriod})</small></td>
           <td class="num">${qty1}</td>
           <td class="num">${formatCurrencyIG(unitPrice)}</td>
-          <td class="num">${cgstRate + sgstRate}%</td>
+          <td class="num">18%</td>
           <td class="num">${formatCurrencyIG(totalWithGst1)}</td>
         </tr>
         <tr>
@@ -436,7 +485,7 @@ const InvoiceGenerator = () => {
           <td class="desc">Installation<br/><small style="color: #555;">One Time Installation Charges</small></td>
           <td class="num">${qty2}</td>
           <td class="num">${formatCurrencyIG(unitPrice2)}</td>
-          <td class="num">${cgstRate + sgstRate}%</td>
+          <td class="num">18%</td>
           <td class="num">${formatCurrencyIG(totalWithGst2)}</td>
         </tr>
       `;
@@ -664,10 +713,16 @@ const InvoiceGenerator = () => {
 
           <div class="tax-block">
             <div class="section-title">Tax Summary</div>
-            <div class="tax-row hl"><span>SGST @ 9%</span><span>${formatCurrencyIG(sgstTotal)}</span></div>
-            <div class="tax-row hl"><span>CGST @ 9%</span><span>${formatCurrencyIG(cgstTotal)}</span></div>
-            <div class="tax-row"><span>IGST @ 18%</span><span>0.00</span></div>
-            <div class="tax-row hl"><span>Tax Amount</span><span>${formatCurrencyIG(sgstTotal + cgstTotal)}</span></div>
+            ${isIntraState ? `
+              <div class="tax-row hl"><span>SGST @ 9%</span><span>${formatCurrencyIG(sgstTotal)}</span></div>
+              <div class="tax-row hl"><span>CGST @ 9%</span><span>${formatCurrencyIG(cgstTotal)}</span></div>
+              <div class="tax-row"><span>IGST @ 18%</span><span>0.00</span></div>
+            ` : `
+              <div class="tax-row"><span>SGST @ 9%</span><span>0.00</span></div>
+              <div class="tax-row"><span>CGST @ 9%</span><span>0.00</span></div>
+              <div class="tax-row hl"><span>IGST @ 18%</span><span>${formatCurrencyIG(igstTotal)}</span></div>
+            `}
+            <div class="tax-row hl"><span>Tax Amount</span><span>${formatCurrencyIG(sgstTotal + cgstTotal + igstTotal)}</span></div>
             
             <div class="total-box">
               <div class="total-label">Total Amount</div>
@@ -774,16 +829,31 @@ const InvoiceGenerator = () => {
             </div>
 
             {isSubDealer && (
-              <div className="form-field" style={{ gridColumn: 'span 2' }}>
-                <label>Dealer / Sub-Dealer Name*</label>
-                <input 
-                  type="text" 
-                  value={subDealerName}
-                  onChange={(e) => setSubDealerName(e.target.value)}
-                  placeholder="Enter Dealer Name"
-                  required={isSubDealer}
-                />
-              </div>
+              <>
+                <div className="form-field">
+                  <label>Dealer / Sub-Dealer Name*</label>
+                  <input 
+                    type="text" 
+                    value={subDealerName}
+                    onChange={(e) => setSubDealerName(e.target.value)}
+                    placeholder="Enter Dealer Name"
+                    required={isSubDealer}
+                  />
+                </div>
+                <div className="form-field">
+                  <label>Dealer State*</label>
+                  <select
+                    value={dealerState}
+                    onChange={(e) => setDealerState(e.target.value)}
+                    required={isSubDealer}
+                  >
+                    <option value="">Select State</option>
+                    {INDIAN_STATES.map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+              </>
             )}
 
             <div className="form-field">
@@ -795,6 +865,20 @@ const InvoiceGenerator = () => {
                 placeholder="Enter Customer Name"
                 required
               />
+            </div>
+
+            <div className="form-field">
+              <label>Customer State*</label>
+              <select
+                value={customerState}
+                onChange={(e) => setCustomerState(e.target.value)}
+                required
+              >
+                <option value="">Select State</option>
+                {INDIAN_STATES.map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
             </div>
 
             <div className="form-field">
@@ -874,10 +958,9 @@ const InvoiceGenerator = () => {
                 <tr style={{ borderBottom: '2px solid #ddd', background: '#f1f5f9' }}>
                   <th style={{ width: '45%', padding: '8px', textAlign: 'left', fontWeight: 'bold' }}>Item Description*</th>
                   <th style={{ width: '15%', padding: '8px', textAlign: 'left', fontWeight: 'bold' }}>Validity*</th>
-                  <th style={{ width: '12%', padding: '8px', textAlign: 'left', fontWeight: 'bold' }}>Unit Price*</th>
-                  <th style={{ width: '10%', padding: '8px', textAlign: 'left', fontWeight: 'bold' }}>CGST%</th>
-                  <th style={{ width: '10%', padding: '8px', textAlign: 'left', fontWeight: 'bold' }}>SGST%</th>
-                  <th style={{ width: '8%', padding: '8px', textAlign: 'left', fontWeight: 'bold' }}>Qty*</th>
+                  <th style={{ width: '15%', padding: '8px', textAlign: 'left', fontWeight: 'bold' }}>Unit Price*</th>
+                  <th style={{ width: '10%', padding: '8px', textAlign: 'left', fontWeight: 'bold' }}>GST%*</th>
+                  <th style={{ width: '10%', padding: '8px', textAlign: 'left', fontWeight: 'bold' }}>Qty*</th>
                   <th style={{ width: '5%', padding: '8px', textAlign: 'center' }}></th>
                 </tr>
               </thead>
@@ -917,19 +1000,9 @@ const InvoiceGenerator = () => {
                     <td style={{ padding: '6px' }}>
                       <input 
                         type="number" 
-                        value={item.cgst}
-                        onChange={(e) => handleItemChange(idx, 'cgst', parseFloat(e.target.value) || 0)}
-                        placeholder="9"
-                        required
-                        style={{ width: '100%', boxSizing: 'border-box', fontSize: '12px', padding: '5px', border: '1px solid #ccc', borderRadius: '3px' }}
-                      />
-                    </td>
-                    <td style={{ padding: '6px' }}>
-                      <input 
-                        type="number" 
-                        value={item.sgst}
-                        onChange={(e) => handleItemChange(idx, 'sgst', parseFloat(e.target.value) || 0)}
-                        placeholder="9"
+                        value={item.gstRate}
+                        onChange={(e) => handleItemChange(idx, 'gstRate', parseFloat(e.target.value) || 0)}
+                        placeholder="18"
                         required
                         style={{ width: '100%', boxSizing: 'border-box', fontSize: '12px', padding: '5px', border: '1px solid #ccc', borderRadius: '3px' }}
                       />

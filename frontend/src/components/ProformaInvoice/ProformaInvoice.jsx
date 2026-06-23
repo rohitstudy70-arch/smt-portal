@@ -71,29 +71,33 @@ const ProformaInvoice = () => {
   };
 
   const calculateTotals = () => {
-    if (!invoice || !invoice.items) return { subtotal: 0, sgst: 0, cgst: 0, total: 0 };
+    if (!invoice || !invoice.items) return { subtotal: 0, sgst: 0, cgst: 0, igst: 0, total: 0 };
 
     let subtotal = 0;
     let sgst = 0;
     let cgst = 0;
+    let igst = 0;
 
     invoice.items.forEach(item => {
       const unitPrice = parseFloat(item.unitPrice) || 0;
       const qty = parseInt(item.qty) || 1;
       const cgstRate = parseFloat(item.cgst) || 0;
       const sgstRate = parseFloat(item.sgst) || 0;
+      const igstRate = parseFloat(item.igst) || 0;
 
       const itemSubtotal = unitPrice * qty;
       subtotal += itemSubtotal;
       cgst += (itemSubtotal * cgstRate) / 100;
       sgst += (itemSubtotal * sgstRate) / 100;
+      igst += (itemSubtotal * igstRate) / 100;
     });
 
     return {
       subtotal: Math.round(subtotal),
       sgst: Math.round(sgst),
       cgst: Math.round(cgst),
-      total: Math.round(subtotal + sgst + cgst)
+      igst: Math.round(igst),
+      total: invoice.piValue || Math.round(subtotal + sgst + cgst + igst)
     };
   };
 
@@ -102,6 +106,8 @@ const ProformaInvoice = () => {
 
     const totals = calculateTotals();
     const amountInWords = numberToWords(totals.total);
+    const targetState = invoice.isSubDealer ? (invoice.dealerState || 'Bihar') : (invoice.customerState || 'Bihar');
+    const isIntraState = targetState === 'Bihar';
     const piDate = new Date(invoice.dateTime).toLocaleDateString('en-GB').replace(/\//g, '.');
     const customerName = invoice.endCustomerName || 'JYOTI CONSTRUCTION AND ENGINEERING Pvt. Ltd';
     const customerAddress = invoice.address || 'PAPRAPUR, Begusarai, Bihar, 851210';
@@ -267,7 +273,29 @@ const ProformaInvoice = () => {
               </tr>
             </thead>
             <tbody>
-              ${itemsHtml}
+              ${invoice.items.map((item, index) => {
+                const unitPrice = parseFloat(item.unitPrice) || 0;
+                const qty = parseInt(item.qty) || 1;
+                const cgstRate = parseFloat(item.cgst) || 0;
+                const sgstRate = parseFloat(item.sgst) || 0;
+                const igstRate = parseFloat(item.igst) || 0;
+                const cgstAmt = (unitPrice * cgstRate) / 100;
+                const sgstAmt = (unitPrice * sgstRate) / 100;
+                const igstAmt = (unitPrice * igstRate) / 100;
+                const priceWithGst = unitPrice + cgstAmt + sgstAmt + igstAmt;
+                const grossAmt = priceWithGst * qty;
+                const displayGstRate = isIntraState ? (cgstRate + sgstRate || 18) : (igstRate || 18);
+                return `
+                  <tr>
+                    <td>${index + 1}</td>
+                    <td class="desc">${item.description}</td>
+                    <td class="num">${qty}</td>
+                    <td class="num">₹${unitPrice.toFixed(2)}</td>
+                    <td class="num">${displayGstRate}%</td>
+                    <td class="num">₹${grossAmt.toFixed(2)}</td>
+                  </tr>
+                `;
+              }).join('')}
               <tr class="sub-row">
                 <td colspan="5" style="text-align:right;padding-right:16px;font-size:12px;letter-spacing:0.5px">SubTotal</td>
                 <td class="num">${totals.subtotal.toFixed(2)}</td>
@@ -301,9 +329,13 @@ const ProformaInvoice = () => {
             </div>
             <div>
               <div class="section-title">Tax Summary</div>
-              <div class="tax-row hl"><span>SGST @ 9%</span><span>${totals.sgst.toFixed(2)}</span></div>
-              <div class="tax-row hl"><span>CGST @ 9%</span><span>${totals.cgst.toFixed(2)}</span></div>
-              <div class="tax-row hl"><span>Total Tax</span><span>${(totals.sgst + totals.cgst).toFixed(2)}</span></div>
+              ${isIntraState ? `
+                <div class="tax-row hl"><span>SGST @ 9%</span><span>${totals.sgst.toFixed(2)}</span></div>
+                <div class="tax-row hl"><span>CGST @ 9%</span><span>${totals.cgst.toFixed(2)}</span></div>
+              ` : `
+                <div class="tax-row hl"><span>IGST @ 18%</span><span>${totals.igst.toFixed(2)}</span></div>
+              `}
+              <div class="tax-row hl"><span>Total Tax</span><span>${(totals.sgst + totals.cgst + totals.igst).toFixed(2)}</span></div>
               <div class="total-box">
                 <div class="total-label">Total Amount</div>
                 <div class="total-amount">INR ${totals.total.toFixed(2)}</div>
@@ -378,6 +410,8 @@ const ProformaInvoice = () => {
   const customerMob = invoice.rmn || '9031622921';
   const customerGstin = invoice.poaNo || '10AAECJ5132H1Z3';
   const sender = getSenderDetails(invoice.userId);
+  const targetState = invoice.isSubDealer ? (invoice.dealerState || 'Bihar') : (invoice.customerState || 'Bihar');
+  const isIntraState = targetState === 'Bihar';
 
   return (
     <div className="proforma-invoice-wrapper">
@@ -465,7 +499,7 @@ const ProformaInvoice = () => {
                   <td style={{ textAlign: 'left' }}>{item.description}</td>
                   <td style={{ textAlign: 'center' }}>{qty}</td>
                   <td style={{ textAlign: 'right' }}>₹{unitPrice.toFixed(2)}</td>
-                  <td style={{ textAlign: 'center' }}>{item.cgst || item.sgst || 9}%</td>
+                  <td style={{ textAlign: 'center' }}>{isIntraState ? (item.cgst + item.sgst || 18) : (item.igst || 18)}%</td>
                   <td style={{ textAlign: 'right' }}>₹{grossAmt.toFixed(2)}</td>
                 </tr>
               );
@@ -505,17 +539,26 @@ const ProformaInvoice = () => {
           </div>
           <div className="proforma-tax-block">
             <div className="proforma-section-title">Tax Summary</div>
-            <div className="proforma-tax-row proforma-hl">
-              <span>SGST @ 9%</span>
-              <span>₹{totals.sgst.toFixed(2)}</span>
-            </div>
-            <div className="proforma-tax-row proforma-hl">
-              <span>CGST @ 9%</span>
-              <span>₹{totals.cgst.toFixed(2)}</span>
-            </div>
+            {isIntraState ? (
+              <>
+                <div className="proforma-tax-row proforma-hl">
+                  <span>SGST @ 9%</span>
+                  <span>₹{totals.sgst.toFixed(2)}</span>
+                </div>
+                <div className="proforma-tax-row proforma-hl">
+                  <span>CGST @ 9%</span>
+                  <span>₹{totals.cgst.toFixed(2)}</span>
+                </div>
+              </>
+            ) : (
+              <div className="proforma-tax-row proforma-hl">
+                <span>IGST @ 18%</span>
+                <span>₹{totals.igst.toFixed(2)}</span>
+              </div>
+            )}
             <div className="proforma-tax-row proforma-hl">
               <span>Total Tax</span>
-              <span>₹{(totals.sgst + totals.cgst).toFixed(2)}</span>
+              <span>₹{(totals.sgst + totals.cgst + totals.igst).toFixed(2)}</span>
             </div>
             <div className="proforma-total-box">
               <div className="proforma-total-label">Total Amount</div>
