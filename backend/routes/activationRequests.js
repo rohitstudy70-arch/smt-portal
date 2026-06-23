@@ -503,8 +503,7 @@ router.delete('/:id', async (req, res) => {
     if (request.imei) {
       const device = await Device.findOne({ imei: request.imei });
       if (device) {
-        device.activationRequestStatus = 'none';
-        await device.save();
+        await Device.updateOne({ _id: device._id }, { $set: { activationRequestStatus: 'none' } });
       }
     }
 
@@ -513,12 +512,15 @@ router.delete('/:id', async (req, res) => {
       if (transaction && transaction.status === 'Success') {
         const targetUser = await User.findById(transaction.userId);
         if (targetUser) {
-          targetUser.availableBalance = (targetUser.availableBalance || 0) + request.amount;
-          await targetUser.save();
+          await User.updateOne(
+            { _id: targetUser._id },
+            { $set: { availableBalance: (targetUser.availableBalance || 0) + request.amount } }
+          );
         }
-        transaction.status = 'Refunded';
-        transaction.remarks = 'Refunded due to deleted activation request';
-        await transaction.save();
+        await Transaction.updateOne(
+          { _id: transaction._id },
+          { $set: { status: 'Refunded', remarks: 'Refunded due to deleted activation request' } }
+        );
       }
     }
 
