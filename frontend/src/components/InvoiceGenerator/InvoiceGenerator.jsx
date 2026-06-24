@@ -552,13 +552,7 @@ const InvoiceGenerator = () => {
       `;
     }
 
-    // Add empty rows to fill space – more empty rows when fewer items
-    const minRows = itemCount <= 2 ? 6 : 4;
-    if (itemCount < minRows) {
-      for (let i = itemCount; i < minRows; i++) {
-        itemsHtml += `<tr class="empty-row"><td style="text-align:center">-</td><td class="desc">-</td><td class="num">-</td><td class="num">-</td><td class="num">-</td><td class="num">-</td></tr>`;
-      }
-    }
+
 
     const amountInWords = numberToWords(totalAmt);
 
@@ -618,7 +612,7 @@ const InvoiceGenerator = () => {
         td:first-child{padding-left:16px}
         td.desc{min-width:180px;word-break:break-word;text-align:left}
         td.num{text-align:right}
-        .empty-row td{height:52px;color:transparent;user-select:none}
+
         .sub-row td{background:var(--teal-light);font-weight:700;font-size:13px;color:var(--teal-dark);border-top:2px solid var(--teal-mid)}
 
         /* Bottom */
@@ -668,7 +662,7 @@ const InvoiceGenerator = () => {
           table{margin-top:6px!important}
           thead th{padding:6px 8px!important;font-size:10px!important}
           td{padding:4px 8px!important;font-size:10.5px!important}
-          .empty-row td{height:40px!important}
+
           .sub-row td{padding:4px 8px!important;font-size:10.5px!important}
           .bottom{padding:0 12px 6px!important;margin-top:4px!important;page-break-inside:avoid;gap:0;}
           .amount-words{font-size:10px!important;margin-bottom:6px!important}
