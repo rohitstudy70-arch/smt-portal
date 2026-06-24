@@ -486,17 +486,6 @@ const ActivationRequests = () => {
     }
   };
 
-  const handleDeleteRequest = async (id) => {
-    if (!window.confirm('क्या आप इस request को delete करना चाहते हैं? यह action वापस नहीं होगी।')) return;
-    try {
-      await api.delete(`/activation-requests/${id}`);
-      alert('Request successfully deleted!');
-      handleRefresh();
-    } catch (err) {
-      alert(err.response?.data?.message || 'Failed to delete request.');
-    }
-  };
-
   const totalPages = Math.ceil(totalCount / limit) || 1;
 
   const getPageNumbers = () => {
