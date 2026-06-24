@@ -216,7 +216,6 @@ State: ${latestRequest?.userId?.state || device.dealerId?.state || '—'}`;
               <button className="btn-copy-all" onClick={handleCopyDetails}>
                 Copy All Details
               </button>
-              {['ADMIN', 'DEALER', 'SUB_DEALER'].includes(role) && (
                 <button 
                   className="btn-generate-invoice"
                   onClick={() => navigate(`/invoice-generator?imei=${device?.imei}`)}
@@ -236,7 +235,6 @@ State: ${latestRequest?.userId?.state || device.dealerId?.state || '—'}`;
                 >
                   <FaFileInvoiceDollar /> Generate Invoice
                 </button>
-              )}
               {activationStatus === 'processing' ? (
                 <>
                   <button className="badge-status-processing" style={{
