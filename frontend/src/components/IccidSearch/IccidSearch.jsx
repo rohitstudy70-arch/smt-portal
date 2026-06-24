@@ -216,7 +216,7 @@ State: ${latestRequest?.userId?.state || device.dealerId?.state || '—'}`;
               <button className="btn-copy-all" onClick={handleCopyDetails}>
                 Copy All Details
               </button>
-              {role === 'ADMIN' && (
+              {['ADMIN', 'DEALER', 'SUB_DEALER'].includes(role) && (
                 <button 
                   className="btn-generate-invoice"
                   onClick={() => navigate(`/invoice-generator?imei=${device?.imei}`)}

@@ -88,7 +88,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           </NavLink>
         </li>
 
-        {canShow(['ADMIN']) && (
+        {canShow(operationsRoles) && (
           <li className={`sidebar-menu-item ${location.pathname === '/invoice-generator' ? 'active' : ''}`}>
             <NavLink to="/invoice-generator">
               <FaFileInvoiceDollar className="menu-icon" />
