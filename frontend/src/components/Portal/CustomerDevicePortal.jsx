@@ -972,6 +972,7 @@ const CustomerDevicePortal = () => {
             <tr>
               <th>Name</th>
               <th>Role</th>
+              <th>Devices</th>
               <th>Mobile</th>
               <th>Email</th>
               <th>Status</th>
@@ -983,6 +984,11 @@ const CustomerDevicePortal = () => {
               <tr key={record._id}>
                 <td className="strong">{getName(record)}</td>
                 <td>{record.userType || 'Dealer'}</td>
+                <td>
+                  <span className="portal-badge secondary" style={{ fontWeight: '600' }}>
+                    {record.deviceCount ?? 0}
+                  </span>
+                </td>
                 <td>{record.mobileNo || '-'}</td>
                 <td>{record.email || '-'}</td>
                 <td>{renderStatus(record.status)}</td>
@@ -1000,7 +1006,7 @@ const CustomerDevicePortal = () => {
             ))}
             {records.length === 0 && (
               <tr>
-                <td colSpan={6} className="portal-empty">No records found.</td>
+                <td colSpan={7} className="portal-empty">No records found.</td>
               </tr>
             )}
           </tbody>

@@ -265,6 +265,42 @@ router.get('/users', protect, async (req, res) => {
       ));
     }
 
+    // Fetch device counts for the matched users
+    const userIds = users.map((u) => u._id);
+    const dealerCounts = await Device.aggregate([
+      { $match: { dealerId: { $in: userIds } } },
+      { $group: { _id: '$dealerId', count: { $sum: 1 } } },
+    ]);
+    const subDealerCounts = await Device.aggregate([
+      { $match: { subDealerId: { $in: userIds } } },
+      { $group: { _id: '$subDealerId', count: { $sum: 1 } } },
+    ]);
+
+    const dealerCountMap = {};
+    dealerCounts.forEach((c) => {
+      if (c._id) dealerCountMap[c._id.toString()] = c.count;
+    });
+
+    const subDealerCountMap = {};
+    subDealerCounts.forEach((c) => {
+      if (c._id) subDealerCountMap[c._id.toString()] = c.count;
+    });
+
+    users = users.map((user) => {
+      const uId = user._id.toString();
+      const userType = user.userType || 'Dealer';
+      let deviceCount = 0;
+      if (userType === 'Sub Dealer') {
+        deviceCount = subDealerCountMap[uId] || 0;
+      } else {
+        deviceCount = dealerCountMap[uId] || 0;
+      }
+      return {
+        ...user,
+        deviceCount,
+      };
+    });
+
     res.json(users);
   } catch (error) {
     console.error('Portal users error:', error.message);
