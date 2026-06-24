@@ -77,7 +77,7 @@ const buildRegexCondition = (value, fields) => {
   return { $or: fields.map((field) => ({ [field]: regex })) };
 };
 
-const buildDeviceFilterQuery = (queryParams = {}) => {
+const buildDeviceFilterQuery = (queryParams = {}, userRole = '', userId = null) => {
   const conditions = [];
   const {
     search = '',
@@ -141,9 +141,19 @@ const buildDeviceFilterQuery = (queryParams = {}) => {
 
   if (status && status !== 'all') {
     if (status === 'Assigned') {
-      conditions.push({ assignedTo: { $ne: null } });
+      if (userRole === PORTAL_ROLES.ADMIN || !userId) {
+        conditions.push({ assignedTo: { $ne: null } });
+      } else {
+        // For dealer/sub-dealer: "Assigned" = assigned to someone other than self
+        conditions.push({ assignedTo: { $nin: [null, userId] } });
+      }
     } else if (status === 'Unassigned') {
-      conditions.push({ assignedTo: null });
+      if (userRole === PORTAL_ROLES.ADMIN || !userId) {
+        conditions.push({ assignedTo: null });
+      } else {
+        // For dealer/sub-dealer: "Unassigned" = not yet assigned further (null or assigned to self)
+        conditions.push({ $or: [{ assignedTo: null }, { assignedTo: userId }] });
+      }
     } else if (status.toLowerCase() === 'active') {
       conditions.push({ status: { $in: ['Active', 'Activated'] } });
     } else if (status.toLowerCase() === 'inactive') {
@@ -365,7 +375,7 @@ router.get('/', async (req, res) => {
     }
 
     const scopeQuery = buildDeviceScopeQuery(req.hierarchyScope);
-    const filterQuery = buildDeviceFilterQuery(req.query);
+    const filterQuery = buildDeviceFilterQuery(req.query, req.portalRole, req.user._id);
     const assigneeQuery = assignedTo ? { assignedTo } : {};
     const query = combineQueries(scopeQuery, filterQuery, assigneeQuery);
 
