@@ -88,12 +88,14 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           </NavLink>
         </li>
 
-        <li className={`sidebar-menu-item ${location.pathname === '/invoice-generator' ? 'active' : ''}`}>
-          <NavLink to="/invoice-generator">
-            <FaFileInvoiceDollar className="menu-icon" />
-            <span className="menu-text">Invoice Generator</span>
-          </NavLink>
-        </li>
+        {canShow(['ADMIN']) && (
+          <li className={`sidebar-menu-item ${location.pathname === '/invoice-generator' ? 'active' : ''}`}>
+            <NavLink to="/invoice-generator">
+              <FaFileInvoiceDollar className="menu-icon" />
+              <span className="menu-text">Invoice Generator</span>
+            </NavLink>
+          </li>
+        )}
 
         {canShow(allRoles) && (
           <li className={`sidebar-menu-item ${isServiceRequestsActive ? 'active' : ''}`}>
