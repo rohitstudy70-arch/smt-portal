@@ -166,7 +166,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
         {canShow(allRoles) && (
           <li className={`sidebar-menu-item ${isDeviceViewActive ? 'active' : ''}`}>
-            <NavLink to={role === 'CUSTOMER' ? '/dashboard?view=mydevices' : '/device-management'}>
+            <NavLink to={role === 'CUSTOMER' ? '/dashboard?view=mydevices' : '/dashboard?view=devices'}>
               <FaMobileAlt className="menu-icon" />
               <span className="menu-text">Device Management</span>
             </NavLink>
