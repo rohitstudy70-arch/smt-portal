@@ -240,8 +240,8 @@ const InvoiceGenerator = () => {
       alert('Please enter Customer Mobile (RMN).');
       return;
     }
-    if (!poaNo.trim()) {
-      alert('Please enter GSTIN / POA Number.');
+    if (!/^[6-9]\d{9}$/.test(rmn.trim())) {
+      alert('Please enter a valid 10-digit Indian mobile number (RMN).');
       return;
     }
 
@@ -613,17 +613,40 @@ const InvoiceGenerator = () => {
         /* Print */
         @media print{
           @page { size: A4 portrait; margin: 0; }
-          body{background:#fff;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;zoom:0.95;}
+          body{background:#fff;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;font-size:11px;}
           .page{box-shadow:none;border:none;border-radius:0;max-width:100%;min-height:auto;height:auto;overflow:visible;display:block;}
-          .header{padding:12px 16px 8px}
-          .info-box{padding:8px 16px}
-          .table-wrap{padding:0 16px}
-          .bottom{padding:0 16px 12px;margin-top:8px;page-break-inside:avoid;}
-          .footer{margin:8px 16px 12px;padding-top:8px;page-break-inside:avoid;}
-          table{margin-top:12px}
-          td, th { padding: 6px 10px; font-size: 12px; }
-          tr { page-break-inside: avoid; }
+          .header{padding:8px 14px 6px}
+          .brand-name{font-size:22px!important}
+          .brand-sub{font-size:10px!important;margin-top:2px!important;line-height:1.4!important}
+          .inv-label{font-size:16px!important}
+          .inv-meta{font-size:10.5px!important;margin-top:4px!important}
+          .accent-bar{height:3px!important}
+          .info-grid{grid-template-columns:1fr 1fr 1fr}
+          .info-box{padding:5px 12px!important}
+          .info-box-head{font-size:9px!important;margin-bottom:4px!important}
+          .info-box p{font-size:10.5px!important;line-height:1.4!important}
+          .co-name{font-size:11px!important}
+          .table-wrap{padding:0 12px!important}
+          table{margin-top:6px!important}
+          thead th{padding:6px 8px!important;font-size:10px!important}
+          td{padding:4px 8px!important;font-size:10.5px!important}
+          .empty-row td{height:20px!important}
+          .sub-row td{padding:4px 8px!important;font-size:10.5px!important}
+          .bottom{padding:0 12px 6px!important;margin-top:4px!important;page-break-inside:avoid;gap:0;}
+          .amount-words{font-size:10px!important;margin-bottom:6px!important}
+          .section-title{font-size:9px!important;margin-bottom:5px!important}
+          .tc-list li{font-size:9px!important;padding:1px 0 1px 16px!important;line-height:1.4!important}
+          .bank-row{font-size:9.5px!important;padding:2px 0!important}
+          .bank-row span:first-child{min-width:85px!important}
           .bank-row input{border-bottom:1px dashed #aaa}
+          .tax-block{padding-left:14px!important}
+          .tax-row{font-size:10px!important;padding:2px 0!important}
+          .total-box{padding:8px 12px!important;margin-top:6px!important}
+          .total-amount{font-size:16px!important}
+          .total-label{font-size:9px!important}
+          .footer{margin:4px 12px 6px!important;padding-top:5px!important;page-break-inside:avoid;}
+          .footer p{font-size:9px!important}
+          tr{page-break-inside:avoid}
           tbody tr:hover{background:transparent}
         }
       </style>
@@ -947,10 +970,16 @@ const InvoiceGenerator = () => {
             <div className="form-field">
               <label>Registered Mobile (RMN)*</label>
               <input 
-                type="text" 
+                type="tel" 
                 value={rmn}
-                onChange={(e) => setRmn(e.target.value)}
-                placeholder="Enter Mobile No."
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  setRmn(val);
+                }}
+                placeholder="10-digit Mobile No."
+                maxLength={10}
+                pattern="[6-9][0-9]{9}"
+                title="Enter a valid 10-digit Indian mobile number"
                 required
               />
             </div>
@@ -967,13 +996,12 @@ const InvoiceGenerator = () => {
             </div>
 
             <div className="form-field">
-              <label>GSTIN / POA Number*</label>
+              <label>GSTIN / POA Number <span style={{ fontWeight: 'normal', color: '#94a3b8', fontSize: '11px' }}>(Optional)</span></label>
               <input 
                 type="text" 
                 value={poaNo}
                 onChange={(e) => setPoaNo(e.target.value)}
-                placeholder="Enter GSTIN or Aadhaar No."
-                required
+                placeholder="Enter GSTIN or Aadhaar No. (optional)"
               />
             </div>
 
