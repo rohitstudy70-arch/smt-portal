@@ -409,6 +409,22 @@
   display: inline-block;
 }
 
+.badge-activated.status-active,
+.badge-activated.status-activated {
+  background: #10b981;
+  color: #fff;
+}
+
+.badge-activated.status-processing {
+  background: #f59e0b;
+  color: #fff;
+}
+
+.badge-activated.status-inactive {
+  background: #ef4444;
+  color: #fff;
+}
+
 /* Pagination Row */
 .table-pagination-row {
   display: flex;

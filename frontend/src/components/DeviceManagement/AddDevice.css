@@ -410,6 +410,11 @@
   color: #991b1b;
 }
 
+.device-status.status-processing {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 /* Responsive */
 @media (max-width: 992px) {
   .form-grid {

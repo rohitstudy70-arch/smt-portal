@@ -469,7 +469,7 @@ const DeviceManagement = () => {
                         </td>
                       )}
                       <td>
-                        <span className="badge-activated">{d.status}</span>
+                        <span className={`badge-activated status-${String(d.status || '').toLowerCase()}`}>{d.status}</span>
                       </td>
                       <td>
                         <div className="action-buttons">
