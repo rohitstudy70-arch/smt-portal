@@ -175,7 +175,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.post('/', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
+router.post('/', requireRoles(...operationsRoles), async (req, res) => {
   try {
     const {
       vehicleType,
@@ -231,59 +231,7 @@ router.post('/', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
     let customerId = null;
     let customerCredentials = null;
 
-    if (rmn?.trim()) {
-      const mobileNo = rmn.trim();
-      let customerUser = await User.findOne({
-        $or: [
-          { username: mobileNo },
-          { mobileNo },
-        ],
-      });
-
-      if (!customerUser) {
-        customerUser = await User.create({
-          username: mobileNo,
-          password: mobileNo,
-          role: 'customer',
-          parentId: req.user._id,
-          userType: 'End Customer',
-          displayName: endCustomerName || 'End Customer',
-          mobileNo,
-          status: 'Active',
-        });
-        customerCredentials = {
-          username: mobileNo,
-          password: mobileNo,
-          isNew: true,
-        };
-      } else {
-        if (req.portalRole !== PORTAL_ROLES.ADMIN && !isIdInScope(req.hierarchyScope, customerUser._id)) {
-          return res.status(403).json({ message: 'Forbidden: Customer is outside your hierarchy.' });
-        }
-
-        let needsSave = false;
-
-        if (!customerUser.userType) {
-          customerUser.userType = 'End Customer';
-          needsSave = true;
-        }
-        if (!customerUser.parentId) {
-          customerUser.parentId = req.user._id;
-          needsSave = true;
-        }
-        if (needsSave) {
-          await customerUser.save();
-        }
-
-        customerCredentials = {
-          username: customerUser.username,
-          password: '(Existing Account)',
-          isNew: false,
-        };
-      }
-
-      customerId = customerUser._id;
-    }
+    // User creation logic removed as per request to stop generating customer login ID on invoice generation
 
     let finalPiNo = piNo || '';
     if (!finalPiNo || finalPiNo === 'AE-01') {
