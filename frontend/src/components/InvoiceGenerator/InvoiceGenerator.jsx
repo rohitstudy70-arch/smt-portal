@@ -552,8 +552,8 @@ const InvoiceGenerator = () => {
       `;
     }
 
-    // Add empty rows if needed (minimum 4 rows)
-    const minRows = 4;
+    // Add empty rows to fill space – more empty rows when fewer items
+    const minRows = itemCount <= 2 ? 6 : 4;
     if (itemCount < minRows) {
       for (let i = itemCount; i < minRows; i++) {
         itemsHtml += `<tr class="empty-row"><td style="text-align:center">-</td><td class="desc">-</td><td class="num">-</td><td class="num">-</td><td class="num">-</td><td class="num">-</td></tr>`;
@@ -607,8 +607,8 @@ const InvoiceGenerator = () => {
         .co-name{font-weight:700;font-size:13px;color:var(--text);margin-bottom:3px}
 
         /* Table */
-        .table-wrap{padding:0 28px}
-        table{width:100%;border-collapse:collapse;margin-top:22px}
+        .table-wrap{padding:0 28px;flex:1 1 auto;display:flex;flex-direction:column}
+        table{width:100%;border-collapse:collapse;margin-top:22px;flex:1 1 auto}
         thead tr{background:var(--teal)}
         thead th{color:#fff;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;padding:11px 12px}
         thead th:first-child{border-radius:6px 0 0 0;padding-left:16px}
@@ -618,7 +618,7 @@ const InvoiceGenerator = () => {
         td:first-child{padding-left:16px}
         td.desc{min-width:180px;word-break:break-word;text-align:left}
         td.num{text-align:right}
-        .empty-row td{height:34px;color:transparent;user-select:none}
+        .empty-row td{height:52px;color:transparent;user-select:none}
         .sub-row td{background:var(--teal-light);font-weight:700;font-size:13px;color:var(--teal-dark);border-top:2px solid var(--teal-mid)}
 
         /* Bottom */
@@ -668,7 +668,7 @@ const InvoiceGenerator = () => {
           table{margin-top:6px!important}
           thead th{padding:6px 8px!important;font-size:10px!important}
           td{padding:4px 8px!important;font-size:10.5px!important}
-          .empty-row td{height:20px!important}
+          .empty-row td{height:40px!important}
           .sub-row td{padding:4px 8px!important;font-size:10.5px!important}
           .bottom{padding:0 12px 6px!important;margin-top:4px!important;page-break-inside:avoid;gap:0;}
           .amount-words{font-size:10px!important;margin-bottom:6px!important}
@@ -768,7 +768,7 @@ const InvoiceGenerator = () => {
         </div>
 
         <!-- Bottom: Terms + Tax -->
-        <div style="margin-top:auto;">
+        <div style="margin-top:24px;">
           <div class="bottom">
           <div>
             <div class="amount-words">
