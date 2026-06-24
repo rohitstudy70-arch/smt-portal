@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FaDownload, FaSpinner, FaFileInvoiceDollar, FaPlus, FaTrash, FaEye } from 'react-icons/fa';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
@@ -18,6 +18,7 @@ const INDIAN_STATES = [
 
 const InvoiceGenerator = () => {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -206,6 +207,43 @@ const InvoiceGenerator = () => {
       fetchCustomerInfo();
     }
   }, [rmn]);
+
+  // Read URL imei query parameter on mount
+  useEffect(() => {
+    const queryImei = searchParams.get('imei');
+    if (queryImei) {
+      setSearchImei(queryImei);
+    }
+  }, [searchParams]);
+
+  // Auto-fetch device and activation details by IMEI
+  useEffect(() => {
+    if (searchImei && searchImei.length === 15) {
+      const fetchDeviceInfo = async () => {
+        try {
+          const res = await api.get(`/activation-requests/device/${searchImei}`);
+          if (res.data) {
+            const reqData = res.data;
+            if (reqData.customerName) setEndCustomerName(reqData.customerName);
+            if (reqData.regMobNo) setRmn(reqData.regMobNo);
+            if (reqData.address) setAddress(reqData.address);
+            if (reqData.aadharNo) setPoaNo(reqData.aadharNo);
+            if (reqData.vehicleNo) setVehicleNo(reqData.vehicleNo);
+            if (reqData.engineNo) setEngineNo(reqData.engineNo);
+            if (reqData.chassisNo) setChassisNo(reqData.chassisNo);
+            if (reqData.vehicleMake) setVehicleMake(reqData.vehicleMake);
+            if (reqData.vehicleModel) setVehicleModel(reqData.vehicleModel);
+            if (reqData.rto) setRtoNo(reqData.rto);
+            if (reqData.validity) setValidity(reqData.validity);
+            if (reqData.piNo) setPiNo(reqData.piNo);
+          }
+        } catch (error) {
+          console.log('No activation request found for IMEI to autofill:', error.message);
+        }
+      };
+      fetchDeviceInfo();
+    }
+  }, [searchImei]);
 
   useEffect(() => {
     const fetchRequests = async () => {
