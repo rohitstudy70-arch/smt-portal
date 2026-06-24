@@ -702,7 +702,7 @@ const InvoiceGenerator = () => {
             </div>
             <div class="brand-sub">
               Near-Brajesh Automobiles(Mahindra Showroom) NH-31,Maranga,<br>
-              Pin Code-854303 Purnia(BIHAR)<br>
+              PIN-854303 Purnia(BIHAR)<br>
               Ph:-7782808063,919905959287<br>
               GST No: 10ATIPK1589P1ZA
             </div>
