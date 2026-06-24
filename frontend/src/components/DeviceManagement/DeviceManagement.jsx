@@ -31,10 +31,11 @@ const DeviceManagement = () => {
   const [imeisText, setImeisText] = useState('');
 
   // Filters State
-  const [activeTab, setActiveTab] = useState('Unassigned'); // 'Unassigned' or 'Assigned'
+  const [activeTab, setActiveTab] = useState('Unassigned'); // 'Unassigned', 'Assigned', or 'all'
   const [limit, setLimit] = useState(5);
   const [page, setPage] = useState(1);
   const [filterUser, setFilterUser] = useState('');
+  const [filterDealer, setFilterDealer] = useState('');
   const [filterVendor, setFilterVendor] = useState('');
   const [search, setSearch] = useState('');
 
@@ -57,16 +58,16 @@ const DeviceManagement = () => {
     try {
       setLoading(true);
       const activeSearch = searchOverride !== undefined ? searchOverride : search;
-      const res = await api.get('/devices', {
-        params: {
+      const params = {
           status: activeTab,
           assignedTo: filterUser,
           vendor: filterVendor,
           search: activeSearch,
           limit,
-          page
-        }
-      });
+          page,
+        };
+      if (filterDealer) params.dealerId = filterDealer;
+      const res = await api.get('/devices', { params });
       setDevices(res.data.devices);
       setTotal(res.data.total);
       setLoading(false);
@@ -89,7 +90,7 @@ const DeviceManagement = () => {
   // Refetch when other filters or page changes (excluding search parameter change, which is handled above)
   useEffect(() => {
     fetchDevices();
-  }, [activeTab, filterUser, filterVendor, limit, page]);
+  }, [activeTab, filterUser, filterDealer, filterVendor, limit, page]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -345,10 +346,16 @@ const DeviceManagement = () => {
         <div className="card-panel-header tabs-header">
           <FaMobileAlt className="panel-icon" />
           <span className="panel-title uppercase-title">
-            {activeTab === 'Unassigned' ? 'UNASSIGNED DEVICES' : 'ASSIGNED DEVICES'}
+            {activeTab === 'all' ? 'ALL DEVICES' : activeTab === 'Unassigned' ? 'UNASSIGNED DEVICES' : 'ASSIGNED DEVICES'}
           </span>
           
           <div className="header-tabs-group">
+            <button 
+              className={`tab-btn ${activeTab === 'all' ? 'active' : ''}`}
+              onClick={() => { setActiveTab('all'); setPage(1); }}
+            >
+              All Devices
+            </button>
             <button 
               className={`tab-btn tab-assigned ${activeTab === 'Assigned' ? 'active' : ''}`}
               onClick={() => { setActiveTab('Assigned'); setPage(1); }}
@@ -359,7 +366,7 @@ const DeviceManagement = () => {
               className={`tab-btn tab-unassigned ${activeTab === 'Unassigned' ? 'active' : ''}`}
               onClick={() => { setActiveTab('Unassigned'); setPage(1); }}
             >
-              Un Assigned Devices
+              Unassigned Devices
             </button>
           </div>
 
@@ -379,6 +386,15 @@ const DeviceManagement = () => {
                   <option value={10}>10</option>
                   <option value={25}>25</option>
                   <option value={50}>50</option>
+                </select>
+              </div>
+
+              <div className="filter-item">
+                <select value={filterDealer} onChange={(e) => { setFilterDealer(e.target.value); setPage(1); }}>
+                  <option value="">-Select Dealer-</option>
+                  {subUsers.filter(u => u.userType === 'Dealer' || u.userType === '' || u.userType === 'Administration' || u.role === 'partner').map(u => (
+                    <option key={u._id} value={u._id}>{u.displayName || u.username} ({u.deviceCount ?? 0} devices)</option>
+                  ))}
                 </select>
               </div>
 
@@ -437,7 +453,7 @@ const DeviceManagement = () => {
                   <th>TSP 1</th>
                   <th>MSISDN 2</th>
                   <th>TSP 2</th>
-                  {(activeTab === 'Assigned' || search) && <th>Assigned To (Customer)</th>}
+                  {(activeTab === 'Assigned' || activeTab === 'all' || search) && <th>Assigned To (Customer)</th>}
                   <th>Status</th>
                   <th style={{ width: '80px' }}>Actions</th>
                 </tr>
@@ -445,7 +461,7 @@ const DeviceManagement = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={(activeTab === 'Assigned' || search) ? 14 : 13} className="text-center">
+                    <td colSpan={(activeTab === 'Assigned' || activeTab === 'all' || search) ? 14 : 13} className="text-center">
                       Loading devices list...
                     </td>
                   </tr>
@@ -463,7 +479,7 @@ const DeviceManagement = () => {
                       <td>{d.tsp1}</td>
                       <td>{d.msisdn2 || '-'}</td>
                       <td>{d.tsp2}</td>
-                      {(activeTab === 'Assigned' || search) && (
+                      {(activeTab === 'Assigned' || activeTab === 'all' || search) && (
                         <td className="text-semibold text-teal">
                           {d.assignedTo ? (d.assignedTo.displayName || d.assignedTo.username) : <span style={{ color: '#888' }}>Unassigned</span>}
                         </td>
@@ -491,7 +507,7 @@ const DeviceManagement = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={(activeTab === 'Assigned' || search) ? 14 : 13} className="text-center">
+                    <td colSpan={(activeTab === 'Assigned' || activeTab === 'all' || search) ? 14 : 13} className="text-center">
                       No device records found.
                     </td>
                   </tr>

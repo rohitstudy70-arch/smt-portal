@@ -845,14 +845,14 @@ const ActivationRequests = () => {
                     </div>
 
                     <div className="form-group-custom">
-                      <label>Vehicle Number <span className="required-star">*</span></label>
+                      <label>Vehicle Number {formData.vehicleCondition !== 'New' && <span className="required-star">*</span>}</label>
                       <input 
                         type="text" 
                         value={formData.vehicleNo}
                         onChange={(e) => setFormData({...formData, vehicleNo: e.target.value.toUpperCase()})}
                         placeholder="e.g. RJ14-GA-1234"
                         style={{ textTransform: 'uppercase' }}
-                        required
+                        required={formData.vehicleCondition !== 'New'}
                       />
                     </div>
 

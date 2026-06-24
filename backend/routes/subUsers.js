@@ -1,5 +1,6 @@
 const express = require('express');
 const User = require('../models/User');
+const Device = require('../models/Device');
 const { protect } = require('../middleware/auth');
 const { getPortalRole, getDescendantUsers } = require('../middleware/hierarchy');
 
@@ -17,10 +18,48 @@ router.get('/sub-users', protect, async (req, res) => {
 
     let subUsers;
     if (role === 'ADMIN') {
-      subUsers = await User.find({}).select('-password');
+      subUsers = await User.find({}).select('-password').lean();
     } else {
-      subUsers = await getDescendantUsers(req.user._id);
+      const descendants = await getDescendantUsers(req.user._id);
+      subUsers = descendants.map(d => d.toObject ? d.toObject() : d);
     }
+
+    // Fetch device counts for the matched users
+    const userIds = subUsers.map((u) => u._id);
+    const dealerCounts = await Device.aggregate([
+      { $match: { dealerId: { $in: userIds } } },
+      { $group: { _id: '$dealerId', count: { $sum: 1 } } },
+    ]);
+    const subDealerCounts = await Device.aggregate([
+      { $match: { subDealerId: { $in: userIds } } },
+      { $group: { _id: '$subDealerId', count: { $sum: 1 } } },
+    ]);
+
+    const dealerCountMap = {};
+    dealerCounts.forEach((c) => {
+      if (c._id) dealerCountMap[c._id.toString()] = c.count;
+    });
+
+    const subDealerCountMap = {};
+    subDealerCounts.forEach((c) => {
+      if (c._id) subDealerCountMap[c._id.toString()] = c.count;
+    });
+
+    subUsers = subUsers.map((user) => {
+      const uId = user._id.toString();
+      const userType = user.userType || 'Dealer';
+      let deviceCount = 0;
+      if (userType === 'Sub Dealer') {
+        deviceCount = subDealerCountMap[uId] || 0;
+      } else {
+        deviceCount = dealerCountMap[uId] || 0;
+      }
+      return {
+        ...user,
+        deviceCount,
+      };
+    });
+
     res.json(subUsers);
   } catch (error) {
     console.error('Get sub users error:', error.message);
