@@ -219,6 +219,7 @@ const CustomerDevicePortal = () => {
   const [portalDateMode, setPortalDateMode] = useState('all');
   const [portalFromDate, setPortalFromDate] = useState('');
   const [portalToDate, setPortalToDate] = useState('');
+  const [deviceTab, setDeviceTab] = useState('list'); // 'list' or 'history'
 
   // Revenue Breakdown Modal State
   const [isRevenueModalOpen, setIsRevenueModalOpen] = useState(false);
@@ -289,6 +290,55 @@ const CustomerDevicePortal = () => {
       || device.status?.toLowerCase().includes(query)
       || getName(device.assignedTo).toLowerCase().includes(query)
       || getLinkedName(device.createdBy).toLowerCase().includes(query)
+    ));
+  }, [devices, search, portalFromDate, portalToDate]);
+
+  const filteredAssignments = useMemo(() => {
+    let result = [];
+    devices.forEach((device) => {
+      (device.assignmentHistory || []).forEach((entry) => {
+        result.push({
+          _id: entry._id || `${device._id}-${entry.changedAt}`,
+          device,
+          entry,
+        });
+      });
+    });
+
+    // Sort by changedAt descending
+    result.sort((a, b) => new Date(b.entry.changedAt) - new Date(a.entry.changedAt));
+
+    // Filter by Date
+    if (portalFromDate || portalToDate) {
+      result = result.filter((item) => {
+        if (!item.entry.changedAt) return false;
+        const entryDate = new Date(item.entry.changedAt);
+        if (portalFromDate) {
+          const fromD = new Date(portalFromDate);
+          fromD.setHours(0, 0, 0, 0);
+          if (entryDate < fromD) return false;
+        }
+        if (portalToDate) {
+          const toD = new Date(portalToDate);
+          toD.setHours(23, 59, 59, 999);
+          if (entryDate > toD) return false;
+        }
+        return true;
+      });
+    }
+
+    // Filter by Search Query
+    const query = search.trim().toLowerCase();
+    if (!query) return result;
+
+    return result.filter((item) => (
+      item.device.imei?.toLowerCase().includes(query)
+      || item.device.serialNo?.toLowerCase().includes(query)
+      || getLinkedName(item.entry.fromUser).toLowerCase().includes(query)
+      || getLinkedName(item.entry.toUser).toLowerCase().includes(query)
+      || getLinkedName(item.entry.changedBy).toLowerCase().includes(query)
+      || item.entry.action?.toLowerCase().includes(query)
+      || item.entry.note?.toLowerCase().includes(query)
     ));
   }, [devices, search, portalFromDate, portalToDate]);
 
@@ -531,30 +581,52 @@ const CustomerDevicePortal = () => {
   };
 
   const downloadDeviceReport = () => {
-    const headers = ['Device ID', 'Dealer', 'Sub Dealer', 'IMEI', 'ICCID', 'Serial No', 'MSISDN 1', 'MSISDN 2', 'Validity', 'Activation Date', 'Expiry Date', 'Created By', 'Status'];
-    const rows = filteredDevices.map((device) => [
-      device._id || '',
-      device.dealerName || '',
-      device.subDealerName || '',
-      device.imei || '',
-      device.iccid || '',
-      device.serialNo || '',
-      device.msisdn1 || '',
-      device.msisdn2 || '',
-      device.validity || '',
-      formatDate(device.presentDate),
-      formatDate(device.expiryDate),
-      getLinkedName(device.createdBy, ''),
-      device.status || '',
-    ]);
-    const csv = [headers, ...rows].map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', 'device-report.csv');
-    link.click();
-    URL.revokeObjectURL(url);
+    if (deviceTab === 'history') {
+      const headers = ['Date', 'IMEI', 'Serial No', 'Action', 'From User', 'To User', 'Changed By', 'Note'];
+      const rows = filteredAssignments.map((item) => [
+        formatDate(item.entry.changedAt),
+        item.device.imei || '',
+        item.device.serialNo || '',
+        item.entry.action || '',
+        getLinkedName(item.entry.fromUser, ''),
+        getLinkedName(item.entry.toUser, ''),
+        getLinkedName(item.entry.changedBy, ''),
+        item.entry.note || '',
+      ]);
+      const csv = [headers, ...rows].map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'device-assignment-history-report.csv');
+      link.click();
+      URL.revokeObjectURL(url);
+    } else {
+      const headers = ['Device ID', 'Dealer', 'Sub Dealer', 'IMEI', 'ICCID', 'Serial No', 'MSISDN 1', 'MSISDN 2', 'Validity', 'Activation Date', 'Expiry Date', 'Created By', 'Status'];
+      const rows = filteredDevices.map((device) => [
+        device._id || '',
+        device.dealerName || '',
+        device.subDealerName || '',
+        device.imei || '',
+        device.iccid || '',
+        device.serialNo || '',
+        device.msisdn1 || '',
+        device.msisdn2 || '',
+        device.validity || '',
+        formatDate(device.presentDate),
+        formatDate(device.expiryDate),
+        getLinkedName(device.createdBy, ''),
+        device.status || '',
+      ]);
+      const csv = [headers, ...rows].map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'device-report.csv');
+      link.click();
+      URL.revokeObjectURL(url);
+    }
   };
 
   const renderStatus = (status) => (
@@ -1237,22 +1309,60 @@ const CustomerDevicePortal = () => {
       <div className="portal-panel-header">
         <div>
           <h2>{title}</h2>
-          <span>{records.length} records</span>
+          <span>{deviceTab === 'list' ? `${records.length} records` : `${filteredAssignments.length} records`}</span>
         </div>
         <div className="portal-header-actions">
           <div className="portal-search">
             <FaSearch />
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search device" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search..." />
           </div>
           <button className="portal-icon-button" type="button" onClick={downloadDeviceReport} title="Download report">
             <FaDownload />
           </button>
         </div>
       </div>
+
+      {/* Sub-tabs for Devices section */}
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', padding: '0 20px', background: 'var(--bg-card)' }}>
+        <button
+          type="button"
+          onClick={() => setDeviceTab('list')}
+          style={{
+            padding: '12px 20px',
+            fontSize: '13px',
+            fontWeight: '700',
+            border: 'none',
+            background: 'none',
+            color: deviceTab === 'list' ? 'var(--primary-color)' : 'var(--text-muted)',
+            borderBottom: deviceTab === 'list' ? '3px solid var(--primary-color)' : '3px solid transparent',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          Device List
+        </button>
+        <button
+          type="button"
+          onClick={() => setDeviceTab('history')}
+          style={{
+            padding: '12px 20px',
+            fontSize: '13px',
+            fontWeight: '700',
+            border: 'none',
+            background: 'none',
+            color: deviceTab === 'history' ? 'var(--primary-color)' : 'var(--text-muted)',
+            borderBottom: deviceTab === 'history' ? '3px solid var(--primary-color)' : '3px solid transparent',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          Assignment History
+        </button>
+      </div>
       
       {/* Date Filter Bar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '16px 20px', borderBottom: '1px solid var(--border-color)', flexWrap: 'wrap' }}>
-        <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)' }}>Filter by Activation Date:</label>
+        <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)' }}>Filter by Date:</label>
         <select 
           value={portalDateMode} 
           onChange={(e) => handlePortalDateModeChange(e.target.value)}
@@ -1281,52 +1391,95 @@ const CustomerDevicePortal = () => {
           </div>
         )}
         <span style={{ marginLeft: '12px', padding: '4px 12px', background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)', color: '#ffffff', borderRadius: '20px', fontSize: '11px', fontWeight: '800', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-          {records.length} Devices
+          {deviceTab === 'list' ? `${records.length} Devices` : `${filteredAssignments.length} Assignments`}
         </span>
       </div>
 
       <div className="portal-table-wrap">
-        <table className="portal-table wide">
-          <thead>
-            <tr>
-              <th>Dealer Name</th>
-              <th>Sub Dealer Name</th>
-              <th>IMEI</th>
-              <th>ICCID</th>
-              <th>Serial No</th>
-              <th>MSISDN 1</th>
-              <th>MSISDN 2</th>
-              <th>Validity</th>
-              <th>Activation Date</th>
-              <th>Expiry Date</th>
-              <th>Created By</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {records.map((device) => (
-              <tr key={device._id}>
-                <td>{getLinkedName(device.dealerId, device.dealerName)}</td>
-                <td>{getLinkedName(device.subDealerId, device.subDealerName)}</td>
-                <td className="strong">{device.imei}</td>
-                <td>{device.iccid || '-'}</td>
-                <td>{device.serialNo || '-'}</td>
-                <td>{device.msisdn1 || '-'}</td>
-                <td>{device.msisdn2 || '-'}</td>
-                <td>{device.validity || '-'}</td>
-                <td>{formatDate(device.presentDate)}</td>
-                <td>{formatDate(device.expiryDate)}</td>
-                <td>{getLinkedName(device.createdBy)}</td>
-                <td>{renderStatus(device.status)}</td>
-              </tr>
-            ))}
-            {records.length === 0 && (
+        {deviceTab === 'list' ? (
+          <table className="portal-table wide">
+            <thead>
               <tr>
-                <td colSpan={12} className="portal-empty">No device records found.</td>
+                <th>Dealer Name</th>
+                <th>Sub Dealer Name</th>
+                <th>IMEI</th>
+                <th>ICCID</th>
+                <th>Serial No</th>
+                <th>MSISDN 1</th>
+                <th>MSISDN 2</th>
+                <th>Validity</th>
+                <th>Activation Date</th>
+                <th>Expiry Date</th>
+                <th>Created By</th>
+                <th>Status</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {records.map((device) => (
+                <tr key={device._id}>
+                  <td>{getLinkedName(device.dealerId, device.dealerName)}</td>
+                  <td>{getLinkedName(device.subDealerId, device.subDealerName)}</td>
+                  <td className="strong">{device.imei}</td>
+                  <td>{device.iccid || '-'}</td>
+                  <td>{device.serialNo || '-'}</td>
+                  <td>{device.msisdn1 || '-'}</td>
+                  <td>{device.msisdn2 || '-'}</td>
+                  <td>{device.validity || '-'}</td>
+                  <td>{formatDate(device.presentDate)}</td>
+                  <td>{formatDate(device.expiryDate)}</td>
+                  <td>{getLinkedName(device.createdBy)}</td>
+                  <td>{renderStatus(device.status)}</td>
+                </tr>
+              ))}
+              {records.length === 0 && (
+                <tr>
+                  <td colSpan={12} className="portal-empty">No device records found.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        ) : (
+          <table className="portal-table wide">
+            <thead>
+              <tr>
+                <th>Date & Time</th>
+                <th>IMEI</th>
+                <th>Serial No</th>
+                <th>Action</th>
+                <th>From User</th>
+                <th>To User</th>
+                <th>Changed By</th>
+                <th>Note</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredAssignments.map((item) => (
+                <tr key={item._id}>
+                  <td>{formatDate(item.entry.changedAt)}</td>
+                  <td className="strong">{item.device.imei}</td>
+                  <td>{item.device.serialNo || '-'}</td>
+                  <td>
+                    <span className={`portal-badge ${
+                      item.entry.action === 'Assigned' ? 'success' :
+                      item.entry.action === 'Transferred' ? 'warning' : 'danger'
+                    }`}>
+                      {item.entry.action}
+                    </span>
+                  </td>
+                  <td>{getLinkedName(item.entry.fromUser) || '-'}</td>
+                  <td>{getLinkedName(item.entry.toUser) || '-'}</td>
+                  <td>{getLinkedName(item.entry.changedBy) || '-'}</td>
+                  <td>{item.entry.note || '-'}</td>
+                </tr>
+              ))}
+              {filteredAssignments.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="portal-empty">No assignment records found.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
     </section>
   );
