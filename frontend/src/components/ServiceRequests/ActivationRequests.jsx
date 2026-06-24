@@ -199,6 +199,10 @@ const ActivationRequests = () => {
   // Auto-fetch existing activation data by IMEI
   useEffect(() => {
     if (formData.imei && formData.imei.length >= 10) {
+      if (isEditing) {
+        setImeiError('');
+        return;
+      }
       const fetchCustomerByImei = async () => {
         try {
           const res = await api.get(`/activation-requests/device/${formData.imei}`);
@@ -1114,7 +1118,7 @@ const ActivationRequests = () => {
                               <span style={{ fontSize: '11px', color: '#999', fontStyle: 'italic', display: 'none' }}></span>
                             )}
                             <div style={{ display: 'flex', gap: '5px', marginLeft: 'auto' }}>
-                              {(req.status !== 'Completed' || role === 'ADMIN') && (
+                              {role !== 'CUSTOMER' && (
                                 <button
                                   onClick={() => handleEditClick(req)}
                                   style={{ padding: '4px 8px', background: '#337ab7', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
@@ -1167,22 +1171,24 @@ const ActivationRequests = () => {
                         </span>
                       </td>
                       <td>
-                        {(req.status !== 'Completed' || role === 'ADMIN') && (
-                          <div style={{ display: 'flex', gap: '5px' }}>
+                        <div style={{ display: 'flex', gap: '5px' }}>
+                          {role !== 'CUSTOMER' && (
                             <button
                               onClick={() => handleEditClick(req)}
                               style={{ padding: '4px 8px', background: '#337ab7', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
                             >
                               Edit
                             </button>
+                          )}
+                          {(req.status !== 'Completed' || role === 'ADMIN') && (
                             <button
                               onClick={() => handleDeleteRequest(req._id)}
                               style={{ padding: '4px 8px', background: '#d9534f', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
                             >
                               Delete
                             </button>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

@@ -492,10 +492,6 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ message: 'Request not found' });
     }
 
-    if (request.status === 'Completed' && req.portalRole !== PORTAL_ROLES.ADMIN) {
-      return res.status(400).json({ message: 'Cannot edit a completed request' });
-    }
-
     if (req.portalRole !== PORTAL_ROLES.ADMIN && !isIdInScope(req.hierarchyScope, request.userId)) {
       return res.status(403).json({ message: 'Unauthorized to edit this request' });
     }
