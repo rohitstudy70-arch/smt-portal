@@ -849,8 +849,9 @@ const ActivationRequests = () => {
                       <input 
                         type="text" 
                         value={formData.vehicleNo}
-                        onChange={(e) => setFormData({...formData, vehicleNo: e.target.value})}
+                        onChange={(e) => setFormData({...formData, vehicleNo: e.target.value.toUpperCase()})}
                         placeholder="e.g. RJ14-GA-1234"
+                        style={{ textTransform: 'uppercase' }}
                         required
                       />
                     </div>
