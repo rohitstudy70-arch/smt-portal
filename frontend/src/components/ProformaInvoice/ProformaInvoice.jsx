@@ -242,7 +242,7 @@ const ProformaInvoice = () => {
               <div class="inv-label">Proforma Invoice</div>
               <div class="inv-meta">
                 Date: ${piDate}<br>
-                PI Invoice #: ${invoice.piNo || 'AE_PI_001'}
+                PI No: ${invoice.piNo || 'AE_PI_001'}
               </div>
             </div>
           </div>
@@ -456,7 +456,7 @@ const ProformaInvoice = () => {
             <div className="proforma-inv-label">Proforma Invoice</div>
             <div className="proforma-inv-meta">
               Date: {piDate}<br />
-              PI Invoice #: {invoice.piNo || 'AE_PI_001'}
+              PI No: {invoice.piNo || 'AE_PI_001'}
             </div>
           </div>
         </div>

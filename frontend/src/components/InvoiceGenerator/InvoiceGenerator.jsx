@@ -711,7 +711,7 @@ const InvoiceGenerator = () => {
             <div class="inv-label">Proforma Invoice</div>
             <div class="inv-meta">
               Date: ${piDate}<br>
-              PI Invoice #: ${piInvoiceNo}
+              PI No: ${piInvoiceNo}
             </div>
           </div>
         </div>
