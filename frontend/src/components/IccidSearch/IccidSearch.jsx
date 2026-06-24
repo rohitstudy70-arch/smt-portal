@@ -95,7 +95,17 @@ const IccidSearch = () => {
   const handleCopyDetails = () => {
     if (!device) return;
     
+    const vendorName = device.vendor || latestRequest?.vendor || '-';
+    const dealerName = device.dealerName
+      || device.dealerId?.displayName
+      || device.dealerId?.companyName
+      || device.dealerId?.username
+      || latestRequest?.dealerName
+      || '-';
+
     const details = `--- DEVICE DETAILS ---
+Vendor Name: ${vendorName}
+Dealer Name: ${dealerName}
 IMEI No: ${device.imei || '—'}
 Serial No: ${device.serialNo || '—'}
 ICCID No: ${device.iccid || '—'}

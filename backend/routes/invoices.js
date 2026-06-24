@@ -95,6 +95,52 @@ const generateNextPiNo = async () => {
   return 'AE-01';
 };
 
+const toNumber = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const roundCurrency = (value) => Math.round((toNumber(value) + Number.EPSILON) * 100) / 100;
+
+const parseQty = (value) => {
+  const parsed = parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+};
+
+const normalizeInvoiceItems = (items = [], isIntraState = true) => {
+  if (!Array.isArray(items)) return [];
+
+  return items.map((item) => {
+    const unitPrice = toNumber(item.unitPrice);
+    const qty = parseQty(item.qty) || 1;
+    const existingCgst = toNumber(item.cgst);
+    const existingSgst = toNumber(item.sgst);
+    const existingIgst = toNumber(item.igst);
+    const totalGstRate = existingIgst || (existingCgst + existingSgst) || toNumber(item.gstRate) || 18;
+
+    const cgst = isIntraState ? (existingCgst || (totalGstRate / 2)) : 0;
+    const sgst = isIntraState ? (existingSgst || (totalGstRate / 2)) : 0;
+    const igst = isIntraState ? 0 : (existingIgst || totalGstRate);
+    const taxableValue = roundCurrency(unitPrice * qty);
+    const cgstAmt = roundCurrency((taxableValue * cgst) / 100);
+    const sgstAmt = roundCurrency((taxableValue * sgst) / 100);
+    const igstAmt = roundCurrency((taxableValue * igst) / 100);
+    const grossAmt = roundCurrency(taxableValue + cgstAmt + sgstAmt + igstAmt);
+
+    return {
+      description: item.description || '',
+      validity: item.validity || '',
+      unitPrice,
+      cgst,
+      sgst,
+      igst,
+      priceWithGst: qty > 0 ? roundCurrency(grossAmt / qty) : roundCurrency(unitPrice),
+      qty,
+      grossAmt,
+    };
+  });
+};
+
 router.get('/', async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
@@ -243,6 +289,13 @@ router.post('/', requireRoles(...operationsRoles), async (req, res) => {
       finalInvoiceNo = await generateNextInvoiceNo();
     }
 
+    const targetState = isSubDealer ? (dealerState || 'Bihar') : (customerState || 'Bihar');
+    const isIntraState = targetState && targetState.toLowerCase() === 'bihar';
+    const normalizedItems = normalizeInvoiceItems(items, isIntraState);
+    const calculatedPiValue = roundCurrency(
+      normalizedItems.reduce((sum, item) => sum + item.grossAmt, 0),
+    );
+
     const invoice = await Invoice.create({
       requestId,
       userId: req.user._id,
@@ -256,7 +309,7 @@ router.post('/', requireRoles(...operationsRoles), async (req, res) => {
       customerState: customerState || 'Bihar',
       dealerState: dealerState || 'Bihar',
       piNo: finalPiNo,
-      piValue: piValue || 0,
+      piValue: calculatedPiValue || toNumber(piValue),
       invoiceNo: finalInvoiceNo,
       status: 'Pending',
       engineNo: engineNo || '',
@@ -274,7 +327,7 @@ router.post('/', requireRoles(...operationsRoles), async (req, res) => {
       proofOfIdentity: proofOfIdentity || '',
       poiNo: poiNo || '',
       vehicleNo: vehicleNo || '',
-      items: items || [],
+      items: normalizedItems,
     });
 
     res.status(201).json({
