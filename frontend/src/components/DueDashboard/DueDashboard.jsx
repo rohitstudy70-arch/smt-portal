@@ -257,6 +257,10 @@ const DueDashboard = () => {
         setVerificationFilters({ status: 'Approved', dateRange: 'today' });
       } else if (filterVal === 'month') {
         setVerificationFilters({ status: 'Approved', dateRange: 'month' });
+      } else if (filterVal === 'expiringThisMonth') {
+        const currentMonthStr = new Date().toISOString().slice(0, 7);
+        setRenewalsFilters(prev => ({ ...prev, expiryMonth: currentMonthStr, deviceStatus: 'all' }));
+        setRenewalsPage(1);
       }
       
       const tabVal = searchParams.get('tab') || 'dues';

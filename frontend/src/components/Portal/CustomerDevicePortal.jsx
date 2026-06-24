@@ -762,7 +762,11 @@ const CustomerDevicePortal = () => {
                   <FaCalendarAlt className="portal-stat-icon" />
                 </div>
 
-                <div className="portal-stat stat-violet">
+                <div 
+                  className="portal-stat stat-violet"
+                  onClick={() => navigate('/due-dashboard?tab=renewals&filter=expiringThisMonth')}
+                  style={{ cursor: 'pointer' }}
+                >
                   <div>
                     <span className="portal-stat-value">{summary?.renewalDueDevices ?? 0}</span>
                     <span className="portal-stat-label">Expiring This Month</span>
