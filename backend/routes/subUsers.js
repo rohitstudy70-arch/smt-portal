@@ -187,7 +187,7 @@ router.put('/sub-user/:id', protect, async (req, res) => {
       return res.status(403).json({ message: 'Access denied: Dealers can only manage Sub Dealers.' });
     }
 
-    if (userType) {
+     if (userType) {
       const allowedUserTypes = allowedCreateTypesByRole[role] || [];
       if (!allowedUserTypes.includes(userType)) {
         return res.status(403).json({ message: 'Access denied: You cannot assign this user type.' });
@@ -199,6 +199,23 @@ router.put('/sub-user/:id', protect, async (req, res) => {
     if (mobileNo !== undefined) subUser.mobileNo = mobileNo;
     if (email !== undefined) subUser.email = email;
     if (status) subUser.status = status;
+
+    if (subUser.userType === 'Dealer') {
+      subUser.parentId = null;
+    } else if (subUser.userType === 'Sub Dealer' && role === 'ADMIN') {
+      if (req.body.parentId !== undefined) {
+        const parentId = req.body.parentId;
+        if (parentId) {
+          const dealer = await User.findById(parentId).select('-password');
+          if (!dealer || getPortalRole(dealer) !== 'DEALER') {
+            return res.status(400).json({ message: 'Please select a valid dealer for this Sub Dealer.' });
+          }
+          subUser.parentId = dealer._id;
+        } else {
+          return res.status(400).json({ message: 'Please select a valid parent dealer for this Sub Dealer.' });
+        }
+      }
+    }
 
     const updatedUser = await subUser.save();
     res.json(updatedUser);

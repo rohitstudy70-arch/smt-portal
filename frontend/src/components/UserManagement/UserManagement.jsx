@@ -25,6 +25,7 @@ const UserManagement = () => {
     ? ['Administration', 'Dealer', 'Sub Dealer']
     : (userTypesByRole[role] || []);
   const [subUsers, setSubUsers] = useState([]);
+  const [dealers, setDealers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -36,6 +37,7 @@ const UserManagement = () => {
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [parentId, setParentId] = useState('');
   
   // Edit State
   const [isEditMode, setIsEditMode] = useState(false);
@@ -60,6 +62,14 @@ const UserManagement = () => {
 
   useEffect(() => {
     fetchSubUsers();
+    if (role === 'ADMIN') {
+      api.get('/users/sub-users').then((res) => {
+        const dealerList = res.data.filter(
+          (u) => u.userType === 'Dealer' || u.userType === '' || u.role === 'partner'
+        );
+        setDealers(dealerList);
+      }).catch(console.error);
+    }
   }, []);
 
   useEffect(() => {
@@ -78,27 +88,24 @@ const UserManagement = () => {
       return;
     }
 
+    if (role === 'ADMIN' && userType === 'Sub Dealer' && !parentId) {
+      setError('Please select a parent Dealer for this Sub Dealer.');
+      return;
+    }
+
     try {
       if (isEditMode) {
         // Edit Mode
-        const res = await api.put(`/users/sub-user/${editingUserId}`, {
-          userType,
-          displayName,
-          mobileNo,
-          email
-        });
+        const payload = { userType, displayName, mobileNo, email };
+        if (role === 'ADMIN' && userType === 'Sub Dealer') payload.parentId = parentId;
+        await api.put(`/users/sub-user/${editingUserId}`, payload);
         setSuccess('Sub-user updated successfully!');
         resetForm();
       } else {
         // Add Mode
-        const res = await api.post('/users/sub-user', {
-          userType,
-          displayName,
-          mobileNo,
-          email,
-          username,
-          password
-        });
+        const payload = { userType, displayName, mobileNo, email, username, password };
+        if (role === 'ADMIN' && userType === 'Sub Dealer') payload.parentId = parentId;
+        await api.post('/users/sub-user', payload);
         setSuccess('New sub-user created successfully!');
         resetForm();
       }
@@ -117,6 +124,7 @@ const UserManagement = () => {
     setMobileNo(user.mobileNo || '');
     setEmail(user.email || '');
     setUsername(user.username || '');
+    setParentId(user.parentId || '');
     // Password isn't edited here
     setPassword('');
   };
@@ -179,6 +187,7 @@ const UserManagement = () => {
     setEmail('');
     setUsername('');
     setPassword('');
+    setParentId('');
   };
 
   // Filter & Search Logic
@@ -215,7 +224,7 @@ const UserManagement = () => {
                     <select
                       id="userType"
                       value={userType}
-                      onChange={(e) => setUserType(e.target.value)}
+                      onChange={(e) => { setUserType(e.target.value); setParentId(''); }}
                     >
                       {allowedUserTypes.map((type) => (
                         <option value={type} key={type}>{type}</option>
@@ -223,6 +232,25 @@ const UserManagement = () => {
                     </select>
                   </div>
                 </div>
+
+                {role === 'ADMIN' && userType === 'Sub Dealer' && (
+                  <div className="form-group-horizontal">
+                    <label htmlFor="parentId">Dealer / Parent *</label>
+                    <div className="input-wrapper">
+                      <select
+                        id="parentId"
+                        value={parentId}
+                        onChange={(e) => setParentId(e.target.value)}
+                        required
+                      >
+                        <option value="">-- Select Dealer --</option>
+                        {dealers.map((d) => (
+                          <option value={d._id} key={d._id}>{d.displayName || d.username}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
                 
                 <div className="form-group-horizontal">
                   <label htmlFor="displayName">Display Name</label>

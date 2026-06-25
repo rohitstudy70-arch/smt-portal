@@ -454,6 +454,23 @@ router.put('/users/:id', protect, async (req, res) => {
       }
     });
 
+    if (user.userType === 'Dealer') {
+      user.parentId = null;
+    } else if (user.userType === 'Sub Dealer' && scope.role === 'ADMIN') {
+      if (req.body.parentId !== undefined) {
+        const parentId = req.body.parentId;
+        if (parentId) {
+          const dealer = await ensureVisibleUser(parentId, scope);
+          if (!dealer || getPortalRole(dealer) !== 'DEALER') {
+            return res.status(404).json({ message: 'Selected dealer not found.' });
+          }
+          user.parentId = dealer._id;
+        } else {
+          return res.status(400).json({ message: 'Please select a valid parent dealer for this Sub Dealer.' });
+        }
+      }
+    }
+
     const updatedUser = await user.save();
     res.json(normalizeUser(updatedUser));
   } catch (error) {
@@ -664,6 +681,11 @@ router.post('/devices/bulk', protect, async (req, res) => {
           if (rawSubDealerName && labelForUser(item).toLowerCase() === rawSubDealerName.toLowerCase()) return true;
           return false;
         });
+
+        if (subDealer && dealer && subDealer.parentId?.toString() !== dealer._id.toString()) {
+          skipped.push({ imei, reason: 'Selected sub dealer does not belong to the selected dealer.' });
+          continue;
+        }
       }
 
       let presentDate = new Date();

@@ -100,20 +100,8 @@ const AddDevice = () => {
 
   const availableSubDealers = useMemo(() => {
     if (!formData.dealerId) return [];
-    
-    const selectedDealerObj = dealers.find((d) => d._id === formData.dealerId);
-    const isSelectedDealerAdmin = selectedDealerObj?.role === 'partner' || selectedDealerObj?.userType === '';
-
-    return subDealers.filter((sd) => {
-      if (isSelectedDealerAdmin) {
-        const parentUser = dealers.find((d) => d._id === sd.parentId) || 
-                           subDealers.find((s) => s._id === sd.parentId);
-        return !sd.parentId || parentUser?.role === 'partner' || parentUser?.userType === '';
-      } else {
-        return sd.parentId === formData.dealerId;
-      }
-    });
-  }, [subDealers, dealers, formData.dealerId]);
+    return subDealers.filter((sd) => sd.parentId === formData.dealerId);
+  }, [subDealers, formData.dealerId]);
 
   const filteredSubDealers = useMemo(() => {
     return availableSubDealers.filter((subDealer) =>

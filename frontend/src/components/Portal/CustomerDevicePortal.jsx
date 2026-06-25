@@ -229,20 +229,8 @@ const CustomerDevicePortal = () => {
 
   const availableSubDealers = useMemo(() => {
     if (!deviceForm.dealerId) return [];
-
-    const selectedDealerObj = deviceDealerOptions.find((d) => d._id === deviceForm.dealerId);
-    const isSelectedDealerAdmin = selectedDealerObj?.role === 'partner' || selectedDealerObj?.userType === '';
-
-    return subDealers.filter((sd) => {
-      if (isSelectedDealerAdmin) {
-        const parentUser = deviceDealerOptions.find((d) => d._id === sd.parentId) || 
-                           subDealers.find((s) => s._id === sd.parentId);
-        return !sd.parentId || parentUser?.role === 'partner' || parentUser?.userType === '';
-      } else {
-        return sd.parentId === deviceForm.dealerId;
-      }
-    });
-  }, [subDealers, deviceDealerOptions, deviceForm.dealerId]);
+    return subDealers.filter((sd) => sd.parentId === deviceForm.dealerId);
+  }, [subDealers, deviceForm.dealerId]);
 
 
 
@@ -950,10 +938,10 @@ const CustomerDevicePortal = () => {
         </label>
         {(forcedUserType === 'Sub Dealer' || userForm.userType === 'Sub Dealer') && isAdmin && (
           <label>
-            <span>Dealer / Parent</span>
-            <select value={userForm.parentId} onChange={(event) => updateUserForm('parentId', event.target.value)}>
-              <option value="">Current User</option>
-              {[...dealers, ...subDealers].map((item) => (
+            <span>Dealer / Parent *</span>
+            <select value={userForm.parentId} onChange={(event) => updateUserForm('parentId', event.target.value)} required>
+              <option value="">-- Select Dealer --</option>
+              {dealers.map((item) => (
                 <option value={item._id} key={item._id}>{getName(item)}</option>
               ))}
             </select>
