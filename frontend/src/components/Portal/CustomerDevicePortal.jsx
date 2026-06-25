@@ -406,8 +406,8 @@ const CustomerDevicePortal = () => {
     try {
       setLoading(true);
       setError('');
-      const canManageUsers = userRole !== 'CUSTOMER';
-      const isOps = canManageUsers;
+      const canManageUsers = userRole === 'ADMIN' || userRole === 'DEALER';
+      const isOps = userRole === 'ADMIN' || userRole === 'DEALER' || userRole === 'SUB_DEALER';
       const [
         summaryRes,
         dealersRes,
