@@ -172,6 +172,7 @@ router.get('/', async (req, res) => {
 
     const total = await Invoice.countDocuments(query);
     const requests = await Invoice.find(query)
+      .populate('userId')
       .sort({ dateTime: -1 })
       .skip((page - 1) * limit)
       .limit(limit);
@@ -329,6 +330,8 @@ router.post('/', requireRoles(...operationsRoles), async (req, res) => {
       vehicleNo: vehicleNo || '',
       items: normalizedItems,
     });
+
+    await invoice.populate('userId');
 
     res.status(201).json({
       ...invoice.toObject(),
