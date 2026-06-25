@@ -145,7 +145,7 @@ const ProformaInvoice = () => {
                 <th style={{ width: '52px', textAlign: 'right' }}>QTY</th>
                 <th style={{ width: '96px', textAlign: 'right' }}>Unit Price</th>
                 <th style={{ width: '54px', textAlign: 'right' }}>GST</th>
-                <th style={{ width: '104px', textAlign: 'right' }}>Total (Rs)</th>
+                <th style={{ width: '104px', textAlign: 'right' }}>Amount (₹)</th>
               </tr>
             </thead>
             <tbody>
@@ -172,7 +172,7 @@ const ProformaInvoice = () => {
             </tbody>
             <tfoot>
               <tr className="proforma-sub-row">
-                <td colSpan="5" style={{ textAlign: 'right', paddingRight: '16px' }}>SubTotal</td>
+                <td colSpan="5" style={{ textAlign: 'right', paddingRight: '16px' }}>Sub Total</td>
                 <td className="proforma-num">{formatCurrency(invoiceData.totals.subtotal)}</td>
               </tr>
             </tfoot>

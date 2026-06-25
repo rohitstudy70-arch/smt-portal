@@ -463,7 +463,7 @@ ${includeActions ? renderActionBar() : ''}
           <th style="width:52px;text-align:right">QTY</th>
           <th style="width:96px;text-align:right">Unit Price</th>
           <th style="width:54px;text-align:right">GST</th>
-          <th style="width:104px;text-align:right">Total (Rs)</th>
+          <th style="width:104px;text-align:right">Amount (₹)</th>
         </tr>
       </thead>
       <tbody>
@@ -471,7 +471,7 @@ ${itemsHtml}${renderEmptyRowsHtml(data.emptyRows)}
       </tbody>
       <tfoot>
         <tr class="sub-row">
-          <td colspan="5" style="text-align:right;padding-right:16px;font-size:12px;letter-spacing:0.5px">SubTotal</td>
+          <td colspan="5" style="text-align:right;padding-right:16px;font-size:12px;letter-spacing:0.5px">Sub Total</td>
           <td class="num">${formatCurrency(data.totals.subtotal)}</td>
         </tr>
       </tfoot>
