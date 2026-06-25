@@ -7,6 +7,13 @@ const COMPANY_SENDER = {
   gstNo: '10ATIPK1589P1ZA',
 };
 
+const BANK_DETAILS = {
+  accountName: 'ARSHI ENTERPRISES',
+  accountNo: '071205500764',
+  bankBranch: 'ICICI, Purnea',
+  ifscCode: 'ICIC0000712',
+};
+
 const DEFAULT_CUSTOMER = {
   name: 'JYOTI CONSTRUCTION AND ENGINEERING Pvt. Ltd',
   address: 'PAPRAPUR, Begusarai, Bihar, 851210',
@@ -15,13 +22,25 @@ const DEFAULT_CUSTOMER = {
 };
 
 const TERMS = [
-  '100% Advance payment required.',
+  'Payment 100% in Advance.',
+  'Price are further negotiable if quantity increases.',
   'Goods once sold cannot be taken back.',
-  'Installation Charges (@INR 500) extra per unit. (Negotiable in bulk orders at one location.)',
-  'Courier charges to be paid by customer.',
-  'Warranty - 12 Months from date of Supply; applicable before 15 days of due date.',
-  'Standard Force Majeure will apply. No warranty on burnt/damaged goods.',
-  'Service during warranty year @INR 500 per unit will be applicable.',
+  'Installation Charges (@INR500) is extra applicable on per unit. (Installation charges are further negotiable if quantity increases and vehicles are received in Bulk at one location)',
+  'Warranty – 12 Months from the date of Supply, Warranty applicable before 15days of due date.',
+  'Courier if any to be paid by customer.',
+  'Standard Force Majeure will apply. (No warranty of burnt damaged goods)',
+  "If any service is required during the year, then it's charges @INR500 per unit will be applicable.",
+  'Software & Platform charges will be applicable from 2nd year onwards @INR1550+GST per unit / per year.',
+];
+
+const FAB_LIST = [
+  'Multiple Mobile Axes.',
+  'Real time Track your Vehicle Anywhere via your mob. & pc.',
+  'Direction /Speed & Ignition On/Off Detection.',
+  'Ignition Cut off Alarm.',
+  'Multiple Geo-Fence setup & alarm.',
+  'Back-up data from 01hrs to last 30days.',
+  "Moving overview km/Per day, Stay Detail's & Alarm Detail's etc.",
 ];
 
 export const toNumber = (value) => {
@@ -222,6 +241,8 @@ export const buildProformaInvoiceData = (invoice = {}) => {
     items,
     emptyRows: Math.max(0, 5 - items.length),
     terms: TERMS,
+    bankDetails: BANK_DETAILS,
+    fabList: FAB_LIST,
     totals: {
       subtotal,
       sgst,
@@ -471,9 +492,10 @@ ${itemsHtml}${renderEmptyRowsHtml(data.emptyRows)}
       </ul>
 
       <div class="section-title">Bank Details</div>
-      <div class="bank-row"><span>Account Number</span><input type="text" placeholder="_______________"></div>
-      <div class="bank-row"><span>Bank &amp; Branch</span><input type="text" placeholder="_______________"></div>
-      <div class="bank-row"><span>IFSC Code</span><input type="text" placeholder="_______________"></div>
+      <div class="bank-row"><span>Account Name</span><span style="font-weight:700;color:var(--text)">${escapeHtml(data.bankDetails.accountName)}</span></div>
+      <div class="bank-row"><span>Account Number</span><span style="font-weight:700;color:var(--text)">${escapeHtml(data.bankDetails.accountNo)}</span></div>
+      <div class="bank-row"><span>Bank &amp; Branch</span><span style="font-weight:700;color:var(--text)">${escapeHtml(data.bankDetails.bankBranch)}</span></div>
+      <div class="bank-row"><span>IFSC Code</span><span style="font-weight:700;color:var(--text)">${escapeHtml(data.bankDetails.ifscCode)}</span></div>
     </div>
 
     <div class="tax-block">
@@ -485,6 +507,12 @@ ${itemsHtml}${renderEmptyRowsHtml(data.emptyRows)}
       <div class="total-box">
         <div class="total-label">Total Amount</div>
         <div class="total-amount">INR ${formatCurrency(data.totals.total)}</div>
+      </div>
+      <div style="margin-top:20px">
+        <div class="section-title">Features &amp; Benefits (FaB)</div>
+        <ul class="tc-list" style="margin-bottom:0">
+          ${data.fabList.map((fab, index) => `<li data-n="${index + 1}.">${escapeHtml(fab)}</li>`).join('')}
+        </ul>
       </div>
     </div>
   </div>

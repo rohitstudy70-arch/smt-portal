@@ -194,16 +194,20 @@ const ProformaInvoice = () => {
 
             <div className="proforma-section-title">Bank Details</div>
             <div className="proforma-bank-row">
+              <span>Account Name</span>
+              <span style={{ fontWeight: 700 }}>{invoiceData.bankDetails.accountName}</span>
+            </div>
+            <div className="proforma-bank-row">
               <span>Account Number</span>
-              <input type="text" placeholder="_______________" aria-label="Account Number" />
+              <span style={{ fontWeight: 700 }}>{invoiceData.bankDetails.accountNo}</span>
             </div>
             <div className="proforma-bank-row">
               <span>Bank &amp; Branch</span>
-              <input type="text" placeholder="_______________" aria-label="Bank and Branch" />
+              <span style={{ fontWeight: 700 }}>{invoiceData.bankDetails.bankBranch}</span>
             </div>
             <div className="proforma-bank-row">
               <span>IFSC Code</span>
-              <input type="text" placeholder="_______________" aria-label="IFSC Code" />
+              <span style={{ fontWeight: 700 }}>{invoiceData.bankDetails.ifscCode}</span>
             </div>
           </div>
 
@@ -228,6 +232,14 @@ const ProformaInvoice = () => {
             <div className="proforma-total-box">
               <div className="proforma-total-label">Total Amount</div>
               <div className="proforma-total-amount">INR {formatCurrency(invoiceData.totals.total)}</div>
+            </div>
+            <div style={{ marginTop: '20px' }}>
+              <div className="proforma-section-title">Features &amp; Benefits (FaB)</div>
+              <ul className="proforma-tc-list" style={{ marginBottom: 0 }}>
+                {invoiceData.fabList.map((fab, index) => (
+                  <li key={fab} data-n={`${index + 1}.`}>{fab}</li>
+                ))}
+              </ul>
             </div>
           </div>
         </div>
