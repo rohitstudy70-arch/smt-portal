@@ -67,6 +67,7 @@ app.use('/api/invoices', require('./routes/invoices'));
 app.use('/api/wallet', require('./routes/wallet'));
 app.use('/api/users', require('./routes/subUsers'));
 app.use('/api/devices', require('./routes/devices'));
+app.use('/api/products', require('./routes/products'));
 app.use('/api/portal', require('./routes/portal'));
 app.use('/api/due-dashboard', require('./routes/dueDashboard'));
 app.use('/api/payment-verification-requests', require('./routes/paymentVerificationRequests'));

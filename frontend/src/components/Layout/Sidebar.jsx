@@ -14,6 +14,7 @@ import {
   FaUsers,
   FaCalendarAlt,
   FaMoneyBillWave,
+  FaBoxOpen,
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import './Sidebar.css';
@@ -172,6 +173,15 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             <NavLink to="/add-device">
               <FaPlusCircle className="menu-icon" />
               <span className="menu-text">Add Device</span>
+            </NavLink>
+          </li>
+        )}
+
+        {canShow(['ADMIN', 'DEALER']) && (
+          <li className={`sidebar-menu-item ${location.pathname === '/add-product' ? 'active' : ''}`}>
+            <NavLink to="/add-product">
+              <FaBoxOpen className="menu-icon" />
+              <span className="menu-text">Add Product</span>
             </NavLink>
           </li>
         )}

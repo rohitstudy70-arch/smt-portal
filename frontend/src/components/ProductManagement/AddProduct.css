@@ -1,0 +1,81 @@
+.add-product-container .readonly-field {
+  cursor: default;
+}
+
+.inline-search-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn-inline-search {
+  border: none;
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-hover) 100%);
+  color: #0b131f;
+  min-height: 40px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-inline-search:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
+}
+
+.btn-inline-search:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.add-product-table {
+  min-width: 1420px;
+}
+
+.product-type-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.product-type-pill.product-vltd {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.product-type-pill.product-gps {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.product-type-pill.product-renewal {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+@media (max-width: 600px) {
+  .inline-search-row {
+    grid-template-columns: 1fr;
+  }
+
+  .btn-inline-search {
+    justify-content: center;
+    width: 100%;
+  }
+}

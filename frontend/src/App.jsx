@@ -8,6 +8,7 @@ import ChangePassword from './components/AccountSettings/ChangePassword';
 import UserManagement from './components/UserManagement/UserManagement';
 import DeviceManagement from './components/DeviceManagement/DeviceManagement';
 import AddDevice from './components/DeviceManagement/AddDevice';
+import AddProduct from './components/ProductManagement/AddProduct';
 import Certificates from './components/Certificates/Certificates';
 import InvoiceGenerator from './components/InvoiceGenerator/InvoiceGenerator';
 import ProformaInvoice from './components/ProformaInvoice/ProformaInvoice';
@@ -149,6 +150,17 @@ function App() {
               </Layout>
             </ProtectedRoute>
           } 
+        />
+
+        <Route
+          path="/add-product"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'DEALER']}>
+              <Layout>
+                <AddProduct />
+              </Layout>
+            </ProtectedRoute>
+          }
         />
 
 
