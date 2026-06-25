@@ -132,7 +132,7 @@ function App() {
         <Route 
           path="/device-management" 
           element={
-            <ProtectedRoute allowedRoles={operationsRoles}>
+            <ProtectedRoute allowedRoles={['ADMIN', 'DEALER']}>
               <Layout>
                 <DeviceManagement />
               </Layout>

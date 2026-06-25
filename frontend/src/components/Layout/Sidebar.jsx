@@ -158,7 +158,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           </li>
         )}
 
-        {canShow(allRoles) && (
+        {canShow(['ADMIN', 'DEALER']) && (
           <li className={`sidebar-menu-item ${isDeviceViewActive ? 'active' : ''}`}>
             <NavLink to="/dashboard?view=devices">
               <FaMobileAlt className="menu-icon" />

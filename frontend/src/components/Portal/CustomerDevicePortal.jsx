@@ -1740,7 +1740,7 @@ const CustomerDevicePortal = () => {
     if (loading) return <div className="portal-loading">Loading portal data...</div>;
     if (error) return <div className="portal-error">{error}</div>;
 
-    if (role === 'SUB_DEALER' && ['subdealers', 'users', 'dealers', 'customers'].includes(activeView)) {
+    if (role === 'SUB_DEALER' && ['subdealers', 'users', 'dealers', 'customers', 'devices'].includes(activeView)) {
       return renderDashboard();
     }
 
@@ -1769,7 +1769,9 @@ const CustomerDevicePortal = () => {
         </div>
         <div className="portal-title-actions">
           <button type="button" className={activeView === 'dashboard' ? 'active' : ''} onClick={() => openView('dashboard')}>Dashboard</button>
-          <button type="button" className={activeView === 'devices' ? 'active' : ''} onClick={() => openView('devices')}>Devices</button>
+          {role !== 'SUB_DEALER' && (
+            <button type="button" className={activeView === 'devices' ? 'active' : ''} onClick={() => openView('devices')}>Devices</button>
+          )}
           <button type="button" className={activeView === 'renewals' ? 'active' : ''} onClick={() => openView('renewals')}>Renewals</button>
         </div>
       </div>
