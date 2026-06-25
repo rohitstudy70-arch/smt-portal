@@ -1731,9 +1731,7 @@ const CustomerDevicePortal = () => {
           <span>Contact</span><strong>{user?.mobileNo || '-'}</strong>
           <span>Role</span><strong>{role.replace('_', ' ')}</strong>
         </div>
-        <div className="portal-actions">
-          <Link className="portal-link-button" to="/account/edit-profile"><FaEdit /> Edit Profile</Link>
-        </div>
+
       </section>
     </div>
   );

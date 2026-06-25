@@ -4,7 +4,6 @@ import Login from './components/Login/Login';
 import CustomerDevicePortal from './components/Portal/CustomerDevicePortal';
 import ActivationRequests from './components/ServiceRequests/ActivationRequests';
 import Layout from './components/Layout/Layout';
-import EditProfile from './components/AccountSettings/EditProfile';
 import ChangePassword from './components/AccountSettings/ChangePassword';
 import UserManagement from './components/UserManagement/UserManagement';
 import DeviceManagement from './components/DeviceManagement/DeviceManagement';
@@ -93,16 +92,7 @@ function App() {
           } 
         />
         
-        <Route 
-          path="/account/edit-profile" 
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <EditProfile />
-              </Layout>
-            </ProtectedRoute>
-          } 
-        />
+
         
         <Route 
           path="/account/change-password" 

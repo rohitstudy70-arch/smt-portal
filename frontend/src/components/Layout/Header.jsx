@@ -59,15 +59,7 @@ const Header = ({ toggleSidebar }) => {
         </div>
       );
     }
-    if (path === '/account/edit-profile') {
-      return (
-        <div className="breadcrumbs">
-          <Link to="/dashboard">Home</Link>
-          <span>/</span>
-          <span className="active-crumb">Edit Profile</span>
-        </div>
-      );
-    }
+
     if (path === '/account/change-password') {
       return (
         <div className="breadcrumbs">

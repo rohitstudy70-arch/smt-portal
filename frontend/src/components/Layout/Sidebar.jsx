@@ -118,12 +118,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             <FaChevronRight className={`menu-arrow ${accountSettingsOpen || isAccountSettingsActive ? 'open' : ''}`} />
           </div>
           <ul className={`sidebar-submenu ${accountSettingsOpen || isAccountSettingsActive ? 'open' : ''}`}>
-            <li className={location.pathname === '/account/edit-profile' ? 'active' : ''}>
-              <NavLink to="/account/edit-profile">
-                <FaUserEdit className="submenu-icon" />
-                Edit Profile
-              </NavLink>
-            </li>
+
             <li className={location.pathname === '/account/change-password' ? 'active' : ''}>
               <NavLink to="/account/change-password">
                 <FaKey className="submenu-icon" />
