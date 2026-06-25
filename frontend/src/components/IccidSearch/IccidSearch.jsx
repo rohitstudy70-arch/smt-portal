@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FaSpinner, FaFileInvoiceDollar } from 'react-icons/fa';
+import { FaSpinner } from 'react-icons/fa';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import './IccidSearch.css';
@@ -225,25 +225,7 @@ State: ${latestRequest?.userId?.state || device.dealerId?.state || '—'}`;
               <button className="btn-copy-all" onClick={handleCopyDetails}>
                 Copy All Details
               </button>
-                <button 
-                  className="btn-generate-invoice"
-                  onClick={() => navigate(`/invoice-generator?imei=${device?.imei}`)}
-                  style={{
-                    padding: '8px 16px',
-                    background: '#0284c7',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '4px',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    fontSize: '13px'
-                  }}
-                >
-                  <FaFileInvoiceDollar /> Generate Invoice
-                </button>
+
               {activationStatus === 'processing' ? (
                 <>
                   <button className="badge-status-processing" style={{
