@@ -711,9 +711,8 @@ const InvoiceGenerator = () => {
               <div class="brand-name">Arshi Enterprises</div>
             </div>
             <div class="brand-sub">
-              Near-Brajesh Automobiles[Mahindra Showroom] NH-31,Maranga,<br>
-              Pin Code-854303 Purnia(BIHAR)<br>
-              Ph:-7782808063,919905959287<br>
+              Near Brajesh Auto Mobile Maranga,<br>
+              Purnea, Bihar, 854304<br>
               GST No: 10ATIPK1589P1ZA
             </div>
           </div>
@@ -790,22 +789,19 @@ const InvoiceGenerator = () => {
 
             <div class="section-title">Terms &amp; Conditions</div>
             <ul class="tc-list">
-              <li data-n="1.">Payment 100% in Advance.</li>
-              <li data-n="2.">Price are further negotiable if quantity increases.</li>
-              <li data-n="3.">Goods once sold cannot be taken back.</li>
-              <li data-n="4.">Installation Charges (@INR500) is extra applicable per unit. (Installation charges are further negotiable if quantity increases and vehicles are received in Bulk at one location)</li>
-              <li data-n="5.">Warranty. - 12 Months from the date of Supply, Warranty applicable before 15days of due date.</li>
-              <li data-n="6.">Courier if any to be paid by customer.</li>
-              <li data-n="7.">Standard Force Majeure will apply. (No warranty of burnt damaged goods)</li>
-              <li data-n="8.">If any service is required during the year, then it's charges @INR500 per unit will be applicable.</li>
-              <li data-n="9.">Software & Platform charges will be applicable from 2nd year onwards @INR1550+GST per unit / per year.</li>
+              <li data-n="1.">100% Advance payment required.</li>
+              <li data-n="2.">Goods once sold cannot be taken back.</li>
+              <li data-n="3.">Installation Charges (@INR 500) extra per unit. (Negotiable in bulk orders at one location.)</li>
+              <li data-n="4.">Courier charges to be paid by customer.</li>
+              <li data-n="5.">Warranty — 12 Months from date of Supply; applicable before 15 days of due date.</li>
+              <li data-n="6.">Standard Force Majeure will apply. No warranty on burnt/damaged goods.</li>
+              <li data-n="7.">Service during warranty year @INR 500 per unit will be applicable.</li>
             </ul>
 
             <div class="section-title">Bank Details</div>
-            <div class="bank-row"><span>Account Name</span><span style="font-weight:700;color:var(--text)">ARSHI ENTERPRISES</span></div>
-            <div class="bank-row"><span>Account Number</span><span style="font-weight:700;color:var(--text)">071205500764</span></div>
-            <div class="bank-row"><span>Bank &amp; Branch</span><span style="font-weight:700;color:var(--text)">ICICI, Purnea</span></div>
-            <div class="bank-row"><span>IFSC Code</span><span style="font-weight:700;color:var(--text)">ICIC0000712</span></div>
+            <div class="bank-row"><span>Account Number</span><span style="color:#888">---------------------</span></div>
+            <div class="bank-row"><span>Bank &amp; Branch</span><span style="color:#888">---------------------</span></div>
+            <div class="bank-row"><span>IFSC Code</span><span style="color:#888">---------------------</span></div>
           </div>
 
           <div class="tax-block">
@@ -844,7 +840,7 @@ const InvoiceGenerator = () => {
 
         <!-- Footer -->
         <div class="footer">
-          <p>This document is computer generated and does not require a signature or stamp to be considered valid.</p>
+          <p>This document is computer generated and does not require the Registrar's signature or the Company's stamp to be considered valid.</p>
         </div>
         </div>
 
