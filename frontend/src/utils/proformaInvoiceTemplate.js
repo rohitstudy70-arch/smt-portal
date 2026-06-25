@@ -1,8 +1,9 @@
 const COMPANY_SENDER = {
   brandName: 'Arshi Enterprises',
   companyName: 'Arshi Enterprises',
-  address: 'Near Brajesh Auto Mobile Maranga',
-  cityStatePin: 'Purnea, Bihar, 854304',
+  address: 'Near-Brajesh Automobiles(Mahindra Showroom) NH-31,Maranga,',
+  cityStatePin: 'Pin Code-854303 Purnia(BIHAR)',
+  phone: 'Ph:-7782808063,919905959287',
   gstNo: '10ATIPK1589P1ZA',
 };
 
@@ -70,6 +71,7 @@ export const getSenderDetails = (userObj) => {
     companyName: userObj.companyName || userObj.displayName || '',
     address: userObj.address || '',
     cityStatePin: `${userObj.city || ''}${userObj.city && userObj.state ? ', ' : ''}${userObj.state || ''}${userObj.pincode ? ', ' : ''}${userObj.pincode || ''}`,
+    phone: userObj.mobileNo || userObj.phone || '',
     gstNo: userObj.gstNo || '',
   };
 };
@@ -148,6 +150,7 @@ export const buildProformaInvoiceData = (invoice = {}) => {
     sender.companyName || sender.brandName,
     sender.address,
     sender.cityStatePin,
+    sender.phone ? sender.phone : '',
     sender.gstNo ? `GST No: ${sender.gstNo}` : '',
   ].filter(Boolean);
 
