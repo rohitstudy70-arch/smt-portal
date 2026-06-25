@@ -4,15 +4,14 @@ const PORTAL_ROLES = {
   ADMIN: 'ADMIN',
   DEALER: 'DEALER',
   SUB_DEALER: 'SUB_DEALER',
-  CUSTOMER: 'CUSTOMER',
 };
 
 const getPortalRole = (user) => {
-  if (!user) return PORTAL_ROLES.CUSTOMER;
+  if (!user) return null;
   if (user.role === 'partner') return PORTAL_ROLES.ADMIN;
   if (user.userType === 'Administration') return PORTAL_ROLES.ADMIN;
   if (user.userType === 'Sub Dealer') return PORTAL_ROLES.SUB_DEALER;
-  if (user.userType === 'End Customer') return PORTAL_ROLES.CUSTOMER;
+  if (user.userType === 'End Customer') return null;
   return PORTAL_ROLES.DEALER;
 };
 
@@ -35,6 +34,14 @@ const getDescendantUsers = async (rootUserId) => {
 
 const getHierarchyScope = async (user) => {
   const role = getPortalRole(user);
+  if (!role) {
+    return {
+      role,
+      users: [],
+      userIds: [],
+      userNames: [],
+    };
+  }
 
   if (role === PORTAL_ROLES.ADMIN) {
     const users = await User.find({}).select('-password');
@@ -105,6 +112,9 @@ const ensureUserInHierarchy = async (targetUserId, scope, { allowSelf = true } =
 const attachHierarchyScope = async (req, res, next) => {
   try {
     req.portalRole = getPortalRole(req.user);
+    if (!req.portalRole) {
+      return res.status(403).json({ message: 'Forbidden: This account type is no longer supported.' });
+    }
     req.hierarchyScope = await getHierarchyScope(req.user);
     next();
   } catch (error) {

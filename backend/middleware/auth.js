@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { getPortalRole } = require('./hierarchy');
 
 const protect = async (req, res, next) => {
   let token;
@@ -20,6 +21,10 @@ const protect = async (req, res, next) => {
 
       if (!req.user) {
         return res.status(401).json({ message: 'User not found' });
+      }
+
+      if (!getPortalRole(req.user)) {
+        return res.status(403).json({ message: 'Forbidden: This account type is no longer supported.' });
       }
 
       next();

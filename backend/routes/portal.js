@@ -4,6 +4,7 @@ const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
 const RenewalRequest = require('../models/RenewalRequest');
 const DuePayment = require('../models/DuePayment');
+const ActivationRequest = require('../models/ActivationRequest');
 const { protect } = require('../middleware/auth');
 const {
   getDueOwnerIdsFromDevice,
@@ -14,14 +15,15 @@ const {
 const router = express.Router();
 
 const getPortalRole = (user) => {
+  if (!user) return null;
   if (user.role === 'partner') return 'ADMIN';
   if (user.userType === 'Administration') return 'ADMIN';
   if (user.userType === 'Sub Dealer') return 'SUB_DEALER';
-  if (user.userType === 'End Customer') return 'CUSTOMER';
+  if (user.userType === 'End Customer') return null;
   return 'DEALER';
 };
 
-const operationsRoles = ['ADMIN', 'DEALER', 'SUB_DEALER'];
+const operationsRoles = ['ADMIN', 'DEALER'];
 
 const labelForUser = (user) => user.displayName || user.companyName || user.username || '';
 
@@ -164,7 +166,7 @@ const getScopedUsersByType = (scope, type) => {
   ));
 
   if (type === 'dealer') {
-    return users.filter((item) => item.role === 'customer' && !item.parentId && item.userType !== 'End Customer');
+    return users.filter((item) => item.role === 'customer' && !item.parentId && !['End Customer', 'Administration'].includes(item.userType));
   }
 
   if (type === 'subDealer') {
@@ -172,10 +174,10 @@ const getScopedUsersByType = (scope, type) => {
   }
 
   if (type === 'customer') {
-    return users.filter((item) => item.userType === 'End Customer');
+    return [];
   }
 
-  return users.filter((item) => item.role !== 'partner');
+  return users.filter((item) => item.role !== 'partner' && item.userType !== 'End Customer');
 };
 
 router.get('/summary', protect, async (req, res) => {
@@ -197,7 +199,12 @@ router.get('/summary', protect, async (req, res) => {
 
     const dealers = scope.users.filter((item) => getPortalRole(item) === 'DEALER');
     const subDealers = scopedUsers.filter((item) => getPortalRole(item) === 'SUB_DEALER');
-    const userCustomers = scopedUsers.filter((item) => getPortalRole(item) === 'CUSTOMER');
+    const customerRecords = await ActivationRequest.find(requestScopeQuery)
+      .select('customerName regMobNo status')
+      .lean();
+    const customerKeys = new Set(
+      customerRecords.map((item) => item.regMobNo || item.customerName).filter(Boolean)
+    );
 
     const [
       totalDevices,
@@ -225,7 +232,7 @@ router.get('/summary', protect, async (req, res) => {
       role: scope.role,
       totalDealers: dealers.length,
       totalSubDealers: subDealers.length,
-      totalCustomers: userCustomers.length,
+      totalCustomers: customerKeys.size,
       totalDevices,
       activeDevices,
       expiredDevices,
@@ -233,7 +240,7 @@ router.get('/summary', protect, async (req, res) => {
       renewalDueDevices,
       assignedDevices,
       availableDevices,
-      activeCustomers: userCustomers.filter((item) => item.status !== 'Inactive').length,
+      activeCustomers: customerRecords.filter((item) => item.status !== 'Inactive').length,
       totalRenewals,
       pendingRenewals,
     });
@@ -351,27 +358,19 @@ router.post('/users', protect, async (req, res) => {
       }
       nextParentId = null;
     } else if (userType === 'Sub Dealer') {
-      if (scope.role === 'SUB_DEALER') {
-        return res.status(403).json({ message: 'Sub Dealers can only add End Customers.' });
-      }
       if (scope.role === 'ADMIN' && parentId) {
         const dealer = await ensureVisibleUser(parentId, scope);
-        if (!dealer) return res.status(404).json({ message: 'Selected dealer not found.' });
+        if (!dealer || getPortalRole(dealer) !== 'DEALER') {
+          return res.status(404).json({ message: 'Selected dealer not found.' });
+        }
         nextParentId = dealer._id;
-      } else {
+      } else if (scope.role === 'ADMIN') {
+        return res.status(400).json({ message: 'Please select a dealer for this Sub Dealer.' });
+      } else if (scope.role === 'DEALER') {
         nextParentId = req.user._id;
       }
     } else {
-      nextUserType = 'End Customer';
-      if (scope.role === 'SUB_DEALER') {
-        nextParentId = req.user._id;
-      } else if (parentId) {
-        const parent = await ensureVisibleUser(parentId, scope);
-        if (!parent) return res.status(404).json({ message: 'Selected parent user not found.' });
-        nextParentId = parent._id;
-      } else {
-        nextParentId = req.user._id;
-      }
+      return res.status(403).json({ message: 'Only Dealer and Sub Dealer users can be created.' });
     }
 
     const user = await User.create({
@@ -415,21 +414,23 @@ router.put('/users/:id', protect, async (req, res) => {
       return res.status(404).json({ message: 'User not found.' });
     }
 
-    if (scope.role === 'SUB_DEALER' && user.userType !== 'End Customer') {
-      return res.status(403).json({ message: 'Sub Dealers can only manage End Customers.' });
+    if (user._id.toString() === req.user._id.toString()) {
+      return res.status(403).json({ message: 'You cannot manage your own profile here.' });
     }
 
-    if (scope.role === 'DEALER' && (user.role === 'partner' || user.userType === 'Dealer')) {
+    const targetRole = getPortalRole(user);
+    if (!targetRole) {
+      return res.status(403).json({ message: 'Unsupported account type.' });
+    }
+
+    if (scope.role === 'DEALER' && targetRole !== 'SUB_DEALER') {
       return res.status(403).json({ message: 'Dealers cannot manage Admins or Dealers.' });
     }
 
     if (req.body.userType) {
-      if (scope.role === 'SUB_DEALER' && req.body.userType !== 'End Customer') {
-        return res.status(403).json({ message: 'Sub Dealers can only manage End Customers.' });
-      }
-
-      if (scope.role === 'DEALER' && req.body.userType === 'Dealer') {
-        return res.status(403).json({ message: 'Dealers cannot manage Dealers.' });
+      const allowedTypes = scope.role === 'ADMIN' ? ['Dealer', 'Sub Dealer'] : ['Sub Dealer'];
+      if (!allowedTypes.includes(req.body.userType)) {
+        return res.status(403).json({ message: 'You cannot assign this user type.' });
       }
     }
 
@@ -475,6 +476,15 @@ router.post('/users/:id/reset-password', protect, async (req, res) => {
 
     if (!user) {
       return res.status(404).json({ message: 'User not found.' });
+    }
+
+    if (user._id.toString() === req.user._id.toString()) {
+      return res.status(403).json({ message: 'You cannot reset your own password here.' });
+    }
+
+    const targetRole = getPortalRole(user);
+    if (!targetRole || (scope.role === 'DEALER' && targetRole !== 'SUB_DEALER')) {
+      return res.status(403).json({ message: 'You cannot manage this account.' });
     }
 
     if (!password || password.length < 6) {
@@ -643,13 +653,6 @@ router.post('/devices/bulk', protect, async (req, res) => {
         }
       } else if (scope.role === 'DEALER') {
         dealer = req.user;
-      } else if (scope.role === 'SUB_DEALER') {
-        subDealer = req.user;
-        dealer = req.user.parentId ? await User.findById(req.user.parentId).select('-password') : null;
-        if (!dealer || getPortalRole(dealer) !== 'DEALER') {
-          skipped.push({ imei, reason: 'Sub Dealer account is not linked to a dealer.' });
-          continue;
-        }
       }
 
       let presentDate = new Date();
@@ -727,6 +730,9 @@ router.post('/devices/:id/transfer', protect, async (req, res) => {
     if (targetUserId && !targetUser) {
       return res.status(404).json({ message: 'Target user not found.' });
     }
+    if (targetUser && !['DEALER', 'SUB_DEALER'].includes(getPortalRole(targetUser))) {
+      return res.status(400).json({ message: 'Target user must be a Dealer or Sub Dealer.' });
+    }
 
     const previousAssignee = device.assignedTo?._id || device.assignedTo || null;
     const nextAssignee = targetUser ? targetUser._id : null;
@@ -765,22 +771,26 @@ router.get('/customers', protect, async (req, res) => {
     const scope = await getScope(req.user);
     const regex = search ? new RegExp(escapeRegExp(search), 'i') : null;
 
-    const userCustomers = getScopedUsersByType(scope, 'customer');
-    const records = userCustomers.map((customer) => ({
-      _id: customer._id,
-      source: 'User',
-      customerName: customer.displayName || customer.companyName || customer.username,
-      mobileNo: customer.mobileNo || '',
-      email: customer.email || '',
-      address: [customer.address, customer.city, customer.state, customer.pincode].filter(Boolean).join(', '),
-      dealerName: '',
-      subDealerName: '',
-      imei: '',
-      iccid: '',
-      vehicleNo: '',
-      status: customer.status || 'Active',
-      createdAt: customer.createdAt,
-    }));
+    const requests = await ActivationRequest.find(buildRequestScopeQuery(scope))
+      .sort({ dateTime: -1 })
+      .lean();
+
+    const records = requests.map((request) => ({
+      _id: request._id,
+      source: 'ActivationRequest',
+      customerName: request.customerName || '',
+      mobileNo: request.regMobNo || request.regMobNo2 || '',
+      email: '',
+      address: request.address || '',
+      dealerName: request.dealerName || '',
+      subDealerName: request.subDealerName || '',
+      imei: request.imei || '',
+      iccid: request.iccid || '',
+      vehicleNo: request.vehicleNo || '',
+      expiryDate: request.expiryDate || null,
+      status: request.status || 'Processing',
+      createdAt: request.dateTime || request.createdAt,
+    })).filter((record) => record.customerName || record.mobileNo || record.imei);
 
     const filtered = regex
       ? records.filter((item) => (
@@ -904,11 +914,14 @@ router.get('/reports', protect, async (req, res) => {
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 30);
 
-    const [devices, renewals] = await Promise.all([
+    const [devices, renewals, customerRecords] = await Promise.all([
       Device.find(deviceScopeQuery).populate('assignedTo', 'displayName username userType'),
       RenewalRequest.find(requestScopeQuery),
+      ActivationRequest.find(requestScopeQuery).select('customerName regMobNo status').lean(),
     ]);
-    const customers = getScopedUsersByType(scope, 'customer');
+    const customerKeys = new Set(
+      customerRecords.map((item) => item.regMobNo || item.customerName).filter(Boolean)
+    );
 
     const byDealer = devices.reduce((acc, device) => {
       const key = device.dealerName || 'Unassigned Dealer';
@@ -918,9 +931,9 @@ router.get('/reports', protect, async (req, res) => {
 
     res.json({
       customerReports: {
-        totalRecords: customers.length,
-        activeRecords: customers.filter((item) => item.status !== 'Inactive').length,
-        inactiveRecords: customers.filter((item) => item.status === 'Inactive').length,
+        totalRecords: customerKeys.size,
+        activeRecords: customerRecords.filter((item) => item.status !== 'Inactive').length,
+        inactiveRecords: customerRecords.filter((item) => item.status === 'Inactive').length,
       },
       deviceReports: {
         totalDevices: devices.length,

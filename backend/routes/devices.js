@@ -22,7 +22,7 @@ const router = express.Router();
 
 router.use(protect, attachHierarchyScope);
 
-const deviceCreateRoles = [PORTAL_ROLES.ADMIN, PORTAL_ROLES.DEALER, PORTAL_ROLES.SUB_DEALER];
+const deviceManageRoles = [PORTAL_ROLES.ADMIN, PORTAL_ROLES.DEALER];
 
 const escapeRegExp = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -56,6 +56,7 @@ const normalizeDeviceInput = (body) => {
     dealerName: String(body.dealerName || '').trim(),
     subDealerId: String(body.subDealerId || '').trim(),
     subDealerName: String(body.subDealerName || '').trim(),
+    assignedTo: String(body.assignedTo || '').trim(),
     vendor: String(body.vendor || '').trim(),
     imei: String(body.imei || body.imeiNumber || '').trim(),
     iccid: String(body.iccid || body.iccidNumber || '').trim(),
@@ -324,7 +325,7 @@ router.get('/stats', async (req, res) => {
 // @route   GET /api/devices/check-unique
 // @desc    Check if IMEI, ICCID or Serial No is unique
 // @access  Protected
-router.get('/check-unique', requireRoles(...deviceCreateRoles), async (req, res) => {
+router.get('/check-unique', requireRoles(...deviceManageRoles), async (req, res) => {
   try {
     const { field, value } = req.query;
     if (!field || !value) {
@@ -414,7 +415,7 @@ router.get('/', async (req, res) => {
 // @route   POST /api/devices/assign
 // @desc    Assign device(s) to a hierarchy user
 // @access  Protected
-router.post('/assign', requireRoles(...deviceCreateRoles), async (req, res) => {
+router.post('/assign', requireRoles(...deviceManageRoles), async (req, res) => {
   try {
     const { subUserId, type, imeisText } = req.body;
 
@@ -425,6 +426,10 @@ router.post('/assign', requireRoles(...deviceCreateRoles), async (req, res) => {
     const subUser = await ensureUserInHierarchy(subUserId, req.hierarchyScope, { allowSelf: false });
     if (!subUser) {
       return res.status(403).json({ message: 'Forbidden: Selected user must belong to your hierarchy.' });
+    }
+    const targetRole = getPortalRole(subUser);
+    if (![PORTAL_ROLES.DEALER, PORTAL_ROLES.SUB_DEALER].includes(targetRole)) {
+      return res.status(400).json({ message: 'Please select a valid Dealer or Sub Dealer.' });
     }
 
     let targetImeis = [];
@@ -533,7 +538,7 @@ router.post('/assign', requireRoles(...deviceCreateRoles), async (req, res) => {
 // @route   POST /api/devices
 // @desc    Create a new device
 // @access  Protected
-router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
+router.post('/', requireRoles(...deviceManageRoles), async (req, res) => {
   try {
     console.log('Create device req.body:', req.body);
     const input = normalizeDeviceInput(req.body);
@@ -561,6 +566,10 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
     const targetUser = await User.findById(ownership.ownerId);
     if (!targetUser) {
       return res.status(404).json({ message: 'Target dealer or sub-dealer user not found.' });
+    }
+
+    if (input.assignedTo) {
+      return res.status(400).json({ message: 'Device assignment to customer login users is no longer supported.' });
     }
 
     const billAmt = Number(input.billAmount) || 0;
@@ -595,6 +604,8 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
         validity: input.validity,
         presentDate,
         expiryDate,
+        assignedTo: null,
+        assignmentHistory: [],
         status: 'Processing',
         activationRequestStatus: 'processing',
         hasSim: Boolean(input.msisdn1 || input.msisdn2 || input.iccid),
@@ -688,7 +699,7 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
 // @route   PUT /api/devices/:id
 // @desc    Update an existing device
 // @access  Protected
-router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
+router.put('/:id', requireRoles(...deviceManageRoles), async (req, res) => {
   try {
     const scopeQuery = buildDeviceScopeQuery(req.hierarchyScope);
     const device = await Device.findOne(combineQueries(scopeQuery, { _id: req.params.id }));
@@ -921,34 +932,12 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
 // @route   DELETE /api/devices/:id
 // @desc    Permanently delete a device
 // @access  Protected
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireRoles(...deviceManageRoles), async (req, res) => {
   try {
     const scopeQuery = buildDeviceScopeQuery(req.hierarchyScope);
     const device = await Device.findOne(combineQueries(scopeQuery, { _id: req.params.id }));
     if (!device) {
       return res.status(404).json({ message: 'Device not found or access denied.' });
-    }
-
-    const { portalRole: role } = req;
-
-    let targetOwnerRole = 'DEALER';
-    if (device.assignedTo) {
-      const assignee = await User.findById(device.assignedTo);
-      if (assignee) {
-        targetOwnerRole = getPortalRole(assignee);
-      }
-    } else if (device.subDealerId) {
-      targetOwnerRole = 'SUB_DEALER';
-    }
-
-    if (targetOwnerRole === 'DEALER') {
-      if (role !== 'ADMIN') {
-        return res.status(403).json({ message: 'Access denied: Only Admins can delete Dealer devices.' });
-      }
-    } else if (targetOwnerRole === 'SUB_DEALER') {
-      if (role !== 'ADMIN' && role !== 'DEALER') {
-        return res.status(403).json({ message: 'Access denied: Only Admins and Dealers can delete Sub Dealer devices.' });
-      }
     }
 
     const dueOwnerIds = getDueOwnerIdsFromDevice(device);

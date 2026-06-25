@@ -60,6 +60,7 @@ const emptyDeviceForm = {
   dealerName: '',
   subDealerId: '',
   subDealerName: '',
+  assignedTo: '',
   imei: '',
   iccid: '',
   serialNo: '',
@@ -251,6 +252,26 @@ const CustomerDevicePortal = () => {
       }
     });
   }, [subDealers, deviceDealerOptions, deviceForm.dealerId]);
+
+  const endCustomerOptions = useMemo(() => {
+    const allCustomers = users.filter((item) => item.userType === 'End Customer');
+    const selectedOwnerId = deviceForm.subDealerId || deviceForm.dealerId || (role === 'SUB_DEALER' ? user?._id : '');
+
+    if (!selectedOwnerId) return allCustomers;
+
+    return allCustomers.filter((customer) => (
+      customer.parentId?.toString() === selectedOwnerId.toString()
+    ));
+  }, [users, deviceForm.dealerId, deviceForm.subDealerId, role, user?._id]);
+
+  useEffect(() => {
+    if (!deviceForm.assignedTo) return;
+
+    const stillAvailable = endCustomerOptions.some((customer) => customer._id === deviceForm.assignedTo);
+    if (!stillAvailable) {
+      setDeviceForm((current) => ({ ...current, assignedTo: '' }));
+    }
+  }, [deviceForm.assignedTo, endCustomerOptions]);
 
   const selectedDevice = useMemo(() => (
     devices.find((device) => device._id === transferForm.deviceId)
@@ -602,11 +623,12 @@ const CustomerDevicePortal = () => {
       link.click();
       URL.revokeObjectURL(url);
     } else {
-      const headers = ['Device ID', 'Dealer', 'Sub Dealer', 'IMEI', 'ICCID', 'Serial No', 'MSISDN 1', 'MSISDN 2', 'Validity', 'Activation Date', 'Expiry Date', 'Created By', 'Status'];
+      const headers = ['Device ID', 'Dealer', 'Sub Dealer', 'Assigned Customer', 'IMEI', 'ICCID', 'Serial No', 'MSISDN 1', 'MSISDN 2', 'Validity', 'Activation Date', 'Expiry Date', 'Created By', 'Status'];
       const rows = filteredDevices.map((device) => [
         device._id || '',
         device.dealerName || '',
         device.subDealerName || '',
+        getLinkedName(device.assignedTo, ''),
         device.imei || '',
         device.iccid || '',
         device.serialNo || '',
@@ -1210,6 +1232,7 @@ const CustomerDevicePortal = () => {
                   dealerName: dealer ? getName(dealer) : '',
                   subDealerId: '',
                   subDealerName: '',
+                  assignedTo: '',
                 }));
               }}
               required
@@ -1228,11 +1251,12 @@ const CustomerDevicePortal = () => {
                 onChange={(event) => {
                   const subDealer = subDealers.find((item) => item._id === event.target.value);
                   setDeviceForm((current) => ({
-                    ...current,
-                    subDealerId: subDealer?._id || '',
-                    subDealerName: subDealer ? getName(subDealer) : '',
-                  }));
-                }}
+                  ...current,
+                  subDealerId: subDealer?._id || '',
+                  subDealerName: subDealer ? getName(subDealer) : '',
+                  assignedTo: '',
+                }));
+              }}
                 disabled={!deviceForm.dealerId || availableSubDealers.length === 0}
               >
                 <option value="">
@@ -1248,6 +1272,27 @@ const CustomerDevicePortal = () => {
               </select>
             </label>
           )}
+          <label>
+            <span>End Customer</span>
+            <select
+              value={deviceForm.assignedTo}
+              onChange={(event) => updateDeviceForm('assignedTo', event.target.value)}
+              disabled={((role !== 'SUB_DEALER' && !deviceForm.dealerId) || endCustomerOptions.length === 0)}
+            >
+              <option value="">
+                {role !== 'SUB_DEALER' && !deviceForm.dealerId
+                  ? 'Select dealer first'
+                  : endCustomerOptions.length === 0
+                  ? 'No end customers found'
+                  : 'Assign end customer (optional)'}
+              </option>
+              {endCustomerOptions.map((customer) => (
+                <option value={customer._id} key={customer._id}>
+                  {getName(customer)}{customer.mobileNo ? ` - ${customer.mobileNo}` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
           <label>
             <span>IMEI No.</span>
             <input value={deviceForm.imei} onChange={(event) => updateDeviceForm('imei', event.target.value)} maxLength={15} required />

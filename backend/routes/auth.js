@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
 const { protect } = require('../middleware/auth');
+const { getPortalRole } = require('../middleware/hierarchy');
 
 const router = express.Router();
 
@@ -50,6 +51,10 @@ router.post('/login', async (req, res) => {
         details: { username, reason: 'Invalid password' },
       }).catch(() => {});
       return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    if (!getPortalRole(user)) {
+      return res.status(403).json({ message: 'This account type is no longer supported.' });
     }
 
     await AuditLog.create({
@@ -111,6 +116,9 @@ router.post('/login', async (req, res) => {
 router.get('/me', protect, async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select('-password');
+    if (!getPortalRole(user)) {
+      return res.status(403).json({ message: 'This account type is no longer supported.' });
+    }
     res.json(user);
   } catch (error) {
     console.error('Get me error:', error.message);

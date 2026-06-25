@@ -6,22 +6,32 @@ const { getPortalRole, getDescendantUsers } = require('../middleware/hierarchy')
 
 const router = express.Router();
 
+const userManagementRoles = ['ADMIN', 'DEALER'];
+const allowedCreateTypesByRole = {
+  ADMIN: ['Dealer', 'Sub Dealer'],
+  DEALER: ['Sub Dealer'],
+};
+
+const isSupportedUserType = (userType) => ['Dealer', 'Sub Dealer', 'Administration', ''].includes(userType || '');
+
 // @route   GET /api/users/sub-users
 // @desc    Get sub-users and dealers of current user
 // @access  Protected
 router.get('/sub-users', protect, async (req, res) => {
   try {
     const role = getPortalRole(req.user);
-    if (role === 'CUSTOMER') {
-      return res.status(403).json({ message: 'Access denied: Customers cannot access user management.' });
+    if (!userManagementRoles.includes(role)) {
+      return res.status(403).json({ message: 'Access denied: You cannot access user management.' });
     }
 
     let subUsers;
     if (role === 'ADMIN') {
-      subUsers = await User.find({}).select('-password').lean();
+      subUsers = await User.find({ userType: { $ne: 'End Customer' } }).select('-password').lean();
     } else {
       const descendants = await getDescendantUsers(req.user._id);
-      subUsers = descendants.map(d => d.toObject ? d.toObject() : d);
+      subUsers = descendants
+        .map(d => d.toObject ? d.toObject() : d)
+        .filter((user) => isSupportedUserType(user.userType));
     }
 
     // Fetch device counts for the matched users
@@ -73,25 +83,17 @@ router.get('/sub-users', protect, async (req, res) => {
 router.post('/sub-user', protect, async (req, res) => {
   try {
     const role = getPortalRole(req.user);
-    if (role === 'CUSTOMER') {
-      return res.status(403).json({ message: 'Access denied: Customers cannot access user management.' });
+    if (!userManagementRoles.includes(role)) {
+      return res.status(403).json({ message: 'Access denied: You cannot create users.' });
     }
 
     const { userType, displayName, mobileNo, email, username, password, parentId } = req.body;
-    const allowedUserTypesByRole = {
-      ADMIN: ['Dealer', 'Sub Dealer', 'End Customer'],
-      DEALER: ['Sub Dealer', 'End Customer'],
-      SUB_DEALER: ['End Customer'],
-    };
 
     if (!userType || !displayName || !username || !password) {
       return res.status(400).json({ message: 'Please fill in all required fields' });
     }
 
-    const isFullAdmin = req.user.role === 'partner' && req.user.userType !== 'Administration';
-    const allowedUserTypes = isFullAdmin
-      ? ['Administration', 'Dealer', 'Sub Dealer', 'End Customer']
-      : (allowedUserTypesByRole[role] || []);
+    const allowedUserTypes = allowedCreateTypesByRole[role] || [];
 
     if (!allowedUserTypes.includes(userType)) {
       return res.status(403).json({ message: 'Access denied: You cannot create this user type.' });
@@ -108,18 +110,18 @@ router.post('/sub-user', protect, async (req, res) => {
     if (role === 'ADMIN') {
       if (userType === 'Dealer') {
         finalParentId = null;
-      } else if (parentId) {
-        finalParentId = parentId;
+      } else if (userType === 'Sub Dealer') {
+        if (!parentId) {
+          return res.status(400).json({ message: 'Please select a dealer for this Sub Dealer.' });
+        }
+        const dealer = await User.findById(parentId).select('-password');
+        if (!dealer || getPortalRole(dealer) !== 'DEALER') {
+          return res.status(400).json({ message: 'Please select a valid dealer for this Sub Dealer.' });
+        }
+        finalParentId = dealer._id;
       }
     } else if (role === 'DEALER') {
-      if (parentId) {
-        const descendants = await getDescendantUsers(req.user._id);
-        const descendantIds = descendants.map((d) => d._id.toString());
-        if (!descendantIds.includes(parentId.toString()) && parentId.toString() !== req.user._id.toString()) {
-          return res.status(403).json({ message: 'Access denied: Parent user must belong to your hierarchy.' });
-        }
-        finalParentId = parentId;
-      }
+      finalParentId = req.user._id;
     }
 
     // Create sub-user
@@ -149,8 +151,8 @@ router.post('/sub-user', protect, async (req, res) => {
 router.put('/sub-user/:id', protect, async (req, res) => {
   try {
     const role = getPortalRole(req.user);
-    if (role === 'CUSTOMER') {
-      return res.status(403).json({ message: 'Access denied: Customers cannot access user management.' });
+    if (!userManagementRoles.includes(role)) {
+      return res.status(403).json({ message: 'Access denied: You cannot manage users.' });
     }
 
     const { userType, displayName, mobileNo, email, status } = req.body;
@@ -158,6 +160,11 @@ router.put('/sub-user/:id', protect, async (req, res) => {
     const subUser = await User.findById(req.params.id);
     if (!subUser) {
       return res.status(404).json({ message: 'Sub-user not found' });
+    }
+
+    const targetRole = getPortalRole(subUser);
+    if (subUser._id.toString() === req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied: You cannot manage your own profile here.' });
     }
 
     // Hierarchy check
@@ -171,18 +178,19 @@ router.put('/sub-user/:id', protect, async (req, res) => {
 
     // Administration restriction
     if (req.user.userType === 'Administration') {
-      const targetRole = getPortalRole(subUser);
       if (targetRole === 'ADMIN' || subUser.userType === 'Administration') {
         return res.status(403).json({ message: 'Access denied: Administration users cannot manage Admin/Administration accounts.' });
       }
     }
 
+    if (role === 'DEALER' && targetRole !== 'SUB_DEALER') {
+      return res.status(403).json({ message: 'Access denied: Dealers can only manage Sub Dealers.' });
+    }
+
     if (userType) {
-      if (role === 'SUB_DEALER' && userType !== 'End Customer') {
-        return res.status(403).json({ message: 'Access denied: Sub Dealers can only manage End Customers.' });
-      }
-      if (role === 'DEALER' && userType === 'Dealer') {
-        return res.status(403).json({ message: 'Access denied: Dealers cannot manage Dealers.' });
+      const allowedUserTypes = allowedCreateTypesByRole[role] || [];
+      if (!allowedUserTypes.includes(userType)) {
+        return res.status(403).json({ message: 'Access denied: You cannot assign this user type.' });
       }
       subUser.userType = userType;
     }
@@ -206,13 +214,18 @@ router.put('/sub-user/:id', protect, async (req, res) => {
 router.delete('/sub-user/:id', protect, async (req, res) => {
   try {
     const role = getPortalRole(req.user);
-    if (role === 'CUSTOMER') {
-      return res.status(403).json({ message: 'Access denied: Customers cannot access user management.' });
+    if (!userManagementRoles.includes(role)) {
+      return res.status(403).json({ message: 'Access denied: You cannot manage users.' });
     }
 
     const subUser = await User.findById(req.params.id);
     if (!subUser) {
       return res.status(404).json({ message: 'Sub-user not found' });
+    }
+
+    const targetRole = getPortalRole(subUser);
+    if (subUser._id.toString() === req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied: You cannot manage your own profile here.' });
     }
 
     // Hierarchy check
@@ -226,10 +239,13 @@ router.delete('/sub-user/:id', protect, async (req, res) => {
 
     // Administration restriction
     if (req.user.userType === 'Administration') {
-      const targetRole = getPortalRole(subUser);
       if (targetRole === 'ADMIN' || subUser.userType === 'Administration') {
         return res.status(403).json({ message: 'Access denied: Administration users cannot manage Admin/Administration accounts.' });
       }
+    }
+
+    if (role === 'DEALER' && targetRole !== 'SUB_DEALER') {
+      return res.status(403).json({ message: 'Access denied: Dealers can only manage Sub Dealers.' });
     }
 
     subUser.status = subUser.status === 'Active' ? 'Inactive' : 'Active';
@@ -248,8 +264,8 @@ router.delete('/sub-user/:id', protect, async (req, res) => {
 router.delete('/sub-user/:id/permanent', protect, async (req, res) => {
   try {
     const role = getPortalRole(req.user);
-    if (role === 'CUSTOMER') {
-      return res.status(403).json({ message: 'Access denied: Customers cannot access user management.' });
+    if (!userManagementRoles.includes(role)) {
+      return res.status(403).json({ message: 'Access denied: You cannot delete users.' });
     }
 
     const subUser = await User.findById(req.params.id);
@@ -258,6 +274,13 @@ router.delete('/sub-user/:id/permanent', protect, async (req, res) => {
     }
 
     const targetRole = getPortalRole(subUser);
+    if (!targetRole) {
+      return res.status(403).json({ message: 'Access denied: Unsupported account type.' });
+    }
+
+    if (subUser._id.toString() === req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied: You cannot delete your own profile.' });
+    }
 
     // Enforce role-based deletion authority
     if (targetRole === 'DEALER') {
@@ -268,6 +291,8 @@ router.delete('/sub-user/:id/permanent', protect, async (req, res) => {
       if (role !== 'ADMIN' && role !== 'DEALER') {
         return res.status(403).json({ message: 'Access denied: Only Admins and Dealers can delete Sub Dealers.' });
       }
+    } else {
+      return res.status(403).json({ message: 'Access denied: Unsupported account type.' });
     }
 
     // Hierarchy check
@@ -293,8 +318,6 @@ router.delete('/sub-user/:id/permanent', protect, async (req, res) => {
       await Device.updateMany({ dealerId: subUser._id }, { $set: { dealerId: null, dealerName: '', assignedTo: null } });
     } else if (targetRole === 'SUB_DEALER') {
       await Device.updateMany({ subDealerId: subUser._id }, { $set: { subDealerId: null, subDealerName: '', assignedTo: null } });
-    } else {
-      await Device.updateMany({ assignedTo: subUser._id }, { $set: { assignedTo: null } });
     }
 
     await User.findByIdAndDelete(req.params.id);
@@ -317,7 +340,7 @@ router.get('/dealers', protect, async (req, res) => {
     if (role === 'ADMIN') {
       query = {
         role: 'customer',
-        userType: { $nin: ['Sub Dealer', 'End Customer'] },
+        userType: { $nin: ['Sub Dealer', 'End Customer', 'Administration'] },
       };
     } else if (role === 'DEALER') {
       query = { _id: req.user._id };
@@ -328,7 +351,7 @@ router.get('/dealers', protect, async (req, res) => {
         query = { _id: req.user._id };
       }
     } else {
-      return res.status(403).json({ message: 'Access denied: Customers cannot access dealer lists.' });
+      return res.status(403).json({ message: 'Access denied: You cannot access dealer lists.' });
     }
 
     const dealers = await User.find(
