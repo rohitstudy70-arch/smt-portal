@@ -9,7 +9,6 @@ const getRole = (user) => {
   if (user?.role === 'partner') return 'ADMIN';
   if (user?.userType === 'Administration') return 'ADMIN';
   if (user?.userType === 'Sub Dealer') return 'SUB_DEALER';
-  if (user?.userType === 'End Customer') return 'CUSTOMER';
   return 'DEALER';
 };
 
@@ -550,16 +549,14 @@ const ActivationRequests = () => {
           <FaSyncAlt style={{ cursor: 'pointer' }} onClick={handleRefresh} />
           LATEST UPLOADED REQUESTS
         </span>
-        {role !== 'CUSTOMER' && (
-          <button className="btn-raise" onClick={() => {
-            setFormData(initialFormState);
-            setIsEditing(false);
-            setEditRequestId(null);
-            setShowModal(true);
-          }}>
-            <FaPlus /> Raise Request
-          </button>
-        )}
+        <button className="btn-raise" onClick={() => {
+          setFormData(initialFormState);
+          setIsEditing(false);
+          setEditRequestId(null);
+          setShowModal(true);
+        }}>
+          <FaPlus /> Raise Request
+        </button>
       </div>
 
       {showModal && (
@@ -1118,14 +1115,12 @@ const ActivationRequests = () => {
                               <span style={{ fontSize: '11px', color: '#999', fontStyle: 'italic', display: 'none' }}></span>
                             )}
                             <div style={{ display: 'flex', gap: '5px', marginLeft: 'auto' }}>
-                              {role !== 'CUSTOMER' && (
                                 <button
                                   onClick={() => handleEditClick(req)}
                                   style={{ padding: '4px 8px', background: '#337ab7', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
                                 >
                                   Edit
                                 </button>
-                              )}
                               <button
                                 onClick={() => handleDeleteRequest(req._id)}
                                 style={{ padding: '4px 8px', background: '#d9534f', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
@@ -1172,14 +1167,12 @@ const ActivationRequests = () => {
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: '5px' }}>
-                          {role !== 'CUSTOMER' && (
-                            <button
-                              onClick={() => handleEditClick(req)}
-                              style={{ padding: '4px 8px', background: '#337ab7', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
-                            >
-                              Edit
-                            </button>
-                          )}
+                          <button
+                            onClick={() => handleEditClick(req)}
+                            style={{ padding: '4px 8px', background: '#337ab7', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
+                          >
+                            Edit
+                          </button>
                           {(req.status !== 'Completed' || role === 'ADMIN') && (
                             <button
                               onClick={() => handleDeleteRequest(req._id)}

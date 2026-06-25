@@ -32,7 +32,7 @@ import './CustomerDevicePortal.css';
 import RevenueBreakdownModal from './RevenueBreakdownModal';
 
 const emptyUserForm = {
-  userType: 'End Customer',
+  userType: 'Sub Dealer',
   displayName: '',
   companyName: '',
   contactPerson: '',
@@ -103,7 +103,6 @@ const statKeysByRole = {
   ADMIN: [
     'totalDealers',
     'totalSubDealers',
-    'totalCustomers',
     'totalDevices',
     'activeDevices',
     'expiredDevices',
@@ -112,23 +111,15 @@ const statKeysByRole = {
   ],
   DEALER: [
     'assignedDevices',
-    'activeCustomers',
     'totalSubDealers',
     'renewalDueDevices',
     'availableDevices',
     'totalDevices',
   ],
   SUB_DEALER: [
-    'totalCustomers',
     'availableDevices',
     'renewalDueDevices',
     'assignedDevices',
-  ],
-  CUSTOMER: [
-    'totalDevices',
-    'activeDevices',
-    'renewalDueDevices',
-    'pendingRenewals',
   ],
 };
 
@@ -226,10 +217,10 @@ const CustomerDevicePortal = () => {
   const [isRevenueModalOpen, setIsRevenueModalOpen] = useState(false);
   const [revenueModalTab, setRevenueModalTab] = useState('today');
 
-  const userRole = user?.role === 'partner' ? 'ADMIN' : user?.userType === 'Administration' ? 'ADMIN' : user?.userType === 'Sub Dealer' ? 'SUB_DEALER' : user?.userType === 'End Customer' ? 'CUSTOMER' : 'DEALER';
+  const userRole = user?.role === 'partner' ? 'ADMIN' : user?.userType === 'Administration' ? 'ADMIN' : user?.userType === 'Sub Dealer' ? 'SUB_DEALER' : 'DEALER';
   const role = summary?.role || userRole;
   const isAdmin = role === 'ADMIN';
-  const isCustomer = role === 'CUSTOMER';
+  const isCustomer = false;
   const assignableUsers = useMemo(() => (
     [...dealers, ...subDealers, ...users].filter((item, index, list) => (
       item?._id && list.findIndex((other) => other._id === item._id) === index
@@ -253,25 +244,7 @@ const CustomerDevicePortal = () => {
     });
   }, [subDealers, deviceDealerOptions, deviceForm.dealerId]);
 
-  const endCustomerOptions = useMemo(() => {
-    const allCustomers = users.filter((item) => item.userType === 'End Customer');
-    const selectedOwnerId = deviceForm.subDealerId || deviceForm.dealerId || (role === 'SUB_DEALER' ? user?._id : '');
 
-    if (!selectedOwnerId) return allCustomers;
-
-    return allCustomers.filter((customer) => (
-      customer.parentId?.toString() === selectedOwnerId.toString()
-    ));
-  }, [users, deviceForm.dealerId, deviceForm.subDealerId, role, user?._id]);
-
-  useEffect(() => {
-    if (!deviceForm.assignedTo) return;
-
-    const stillAvailable = endCustomerOptions.some((customer) => customer._id === deviceForm.assignedTo);
-    if (!stillAvailable) {
-      setDeviceForm((current) => ({ ...current, assignedTo: '' }));
-    }
-  }, [deviceForm.assignedTo, endCustomerOptions]);
 
   const selectedDevice = useMemo(() => (
     devices.find((device) => device._id === transferForm.deviceId)
@@ -667,33 +640,30 @@ const CustomerDevicePortal = () => {
       case 'totalSubDealers':
         openView('subdealers');
         break;
-      case 'totalCustomers':
-      case 'activeCustomers':
-        openView('customers');
-        break;
+
       case 'totalDevices':
-        openView(role === 'CUSTOMER' ? 'mydevices' : 'devices');
+        openView('devices');
         break;
       case 'activeDevices':
-        openView(role === 'CUSTOMER' ? 'mydevices' : 'devices');
+        openView('devices');
         setSearch('active');
         break;
       case 'expiredDevices':
-        openView(role === 'CUSTOMER' ? 'mydevices' : 'devices');
+        openView('devices');
         setSearch('inactive');
         break;
       case 'devicesAddedToday':
-        openView(role === 'CUSTOMER' ? 'mydevices' : 'devices');
+        openView('devices');
         break;
       case 'renewalDueDevices':
       case 'pendingRenewals':
         openView('renewals');
         break;
       case 'assignedDevices':
-        openView(role === 'CUSTOMER' ? 'mydevices' : 'devices');
+        openView('devices');
         break;
       case 'availableDevices':
-        openView(role === 'CUSTOMER' ? 'mydevices' : 'devices');
+        openView('devices');
         break;
       default:
         break;
@@ -727,7 +697,7 @@ const CustomerDevicePortal = () => {
   };
 
   const renderDashboard = () => {
-    const isOps = userRole !== 'CUSTOMER';
+    const isOps = true;
     return (
       <div className="portal-stack" key="view-dashboard">
         {renderStats()}
@@ -872,7 +842,7 @@ const CustomerDevicePortal = () => {
           </div>
         ) : null}
 
-        {!isCustomer ? (
+        {(role === 'ADMIN' || role === 'DEALER') ? (
           <div className="portal-dashboard-actions" key="add-device-actions">
             <Link className="portal-dashboard-card" to="/add-device">
               <FaPlus className="portal-dashboard-card-icon" />
@@ -886,7 +856,7 @@ const CustomerDevicePortal = () => {
         <section className="portal-panel">
           <div className="portal-panel-header">
             <div>
-              <h2>{role === 'CUSTOMER' ? 'My Device Status' : 'Renewal Due Devices'}</h2>
+              <h2>Renewal Due Devices</h2>
               <span>Role: {role.replace('_', ' ')}</span>
             </div>
             <button className="portal-icon-button" type="button" onClick={() => openView('devices')} title="Open devices">
@@ -929,25 +899,23 @@ const CustomerDevicePortal = () => {
             <div>
               <h2>Hierarchy</h2>
               <span>
-                {user?.userType === 'Administration' ? 'Administration - Dealer - Sub Dealer - End User' :
-                 role === 'DEALER' ? 'Dealer - Sub Dealer - End User' :
-                 role === 'SUB_DEALER' ? 'Sub Dealer - End User' :
-                 role === 'CUSTOMER' ? 'End User' :
-                 'Admin - Dealer - Sub Dealer - End User'}
+                {user?.userType === 'Administration' ? 'Administration - Dealer - Sub Dealer' :
+                 role === 'DEALER' ? 'Dealer - Sub Dealer' :
+                 role === 'SUB_DEALER' ? 'Sub Dealer' :
+                 'Admin - Dealer - Sub Dealer'}
               </span>
             </div>
             <FaUserShield className="portal-panel-icon" />
           </div>
           <div className="portal-hierarchy">
-            {(user?.userType === 'Administration' ? ['ADMINISTRATION', 'DEALER', 'SUB DEALER', 'END USER'] :
-              role === 'DEALER' ? ['DEALER', 'SUB DEALER', 'END USER'] :
-              role === 'SUB_DEALER' ? ['SUB DEALER', 'END USER'] :
-              role === 'CUSTOMER' ? ['END USER'] :
-              ['ADMIN', 'DEALER', 'SUB DEALER', 'END USER']
+            {(user?.userType === 'Administration' ? ['ADMINISTRATION', 'DEALER', 'SUB DEALER'] :
+              role === 'DEALER' ? ['DEALER', 'SUB DEALER'] :
+              role === 'SUB_DEALER' ? ['SUB DEALER'] :
+              ['ADMIN', 'DEALER', 'SUB DEALER']
             ).map((item, index) => {
               const isCurrent = 
                 (user?.userType === 'Administration' && item === 'ADMINISTRATION') ||
-                (user?.userType !== 'Administration' && ((role.replace('_', ' ') === item) || (role === 'CUSTOMER' && item === 'END USER')));
+                (user?.userType !== 'Administration' && (role.replace('_', ' ') === item));
               return (
                 <div className={`hierarchy-step ${isCurrent ? 'current' : ''}`} key={item}>
                   <span>{index + 1}</span>
@@ -957,16 +925,9 @@ const CustomerDevicePortal = () => {
             })}
           </div>
           <div className="portal-quick-actions">
-            {!isCustomer && (
-              <>
-                <button type="button" onClick={() => openView(role === 'ADMIN' ? 'dealers' : 'subdealers')}>
-                  <FaPlus /> Add Channel User
-                </button>
-                <button type="button" onClick={() => openView('customers')}>
-                  <FaSearch /> Search Customer
-                </button>
-              </>
-            )}
+            <button type="button" onClick={() => openView(role === 'ADMIN' ? 'dealers' : 'subdealers')}>
+              <FaPlus /> Add Channel User
+            </button>
             <button type="button" onClick={() => openView('renewals')}>
               <FaRedo /> Renewal Requests
             </button>
@@ -985,10 +946,9 @@ const CustomerDevicePortal = () => {
           <select value={forcedUserType || userForm.userType} onChange={(event) => updateUserForm('userType', event.target.value)} disabled={Boolean(forcedUserType)}>
             {isAdmin && <option value="Dealer">Dealer</option>}
             {(isAdmin || role === 'DEALER') && <option value="Sub Dealer">Sub Dealer</option>}
-            <option value="End Customer">End User Customer</option>
           </select>
         </label>
-        {(forcedUserType === 'Sub Dealer' || userForm.userType === 'Sub Dealer' || forcedUserType === 'End Customer' || userForm.userType === 'End Customer') && isAdmin && (
+        {(forcedUserType === 'Sub Dealer' || userForm.userType === 'Sub Dealer') && isAdmin && (
           <label>
             <span>Dealer / Parent</span>
             <select value={userForm.parentId} onChange={(event) => updateUserForm('parentId', event.target.value)}>
@@ -1273,27 +1233,6 @@ const CustomerDevicePortal = () => {
             </label>
           )}
           <label>
-            <span>End Customer</span>
-            <select
-              value={deviceForm.assignedTo}
-              onChange={(event) => updateDeviceForm('assignedTo', event.target.value)}
-              disabled={((role !== 'SUB_DEALER' && !deviceForm.dealerId) || endCustomerOptions.length === 0)}
-            >
-              <option value="">
-                {role !== 'SUB_DEALER' && !deviceForm.dealerId
-                  ? 'Select dealer first'
-                  : endCustomerOptions.length === 0
-                  ? 'No end customers found'
-                  : 'Assign end customer (optional)'}
-              </option>
-              {endCustomerOptions.map((customer) => (
-                <option value={customer._id} key={customer._id}>
-                  {getName(customer)}{customer.mobileNo ? ` - ${customer.mobileNo}` : ''}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
             <span>IMEI No.</span>
             <input value={deviceForm.imei} onChange={(event) => updateDeviceForm('imei', event.target.value)} maxLength={15} required />
           </label>
@@ -1531,7 +1470,7 @@ const CustomerDevicePortal = () => {
 
   const renderDeviceManagement = () => (
     <div className="portal-stack" key="view-devices">
-      {!isCustomer && (
+      {(role === 'ADMIN' || role === 'DEALER') && (
         <section className="portal-panel">
           <div className="portal-panel-header">
             <div>
@@ -1546,7 +1485,7 @@ const CustomerDevicePortal = () => {
 
       {renderDevicesTable()}
 
-      {!isCustomer && (
+      {(role === 'ADMIN' || role === 'DEALER') && (
         <div className="portal-split">
           <section className="portal-panel">
             <div className="portal-panel-header">
@@ -1623,138 +1562,7 @@ const CustomerDevicePortal = () => {
     </div>
   );
 
-  const renderCustomers = () => {
-    const selectedRenewals = selectedCustomer?.imei
-      ? renewals.filter((item) => item.imei === selectedCustomer.imei)
-      : renewals.filter((item) => item.customerName === selectedCustomer?.customerName);
-    const selectedDevices = selectedCustomer?.imei
-      ? devices.filter((device) => device.imei === selectedCustomer.imei)
-      : devices.filter((device) => getName(device.assignedTo) === selectedCustomer?.customerName);
 
-    return (
-      <div className="portal-stack" key="view-customers">
-        {!isCustomer && (
-          <section className="portal-panel">
-            <div className="portal-panel-header">
-              <div>
-                <h2>Add Customer</h2>
-                <span>End user customer record</span>
-              </div>
-              <FaAddressCard className="portal-panel-icon" />
-            </div>
-            {renderUserForm('End Customer')}
-          </section>
-        )}
-
-        <section className="portal-panel">
-          <div className="portal-panel-header">
-            <div>
-              <h2>All Customers</h2>
-              <span>{filteredCustomers.length} records</span>
-            </div>
-            <div className="portal-search">
-              <FaSearch />
-              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search customer" />
-            </div>
-          </div>
-          <div className="portal-table-wrap">
-            <table className="portal-table wide">
-              <thead>
-                <tr>
-                  <th>Customer</th>
-                  <th>Mobile</th>
-                  <th>Device</th>
-                  <th>ICCID</th>
-                  <th>Vehicle</th>
-                  <th>Expiry</th>
-                  <th>Status</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredCustomers.map((customer) => (
-                  <tr key={customer._id}>
-                    <td className="strong">{customer.customerName}</td>
-                    <td>{customer.mobileNo || '-'}</td>
-                    <td>{customer.imei || '-'}</td>
-                    <td>{customer.iccid || '-'}</td>
-                    <td>{customer.vehicleNo || '-'}</td>
-                    <td>{formatDate(customer.expiryDate)}</td>
-                    <td>{renderStatus(customer.status)}</td>
-                    <td>
-                      <div className="portal-row-actions">
-                        <button type="button" title="View" onClick={() => setSelectedCustomer(customer)}><FaSearch /></button>
-                        {customer.source === 'User' && (
-                          <button type="button" title="Edit" onClick={() => setEditUser(users.find((item) => item._id === customer._id))}><FaEdit /></button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {filteredCustomers.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="portal-empty">No customer records found.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {selectedCustomer && (
-          <div className="portal-split">
-            <section className="portal-panel">
-              <div className="portal-panel-header">
-                <div>
-                  <h2>Customer Device History</h2>
-                  <span>{selectedCustomer.customerName}</span>
-                </div>
-                <button className="portal-icon-button" type="button" onClick={() => setSelectedCustomer(null)} title="Close">
-                  <FaTimes />
-                </button>
-              </div>
-              <div className="portal-detail-grid">
-                <span>Mobile</span><strong>{selectedCustomer.mobileNo || '-'}</strong>
-                <span>Address</span><strong>{selectedCustomer.address || '-'}</strong>
-                <span>Device</span><strong>{selectedCustomer.imei || '-'}</strong>
-                <span>Vehicle</span><strong>{selectedCustomer.vehicleNo || '-'}</strong>
-              </div>
-              <div className="portal-history-list">
-                {selectedDevices.map((device) => (
-                  <div className="history-entry" key={device._id}>
-                    <strong>{device.imei}</strong>
-                    <span>{device.iccid || '-'} / {device.serialNo || '-'}</span>
-                    <small>{formatDate(device.expiryDate)}</small>
-                  </div>
-                ))}
-                {selectedDevices.length === 0 && <div className="portal-empty compact-empty">No device history found.</div>}
-              </div>
-            </section>
-
-            <section className="portal-panel">
-              <div className="portal-panel-header">
-                <div>
-                  <h2>Renewal History</h2>
-                  <span>{selectedRenewals.length} records</span>
-                </div>
-                <FaRedo className="portal-panel-icon" />
-              </div>
-              <div className="portal-history-list">
-                {selectedRenewals.map((renewal) => (
-                  <div className="history-entry" key={renewal._id}>
-                    <strong>{renewal.requestId}</strong>
-                    <span>{renewal.validity} / {renewal.status}</span>
-                    <small>{formatDate(renewal.createdAt)}</small>
-                  </div>
-                ))}
-                {selectedRenewals.length === 0 && <div className="portal-empty compact-empty">No renewal history found.</div>}
-              </div>
-            </section>
-          </div>
-        )}
-      </div>
-    );
-  };
 
   const renderRenewals = () => (
     <div className="portal-stack" key="view-renewals">
@@ -1934,7 +1742,7 @@ const CustomerDevicePortal = () => {
     if (loading) return <div className="portal-loading">Loading portal data...</div>;
     if (error) return <div className="portal-error">{error}</div>;
 
-    if (isCustomer && ['dealers', 'subdealers', 'users', 'customers', 'reports'].includes(activeView)) {
+    if (role === 'SUB_DEALER' && ['subdealers', 'users', 'dealers', 'customers'].includes(activeView)) {
       return renderDashboard();
     }
 
@@ -1942,18 +1750,12 @@ const CustomerDevicePortal = () => {
       return renderDashboard();
     }
 
-    if (role === 'SUB_DEALER' && ['subdealers', 'users'].includes(activeView)) {
-      return renderCustomers();
-    }
-
     if (activeView === 'dealers') return renderDealerManagement(false);
     if (activeView === 'subdealers') return renderDealerManagement(true);
     if (activeView === 'users') return renderUserManagement();
     if (activeView === 'devices') return renderDeviceManagement();
-    if (activeView === 'customers') return renderCustomers();
     if (activeView === 'reports') return renderReports();
     if (activeView === 'profile') return renderProfile();
-    if (activeView === 'mydevices') return renderDevicesTable(filteredDevices, 'My Devices');
     if (activeView === 'renewals') return renderRenewals();
     return renderDashboard();
   };
@@ -1969,8 +1771,7 @@ const CustomerDevicePortal = () => {
         </div>
         <div className="portal-title-actions">
           <button type="button" className={activeView === 'dashboard' ? 'active' : ''} onClick={() => openView('dashboard')}>Dashboard</button>
-          {!isCustomer ? <button type="button" className={activeView === 'customers' ? 'active' : ''} onClick={() => openView('customers')}>Customers</button> : null}
-          <button type="button" className={activeView === 'devices' || activeView === 'mydevices' ? 'active' : ''} onClick={() => openView(isCustomer ? 'mydevices' : 'devices')}>Devices</button>
+          <button type="button" className={activeView === 'devices' ? 'active' : ''} onClick={() => openView('devices')}>Devices</button>
           <button type="button" className={activeView === 'renewals' ? 'active' : ''} onClick={() => openView('renewals')}>Renewals</button>
         </div>
       </div>

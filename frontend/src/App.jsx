@@ -19,7 +19,6 @@ const getRole = (user) => {
   if (user?.role === 'partner') return 'ADMIN';
   if (user?.userType === 'Administration') return 'ADMIN';
   if (user?.userType === 'Sub Dealer') return 'SUB_DEALER';
-  if (user?.userType === 'End Customer') return 'CUSTOMER';
   return 'DEALER';
 };
 
@@ -121,7 +120,7 @@ function App() {
         <Route 
           path="/user-management" 
           element={
-            <ProtectedRoute allowedRoles={operationsRoles}>
+            <ProtectedRoute allowedRoles={['ADMIN', 'DEALER']}>
               <Layout>
                 <UserManagement />
               </Layout>
@@ -154,7 +153,7 @@ function App() {
         <Route 
           path="/add-device" 
           element={
-            <ProtectedRoute allowedRoles={operationsRoles}>
+            <ProtectedRoute allowedRoles={['ADMIN', 'DEALER']}>
               <Layout>
                 <AddDevice />
               </Layout>
@@ -167,7 +166,7 @@ function App() {
         <Route 
           path="/certificates" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['ADMIN', 'DEALER']}>
               <Layout>
                 <Certificates />
               </Layout>

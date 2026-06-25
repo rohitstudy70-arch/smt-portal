@@ -7,7 +7,6 @@ const getRole = (user) => {
   if (user?.role === 'partner') return 'ADMIN';
   if (user?.userType === 'Administration') return 'ADMIN';
   if (user?.userType === 'Sub Dealer') return 'SUB_DEALER';
-  if (user?.userType === 'End Customer') return 'CUSTOMER';
   return 'DEALER';
 };
 
@@ -32,13 +31,11 @@ const Certificates = () => {
       <div className="certificates-actions-row">
         <h1 className="page-heading">Device <span className="subtitle">Certificates</span></h1>
         
-        {role !== 'CUSTOMER' && (
-          <div className="button-group">
-            <button className="btn-upload-cert" onClick={() => alert('Opening certificate upload dialog...')}>
-              <FaPlus /> Upload Certificate
-            </button>
-          </div>
-        )}
+        <div className="button-group">
+          <button className="btn-upload-cert" onClick={() => alert('Opening certificate upload dialog...')}>
+            <FaPlus /> Upload Certificate
+          </button>
+        </div>
       </div>
 
       <div className="card-panel">

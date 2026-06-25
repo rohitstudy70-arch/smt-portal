@@ -26,7 +26,7 @@ router.get('/sub-users', protect, async (req, res) => {
 
     let subUsers;
     if (role === 'ADMIN') {
-      subUsers = await User.find({ userType: { $ne: 'End Customer' } }).select('-password').lean();
+      subUsers = await User.find({}).select('-password').lean();
     } else {
       const descendants = await getDescendantUsers(req.user._id);
       subUsers = descendants
@@ -340,7 +340,7 @@ router.get('/dealers', protect, async (req, res) => {
     if (role === 'ADMIN') {
       query = {
         role: 'customer',
-        userType: { $nin: ['Sub Dealer', 'End Customer', 'Administration'] },
+        userType: { $nin: ['Sub Dealer', 'Administration'] },
       };
     } else if (role === 'DEALER') {
       query = { _id: req.user._id };

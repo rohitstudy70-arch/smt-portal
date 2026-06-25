@@ -11,7 +11,6 @@ const DeviceManagement = () => {
     if (u?.role === 'partner') return 'ADMIN';
     if (u?.userType === 'Administration') return 'ADMIN';
     if (u?.userType === 'Sub Dealer') return 'SUB_DEALER';
-    if (u?.userType === 'End Customer') return 'CUSTOMER';
     return 'DEALER';
   };
   const role = getRole(user);
@@ -145,11 +144,9 @@ const DeviceManagement = () => {
   const canDeleteDevice = (device) => {
     let targetOwnerRole = 'DEALER';
     if (device.assignedTo) {
-      const assigneeType = device.assignedTo.userType || 'End Customer';
+      const assigneeType = device.assignedTo.userType || 'Dealer';
       if (assigneeType === 'Sub Dealer') {
         targetOwnerRole = 'SUB_DEALER';
-      } else if (assigneeType === 'End Customer') {
-        targetOwnerRole = 'CUSTOMER';
       } else {
         targetOwnerRole = 'DEALER';
       }
@@ -163,9 +160,7 @@ const DeviceManagement = () => {
     if (targetOwnerRole === 'SUB_DEALER') {
       return role === 'ADMIN' || role === 'DEALER';
     }
-    if (targetOwnerRole === 'CUSTOMER') {
-      return role === 'ADMIN' || role === 'DEALER' || role === 'SUB_DEALER';
-    }
+
     return false;
   };
 

@@ -8,14 +8,13 @@ const getRole = (user) => {
   if (user?.role === 'partner') return 'ADMIN';
   if (user?.userType === 'Administration') return 'ADMIN';
   if (user?.userType === 'Sub Dealer') return 'SUB_DEALER';
-  if (user?.userType === 'End Customer') return 'CUSTOMER';
   return 'DEALER';
 };
 
 const userTypesByRole = {
-  ADMIN: ['Dealer', 'Sub Dealer', 'End Customer'],
-  DEALER: ['Sub Dealer', 'End Customer'],
-  SUB_DEALER: ['End Customer'],
+  ADMIN: ['Dealer', 'Sub Dealer'],
+  DEALER: ['Sub Dealer'],
+  SUB_DEALER: [],
 };
 
 const UserManagement = () => {
@@ -23,7 +22,7 @@ const UserManagement = () => {
   const role = getRole(user);
   const isFullAdmin = user?.role === 'partner' && user?.userType !== 'Administration';
   const allowedUserTypes = isFullAdmin
-    ? ['Administration', 'Dealer', 'Sub Dealer', 'End Customer']
+    ? ['Administration', 'Dealer', 'Sub Dealer']
     : (userTypesByRole[role] || []);
   const [subUsers, setSubUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,7 +30,7 @@ const UserManagement = () => {
   const [success, setSuccess] = useState('');
   
   // Form State
-  const [userType, setUserType] = useState(allowedUserTypes[0] || 'End Customer');
+  const [userType, setUserType] = useState(allowedUserTypes[0] || 'Sub Dealer');
   const [displayName, setDisplayName] = useState('');
   const [mobileNo, setMobileNo] = useState('');
   const [email, setEmail] = useState('');
@@ -155,9 +154,6 @@ const UserManagement = () => {
     if (targetUserType === 'Sub Dealer') {
       return role === 'ADMIN' || role === 'DEALER';
     }
-    if (targetUserType === 'End Customer') {
-      return role === 'ADMIN' || role === 'DEALER' || role === 'SUB_DEALER';
-    }
     return false;
   };
 
@@ -177,7 +173,7 @@ const UserManagement = () => {
   const resetForm = () => {
     setIsEditMode(false);
     setEditingUserId(null);
-    setUserType(allowedUserTypes[0] || 'End Customer');
+    setUserType(allowedUserTypes[0] || 'Sub Dealer');
     setDisplayName('');
     setMobileNo('');
     setEmail('');

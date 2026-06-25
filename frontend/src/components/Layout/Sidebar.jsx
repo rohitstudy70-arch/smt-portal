@@ -22,7 +22,6 @@ const getRole = (user) => {
   if (user?.role === 'partner') return 'ADMIN';
   if (user?.userType === 'Administration') return 'ADMIN';
   if (user?.userType === 'Sub Dealer') return 'SUB_DEALER';
-  if (user?.userType === 'End Customer') return 'CUSTOMER';
   return 'DEALER';
 };
 
@@ -36,7 +35,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     location.pathname.startsWith('/account')
   );
   const role = getRole(user);
-  const allRoles = ['ADMIN', 'DEALER', 'SUB_DEALER', 'CUSTOMER'];
+  const allRoles = ['ADMIN', 'DEALER', 'SUB_DEALER'];
   const operationsRoles = ['ADMIN', 'DEALER', 'SUB_DEALER'];
   const currentPortalView = new URLSearchParams(location.search).get('view') || 'dashboard';
 
@@ -137,7 +136,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
 
 
-        {canShow(operationsRoles) && (
+        {canShow(['ADMIN', 'DEALER']) && (
           <li className={`sidebar-menu-item ${location.pathname === '/user-management' ? 'active' : ''}`}>
             <NavLink to="/user-management">
               <FaUsers className="menu-icon" />
@@ -166,14 +165,14 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
         {canShow(allRoles) && (
           <li className={`sidebar-menu-item ${isDeviceViewActive ? 'active' : ''}`}>
-            <NavLink to={role === 'CUSTOMER' ? '/dashboard?view=mydevices' : '/dashboard?view=devices'}>
+            <NavLink to="/dashboard?view=devices">
               <FaMobileAlt className="menu-icon" />
               <span className="menu-text">Device Management</span>
             </NavLink>
           </li>
         )}
 
-        {canShow(operationsRoles) && (
+        {canShow(['ADMIN', 'DEALER']) && (
           <li className={`sidebar-menu-item ${location.pathname === '/add-device' ? 'active' : ''}`}>
             <NavLink to="/add-device">
               <FaPlusCircle className="menu-icon" />
@@ -182,7 +181,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           </li>
         )}
 
-        {canShow(allRoles) && (
+        {canShow(['ADMIN', 'DEALER']) && (
           <li className={`sidebar-menu-item ${location.pathname === '/certificates' ? 'active' : ''}`}>
             <NavLink to="/certificates">
               <FaCertificate className="menu-icon" />

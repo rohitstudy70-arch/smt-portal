@@ -19,7 +19,6 @@ const getRole = (user) => {
   if (user?.role === 'partner') return 'ADMIN';
   if (user?.userType === 'Administration') return 'ADMIN';
   if (user?.userType === 'Sub Dealer') return 'SUB_DEALER';
-  if (user?.userType === 'End Customer') return 'CUSTOMER';
   return 'DEALER';
 };
 
@@ -166,10 +165,8 @@ const AddDevice = () => {
 
   // Fetch devices when search query, role or date filters change
   useEffect(() => {
-    if (role !== 'CUSTOMER') {
-      fetchDevices(debouncedSearch, filterFromDate, filterToDate);
-    }
-  }, [debouncedSearch, filterFromDate, filterToDate, fetchDevices, role]);
+    fetchDevices(debouncedSearch, filterFromDate, filterToDate);
+  }, [debouncedSearch, filterFromDate, filterToDate, fetchDevices]);
 
   const handleDateModeChange = (mode) => {
     setFilterDateMode(mode);
@@ -226,9 +223,7 @@ const AddDevice = () => {
       }
     };
 
-    if (role !== 'CUSTOMER') {
-      fetchAllUsersAndPopulate();
-    }
+    fetchAllUsersAndPopulate();
   }, [role, user]);
 
   useEffect(() => {
@@ -373,19 +368,7 @@ const AddDevice = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  if (role === 'CUSTOMER') {
-    return (
-      <div className="add-device-container">
-        <div className="add-device-card device-list-card">
-          <div className="add-device-header">
-            <FaFilter className="header-icon" />
-            <span>DEVICE TABLE</span>
-          </div>
-          <div className="add-device-denied">Forbidden: You do not have permission to view devices.</div>
-        </div>
-      </div>
-    );
-  }
+
 
   return (
     <div className="add-device-container">

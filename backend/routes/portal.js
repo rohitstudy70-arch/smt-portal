@@ -19,7 +19,6 @@ const getPortalRole = (user) => {
   if (user.role === 'partner') return 'ADMIN';
   if (user.userType === 'Administration') return 'ADMIN';
   if (user.userType === 'Sub Dealer') return 'SUB_DEALER';
-  if (user.userType === 'End Customer') return null;
   return 'DEALER';
 };
 
@@ -166,7 +165,7 @@ const getScopedUsersByType = (scope, type) => {
   ));
 
   if (type === 'dealer') {
-    return users.filter((item) => item.role === 'customer' && !item.parentId && !['End Customer', 'Administration'].includes(item.userType));
+    return users.filter((item) => item.role === 'customer' && !item.parentId && !['Administration'].includes(item.userType));
   }
 
   if (type === 'subDealer') {
@@ -177,7 +176,7 @@ const getScopedUsersByType = (scope, type) => {
     return [];
   }
 
-  return users.filter((item) => item.role !== 'partner' && item.userType !== 'End Customer');
+  return users.filter((item) => item.role !== 'partner');
 };
 
 router.get('/summary', protect, async (req, res) => {
