@@ -346,6 +346,10 @@ export const renderProformaInvoiceHtml = (invoice, { logo, includeActions = true
   .footer{margin:16px 28px 22px;padding-top:14px;border-top:1.5px solid var(--border);text-align:center}
   .footer p{font-size:11px;color:var(--muted);line-height:1.5;font-style:italic}
   @media print{
+    * {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
     body{background:#fff;padding:0}
     .action-bar{display:none}
     .page{box-shadow:none;border:none;border-radius:0;max-width:100%}

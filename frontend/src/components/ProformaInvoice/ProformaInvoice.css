@@ -450,6 +450,11 @@
 }
 
 @media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
   @page {
     size: A4 portrait;
     margin: 0;
@@ -458,8 +463,6 @@
   body {
     background: #fff;
     padding: 0;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
   }
 
   .proforma-invoice-wrapper {
