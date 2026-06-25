@@ -43,6 +43,7 @@ const {
   attachHierarchyScope,
   buildDeviceScopeQuery,
   getPortalRole,
+  isIdInScope,
   labelForUser,
   requireRoles,
 } = require('../middleware/hierarchy');
@@ -116,7 +117,8 @@ const ensureDueUserAccess = async (req, targetUserId) => {
 
   if (req.portalRole === PORTAL_ROLES.ADMIN) return user;
 
-  return user._id.toString() === req.user._id.toString() ? user : null;
+  if (isIdInScope(req.hierarchyScope, user._id)) return user;
+  return null;
 };
 
 const paymentMatchForScope = (userIds, query = {}) => {

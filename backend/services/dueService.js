@@ -170,7 +170,13 @@ const getDueUsersForScope = async (scope, currentUser) => {
   }
 
   const role = getPortalRole(currentUser);
-  if ([PORTAL_ROLES.DEALER, PORTAL_ROLES.SUB_DEALER].includes(role)) {
+  if (role === PORTAL_ROLES.DEALER) {
+    return scope.users.filter((user) => (
+      [PORTAL_ROLES.DEALER, PORTAL_ROLES.SUB_DEALER].includes(getPortalRole(user))
+    ));
+  }
+
+  if (role === PORTAL_ROLES.SUB_DEALER) {
     return [currentUser];
   }
 

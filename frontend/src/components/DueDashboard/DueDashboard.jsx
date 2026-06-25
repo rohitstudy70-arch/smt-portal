@@ -39,6 +39,7 @@ const DueDashboard = () => {
 
   const userRole = user?.role === 'partner' ? 'ADMIN' : user?.userType === 'Administration' ? 'ADMIN' : user?.userType === 'Sub Dealer' ? 'SUB_DEALER' : 'DEALER';
   const isAdmin = userRole === 'ADMIN';
+  const isListView = isAdmin || userRole === 'DEALER';
 
   // State definitions
   const [summary, setSummary] = useState(null);
@@ -142,9 +143,9 @@ const DueDashboard = () => {
     }
   }, []);
 
-  // Fetch Dues List (for Admin)
+  // Fetch Dues List (for Admin/Dealer)
   const fetchDues = useCallback(async () => {
-    if (!isAdmin) return;
+    if (!isListView) return;
     try {
       setLoading(true);
       const res = await api.get('/due-dashboard/dealers', {
@@ -165,7 +166,7 @@ const DueDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [isAdmin, duesPage, duesFilters]);
+  }, [isListView, duesPage, duesFilters]);
 
   // Fetch Renewal Due Devices
   const fetchRenewals = useCallback(async () => {
@@ -194,9 +195,9 @@ const DueDashboard = () => {
     }
   }, [renewalsPage, renewalsFilters]);
 
-  // Fetch Self Due Information (for Dealer / Sub Dealer)
+  // Fetch Self Due Information (for Sub Dealer)
   const fetchSelfDetails = useCallback(async () => {
-    if (isAdmin) return;
+    if (isListView) return;
     try {
       setLoading(true);
       const res = await api.get(`/due-dashboard/dealers/${user._id}`);
@@ -207,11 +208,11 @@ const DueDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [isAdmin, user._id]);
+  }, [isListView, user._id]);
 
-  // Fetch Verification Requests for Dealer self view
+  // Fetch Verification Requests for Sub Dealer self view
   const fetchVerificationRequests = useCallback(async () => {
-    if (isAdmin) return;
+    if (isListView) return;
     try {
       setLoadingRequests(true);
       const res = await api.get('/payment-verification-requests');
@@ -221,7 +222,7 @@ const DueDashboard = () => {
     } finally {
       setLoadingRequests(false);
     }
-  }, [isAdmin]);
+  }, [isListView]);
 
   // Fetch Verification Requests for Admin view
   const fetchAdminVerificationRequests = useCallback(async () => {
@@ -272,7 +273,7 @@ const DueDashboard = () => {
   useEffect(() => {
     fetchSummary();
     if (activeTab === 'dues') {
-      if (isAdmin) {
+      if (isListView) {
         fetchDues();
       } else {
         fetchSelfDetails();
@@ -285,7 +286,7 @@ const DueDashboard = () => {
         fetchAdminVerificationRequests();
       }
     }
-  }, [activeTab, fetchSummary, fetchDues, fetchRenewals, fetchSelfDetails, fetchVerificationRequests, fetchAdminVerificationRequests, isAdmin]);
+  }, [activeTab, fetchSummary, fetchDues, fetchRenewals, fetchSelfDetails, fetchVerificationRequests, fetchAdminVerificationRequests, isListView, isAdmin]);
 
   // Open Tab handler
   const handleTabChange = (tabName) => {
@@ -551,8 +552,8 @@ const DueDashboard = () => {
   };
 
   const handleCardClick = (cardType) => {
-    console.log('handleCardClick called for:', cardType, 'isAdmin:', isAdmin);
-    if (!isAdmin) return;
+    console.log('handleCardClick called for:', cardType, 'isListView:', isListView);
+    if (!isListView) return;
 
     if (cardType === 'totalOutstanding' || cardType === 'totalDue' || cardType === 'pendingBills') {
       setDuesFilters({
@@ -604,7 +605,7 @@ const DueDashboard = () => {
             className={`due-tab-btn ${activeTab === 'dues' ? 'active' : ''}`}
             onClick={() => handleTabChange('dues')}
           >
-            {isAdmin ? 'Dealer Dues' : 'My Dues'}
+            {isListView ? (isAdmin ? 'Dealer Dues' : 'Dealer & Sub Dealer Dues') : 'My Dues'}
           </button>
           <button
             className={`due-tab-btn ${activeTab === 'renewals' ? 'active' : ''}`}
@@ -634,31 +635,33 @@ const DueDashboard = () => {
       {/* METRIC SUMMARY CARDS */}
       {activeTab !== 'exports' && summary && (
         <div className="due-summary-cards">
-          <div className={`due-summary-card tone-red ${isAdmin ? 'clickable' : ''}`} onClick={() => handleCardClick('totalOutstanding')}>
+          <div className={`due-summary-card tone-red ${isListView ? 'clickable' : ''}`} onClick={() => handleCardClick('totalOutstanding')}>
             <div className="card-info">
               <span className="card-value">₹{(summary.totalOutstandingAmount || 0).toLocaleString()}</span>
-              <span className="card-label">{isAdmin ? 'Total Outstanding Amount' : 'My Total Outstanding'}</span>
+              <span className="card-label">{isListView ? 'Total Outstanding Amount' : 'My Total Outstanding'}</span>
             </div>
             <FaRupeeSign className="card-icon" />
           </div>
 
-          <div className={`due-summary-card tone-amber ${isAdmin ? 'clickable' : ''}`} onClick={() => handleCardClick('totalDue')}>
+          <div className={`due-summary-card tone-amber ${isListView ? 'clickable' : ''}`} onClick={() => handleCardClick('totalDue')}>
             <div className="card-info">
               <span className="card-value">₹{(summary.totalDueAmount || 0).toLocaleString()}</span>
-              <span className="card-label">{isAdmin ? 'Total Due Amount (Over 30 Days)' : 'My Current Due (Over 30 Days)'}</span>
+              <span className="card-label">{isListView ? 'Total Due Amount (Over 30 Days)' : 'My Current Due (Over 30 Days)'}</span>
             </div>
             <FaRupeeSign className="card-icon" />
           </div>
 
-          {isAdmin && (
+          {isListView && (
             <>
-              <div className="due-summary-card tone-blue clickable" onClick={() => handleCardClick('totalDealers')}>
-                <div className="card-info">
-                  <span className="card-value">{summary.totalDealers || 0}</span>
-                  <span className="card-label">Total Dealers</span>
+              {isAdmin && (
+                <div className="due-summary-card tone-blue clickable" onClick={() => handleCardClick('totalDealers')}>
+                  <div className="card-info">
+                    <span className="card-value">{summary.totalDealers || 0}</span>
+                    <span className="card-label">Total Dealers</span>
+                  </div>
+                  <FaUserTie className="card-icon" />
                 </div>
-                <FaUserTie className="card-icon" />
-              </div>
+              )}
 
               <div className="due-summary-card tone-green clickable" onClick={() => handleCardClick('totalSubDealers')}>
                 <div className="card-info">
@@ -671,26 +674,30 @@ const DueDashboard = () => {
               <div className="due-summary-card tone-amber clickable" onClick={() => handleCardClick('pendingBills')}>
                 <div className="card-info">
                   <span className="card-value">{summary.totalPendingDevices || 0}</span>
-                  <span className="card-label">Dealers Pending Bills</span>
+                  <span className="card-label">{isAdmin ? 'Dealers Pending Bills' : 'Sub Dealers Pending Bills'}</span>
                 </div>
                 <FaMobileAlt className="card-icon" />
               </div>
 
-              <div className="due-summary-card tone-green clickable" onClick={() => handleCardClick('todaysCollection')}>
-                <div className="card-info">
-                  <span className="card-value">₹{(summary.todaysCollection || 0).toLocaleString()}</span>
-                  <span className="card-label">Today's Collection</span>
-                </div>
-                <FaRupeeSign className="card-icon" />
-              </div>
+              {isAdmin && (
+                <>
+                  <div className="due-summary-card tone-green clickable" onClick={() => handleCardClick('todaysCollection')}>
+                    <div className="card-info">
+                      <span className="card-value">₹{(summary.todaysCollection || 0).toLocaleString()}</span>
+                      <span className="card-label">Today's Collection</span>
+                    </div>
+                    <FaRupeeSign className="card-icon" />
+                  </div>
 
-              <div className="due-summary-card tone-violet clickable" onClick={() => handleCardClick('monthlyCollection')}>
-                <div className="card-info">
-                  <span className="card-value">₹{(summary.monthlyCollection || 0).toLocaleString()}</span>
-                  <span className="card-label">Monthly Collection</span>
-                </div>
-                <FaCoins className="card-icon" />
-              </div>
+                  <div className="due-summary-card tone-violet clickable" onClick={() => handleCardClick('monthlyCollection')}>
+                    <div className="card-info">
+                      <span className="card-value">₹{(summary.monthlyCollection || 0).toLocaleString()}</span>
+                      <span className="card-label">Monthly Collection</span>
+                    </div>
+                    <FaCoins className="card-icon" />
+                  </div>
+                </>
+              )}
             </>
           )}
         </div>
@@ -700,7 +707,7 @@ const DueDashboard = () => {
       <div className="due-tab-content">
         {/* TAB 1: DEALER DUES */}
         {activeTab === 'dues' && (
-          isAdmin ? (
+          isListView ? (
             /* ADMIN DUE VIEW */
             <div className="due-panel">
               <div className="due-panel-header">
@@ -797,7 +804,7 @@ const DueDashboard = () => {
                             </span>
                           </td>
                           <td>
-                            {due.totalOutstanding > 0 && (
+                            {isAdmin && due.totalOutstanding > 0 && (
                               <button
                                 className="due-action-btn primary"
                                 onClick={() => openPaymentModal(due)}
@@ -1111,19 +1118,21 @@ const DueDashboard = () => {
                     }}
                   />
                 </div>
-                {isAdmin && (
+                 {isListView && (
                   <>
-                    <div className="search-box input-filter">
-                      <input
-                        type="text"
-                        placeholder="Dealer Name..."
-                        value={renewalsFilters.dealer}
-                        onChange={(e) => {
-                          setRenewalsFilters(prev => ({ ...prev, dealer: e.target.value }));
-                          setRenewalsPage(1);
-                        }}
-                      />
-                    </div>
+                    {isAdmin && (
+                      <div className="search-box input-filter">
+                        <input
+                          type="text"
+                          placeholder="Dealer Name..."
+                          value={renewalsFilters.dealer}
+                          onChange={(e) => {
+                            setRenewalsFilters(prev => ({ ...prev, dealer: e.target.value }));
+                            setRenewalsPage(1);
+                          }}
+                        />
+                      </div>
+                    )}
                     <div className="search-box input-filter">
                       <input
                         type="text"

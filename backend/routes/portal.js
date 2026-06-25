@@ -655,6 +655,18 @@ router.post('/devices/bulk', protect, async (req, res) => {
         dealer = req.user;
       }
 
+      const rawSubDealerId = String(rawDevice.subDealerId || '').trim();
+      const rawSubDealerName = String(rawDevice.subDealerName || '').trim();
+
+      if (rawSubDealerId || rawSubDealerName) {
+        subDealer = scope.users.find((item) => {
+          if (getPortalRole(item) !== 'SUB_DEALER') return false;
+          if (rawSubDealerId && item._id.toString() === rawSubDealerId) return true;
+          if (rawSubDealerName && labelForUser(item).toLowerCase() === rawSubDealerName.toLowerCase()) return true;
+          return false;
+        });
+      }
+
       let presentDate = new Date();
       if (rawDevice.presentDate) {
         const parsed = new Date(rawDevice.presentDate);
