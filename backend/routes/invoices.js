@@ -81,18 +81,18 @@ const generateNextInvoiceNo = async () => {
 };
 
 const generateNextPiNo = async () => {
-  const allInvoices = await Invoice.find({ piNo: /^AE-\d+$/ }).select('piNo');
-  
+  const allInvoices = await Invoice.find({ piNo: /^(AE-\d+|AE_PI_\d+)$/ }).select('piNo');
+
   if (allInvoices.length > 0) {
-    const nums = allInvoices.map(inv => {
-      const numPart = parseInt(inv.piNo.replace('AE-', ''), 10);
-      return isNaN(numPart) ? 0 : numPart;
+    const nums = allInvoices.map((inv) => {
+      const match = inv.piNo.match(/^(?:AE-|AE_PI_)(\d+)$/);
+      return match ? parseInt(match[1], 10) : 0;
     });
     const maxNum = Math.max(...nums);
-    return `AE-${String(maxNum + 1).padStart(2, '0')}`;
+    return `AE_PI_${String(maxNum + 1).padStart(3, '0')}`;
   }
 
-  return 'AE-01';
+  return 'AE_PI_001';
 };
 
 const toNumber = (value) => {
@@ -280,7 +280,7 @@ router.post('/', requireRoles(...operationsRoles), async (req, res) => {
     // User creation logic removed as per request to stop generating customer login ID on invoice generation
 
     let finalPiNo = piNo || '';
-    if (!finalPiNo || finalPiNo === 'AE-01') {
+    if (!finalPiNo || finalPiNo === 'AE-01' || finalPiNo === 'AE_PI_001') {
       finalPiNo = await generateNextPiNo();
     }
 

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { FaDownload, FaSpinner, FaFileInvoiceDollar, FaPlus, FaTrash, FaEye } from 'react-icons/fa';
+import { useSearchParams } from 'react-router-dom';
+import { FaSpinner, FaFileInvoiceDollar } from 'react-icons/fa';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { INVOICE_LOGO } from '../../utils/invoiceLogo';
+import { renderProformaInvoiceHtml } from '../../utils/proformaInvoiceTemplate';
 import './InvoiceGenerator.css';
 
 const INDIAN_STATES = [
@@ -64,15 +65,6 @@ const getItemGstRate = (item, fallback = 18) => {
   const igst = toNumber(item.igst);
   return igst || (cgst + sgst) || fallback;
 };
-
-const escapeHtml = (value) => String(value ?? '')
-  .replace(/&/g, '&amp;')
-  .replace(/</g, '&lt;')
-  .replace(/>/g, '&gt;')
-  .replace(/"/g, '&quot;')
-  .replace(/'/g, '&#39;');
-
-const formatInvoiceDescription = (value) => escapeHtml(value).replace(/\n/g, '<br/>');
 
 const InvoiceGenerator = () => {
   const { user } = useAuth();
@@ -350,7 +342,7 @@ const InvoiceGenerator = () => {
         subDealerName: subDealerName,
         customerState,
         dealerState,
-        piNo: piNo || 'AE-01',
+        piNo: piNo || 'AE_PI_001',
         piValue: totalVal,
         invoiceNo,
         engineNo,
@@ -407,454 +399,19 @@ const InvoiceGenerator = () => {
     }
   };
 
-  const numberToWords = (price) => {
-    const s = Math.round(price);
-    const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
-    const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-    
-    const convert = (num) => {
-      if (num < 20) return a[num];
-      if (num < 100) return b[Math.floor(num / 10)] + (num % 10 ? ' ' + a[num % 10] : '');
-      if (num < 1000) return a[Math.floor(num / 100)] + ' Hundred' + (num % 100 ? ' and ' + convert(num % 100) : '');
-      if (num < 100000) return convert(Math.floor(num / 1000)) + ' Thousand' + (num % 1000 ? ' ' + convert(num % 1000) : '');
-      if (num < 10000000) return convert(Math.floor(num / 100000)) + ' Lakh' + (num % 100000 ? ' ' + convert(num % 100000) : '');
-      return convert(Math.floor(num / 10000000)) + ' Crore' + (num % 10000000 ? ' ' + convert(num % 10000000) : '');
-    };
-    
-    if (s === 0) return 'Zero Rupees Only';
-    return convert(s) + ' Rupees Only';
-  };
-
   const handleDownloadInvoice = (req) => {
-    const customerName = (req.isSubDealer && req.subDealerName ? req.subDealerName : req.endCustomerName) || 'JYOTI CONSTRUCTION AND ENGINEERING Pvt. Ltd';
-    const customerAddress = req.address || 'PAPRAUR, Begusarai, Bihar, 851210';
-    const customerMob = req.rmn || '9031622921';
-    const customerGstin = req.poaNo || '10AAECJ5132H1Z3';
-    
-    const piDate = new Date(req.dateTime).toLocaleDateString('en-GB').replace(/\//g, '.');
-    const piInvoiceNo = req.piNo || 'AE-01';
-
-    const formatCurrencyIG = (val) => {
-      return new Intl.NumberFormat('en-IN', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }).format(val);
-    };
-
-    let itemsHtml = '';
-    let subtotal = 0;
-    let sgstTotal = 0;
-    let cgstTotal = 0;
-    let igstTotal = 0;
-    let totalAmt = 0;
-
-    const targetState = req.isSubDealer ? (req.dealerState || 'Bihar') : (req.customerState || 'Bihar');
-    const isIntraState = targetState && targetState.toLowerCase() === 'bihar';
-
-    if (req.items && req.items.length > 0) {
-      itemsHtml = req.items.map((item, index) => {
-        const unitPrice = toNumber(item.unitPrice);
-        const qty = parseQty(item.qty);
-        const gstRate = getItemGstRate(item);
-
-        let cgstRate = 0, sgstRate = 0, igstRate = 0;
-        if (isIntraState) {
-          cgstRate = toNumber(item.cgst) || (toNumber(item.igst) / 2) || (gstRate / 2);
-          sgstRate = toNumber(item.sgst) || (toNumber(item.igst) / 2) || (gstRate / 2);
-        } else {
-          igstRate = toNumber(item.igst) || (toNumber(item.cgst) + toNumber(item.sgst)) || gstRate;
-        }
-
-        const taxableValue = roundCurrency(unitPrice * qty);
-        subtotal += taxableValue;
-        
-        const cgstAmt = roundCurrency((taxableValue * cgstRate) / 100);
-        const sgstAmt = roundCurrency((taxableValue * sgstRate) / 100);
-        const igstAmt = roundCurrency((taxableValue * igstRate) / 100);
-        
-        cgstTotal += cgstAmt;
-        sgstTotal += sgstAmt;
-        igstTotal += igstAmt;
-
-        const itemTotal = roundCurrency(taxableValue + cgstAmt + sgstAmt + igstAmt);
-        const displayGstRate = isIntraState ? (cgstRate + sgstRate) : igstRate;
-
-        return `
-          <tr>
-            <td style="text-align:center">${index + 1}</td>
-            <td class="desc">${formatInvoiceDescription(item.description)}</td>
-            <td class="num">${qty}</td>
-            <td class="num">${formatCurrencyIG(unitPrice)}</td>
-            <td class="num">${formatCurrencyIG(taxableValue)}</td>
-            <td class="num">${displayGstRate}%</td>
-            <td class="num">${formatCurrencyIG(itemTotal)}</td>
-          </tr>
-        `;
-      }).join('');
-      
-      subtotal = roundCurrency(subtotal);
-      cgstTotal = roundCurrency(cgstTotal);
-      sgstTotal = roundCurrency(sgstTotal);
-      igstTotal = roundCurrency(igstTotal);
-      totalAmt = roundCurrency(subtotal + cgstTotal + sgstTotal + igstTotal);
-    } else {
-      const is2Years = req.validity === '2 Years' || req.validity === '24 Month';
-      const is5Years = req.validity === '5 Years' || req.validity === '60 Month';
-      
-      let unitPrice = 4300;
-      let cgstRate = 9;
-      let sgstRate = 9;
-      let validityPeriod = '12 Month';
-      
-      if (is2Years) {
-        unitPrice = 5600;
-        validityPeriod = '24 Month';
-      } else if (is5Years) {
-        unitPrice = 10000;
-        validityPeriod = '60 Month';
-      }
-      
-      // Item 1
-      const qty1 = 1;
-      const taxable1 = roundCurrency(unitPrice * qty1);
-      let cgstAmt1 = 0, sgstAmt1 = 0, igstAmt1 = 0;
-      if (isIntraState) {
-        cgstAmt1 = roundCurrency((taxable1 * cgstRate) / 100);
-        sgstAmt1 = roundCurrency((taxable1 * sgstRate) / 100);
-      } else {
-        igstAmt1 = roundCurrency((taxable1 * 18) / 100);
-      }
-      const totalWithGst1 = roundCurrency(taxable1 + cgstAmt1 + sgstAmt1 + igstAmt1);
-
-      // Item 2 (Installation)
-      const unitPrice2 = 400;
-      const qty2 = 1;
-      const taxable2 = roundCurrency(unitPrice2 * qty2);
-      let cgstAmt2 = 0, sgstAmt2 = 0, igstAmt2 = 0;
-      if (isIntraState) {
-        cgstAmt2 = roundCurrency((taxable2 * cgstRate) / 100);
-        sgstAmt2 = roundCurrency((taxable2 * sgstRate) / 100);
-      } else {
-        igstAmt2 = roundCurrency((taxable2 * 18) / 100);
-      }
-      const totalWithGst2 = roundCurrency(taxable2 + cgstAmt2 + sgstAmt2 + igstAmt2);
-
-      subtotal = roundCurrency(taxable1 + taxable2);
-      cgstTotal = roundCurrency(cgstAmt1 + cgstAmt2);
-      sgstTotal = roundCurrency(sgstAmt1 + sgstAmt2);
-      igstTotal = roundCurrency(igstAmt1 + igstAmt2);
-      totalAmt = roundCurrency(totalWithGst1 + totalWithGst2);
-
-      itemsHtml = `
-        <tr>
-          <td style="text-align:center">1</td>
-          <td class="desc">iTriangle (Bharat101 Plus) Ais140 ${is2Years ? '_2G' : is5Years ? '_5G' : '2G'}<br/><small style="color:#555;">VLTD Device including Dual profile E-sim & Software + 01 Panic Switch (Validity: ${validityPeriod})</small></td>
-          <td class="num">${qty1}</td>
-          <td class="num">${formatCurrencyIG(unitPrice)}</td>
-          <td class="num">${formatCurrencyIG(taxable1)}</td>
-          <td class="num">18%</td>
-          <td class="num">${formatCurrencyIG(totalWithGst1)}</td>
-        </tr>
-        <tr>
-          <td style="text-align:center">2</td>
-          <td class="desc">Installation<br/><small style="color:#555;">One Time Installation Charges</small></td>
-          <td class="num">${qty2}</td>
-          <td class="num">${formatCurrencyIG(unitPrice2)}</td>
-          <td class="num">${formatCurrencyIG(taxable2)}</td>
-          <td class="num">18%</td>
-          <td class="num">${formatCurrencyIG(totalWithGst2)}</td>
-        </tr>
-      `;
-    }
-
-    const amountInWords = numberToWords(totalAmt);
-
     const printWindow = window.open('', '_blank', 'width=900,height=800');
     if (!printWindow) {
       alert('Popup blocker enabled. Please allow popups to download/print the invoice.');
       return;
     }
 
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-      <meta charset="UTF-8">
-      <title>Arshi GPS – Proforma Invoice</title>
-      <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
-      <style>
-        *{box-sizing:border-box;margin:0;padding:0}
-        :root{
-          --teal:#007B8A;--teal-dark:#005a66;--teal-light:#E0F4F7;--teal-mid:#b2e4ec;
-          --accent:#f0a500;--bg:#eef4f6;--white:#ffffff;--text:#1a2a30;--muted:#5a7a82;--border:#cce4e8
-        }
-        body{font-family:'Nunito Sans',sans-serif;background:#fff;color:var(--text);padding:0;margin:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
-
-        /* Page — single A4 */
-        .page{background:var(--white);width:210mm;max-width:100%;height:297mm;margin:0 auto;overflow:hidden;display:flex;flex-direction:column}
-
-        /* Header */
-        .header{background:var(--teal);padding:16px 28px 12px;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-shrink:0}
-        .brand-name{font-family:'Nunito',sans-serif;font-size:26px;font-weight:800;color:#fff;letter-spacing:0}
-        .brand-sub{color:rgba(255,255,255,0.78);font-size:10.5px;margin-top:3px;line-height:1.4}
-        .invoice-title-block{text-align:right;flex-shrink:0}
-        .inv-label{font-family:'Nunito',sans-serif;font-size:18px;font-weight:800;color:#fff;letter-spacing:1px;text-transform:uppercase}
-        .inv-meta{color:rgba(255,255,255,0.82);font-size:11px;margin-top:5px;line-height:1.6}
-
-        /* Accent bar */
-        .accent-bar{height:4px;background:linear-gradient(90deg,var(--accent) 0%,#f5d26e 50%,var(--teal-mid) 100%);flex-shrink:0}
-
-        /* Info grid */
-        .info-grid{display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1.5px solid var(--border);flex-shrink:0}
-        .info-box{padding:10px 14px;border-right:1px solid var(--border)}
-        .info-box:last-child{border-right:none}
-        .info-box-head{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--teal);margin-bottom:6px;display:flex;align-items:center;gap:5px}
-        .info-box-head::before{content:'';display:inline-block;width:2.5px;height:10px;background:var(--accent);border-radius:2px}
-        .info-box p{font-size:10.5px;color:var(--text);line-height:1.45}
-        .co-name{font-weight:700;font-size:11px;color:var(--text);margin-bottom:2px}
-
-        /* Table */
-        .table-wrap{padding:0 20px;flex:0 0 auto}
-        table{width:100%;border-collapse:collapse;margin-top:10px}
-        thead tr{background:var(--teal)}
-        thead th{color:#fff;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;padding:7px 6px}
-        thead th:first-child{border-radius:5px 0 0 0;padding-left:12px}
-        thead th:last-child{border-radius:0 5px 0 0}
-        tbody tr{border-bottom:1px solid var(--border)}
-        td{padding:6px 6px;font-size:10.5px;vertical-align:top}
-        td:first-child{padding-left:12px}
-        td.desc{min-width:140px;word-break:break-word;text-align:left}
-        td.num{text-align:right;white-space:nowrap}
-
-        .sub-row td{background:var(--teal-light);font-weight:700;font-size:11px;color:var(--teal-dark);border-top:2px solid var(--teal-mid)}
-
-        /* Bottom */
-        .bottom-shell{margin-top:auto;flex:0 0 auto}
-        .bottom{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,0.9fr);gap:0;margin-top:8px;padding:0 20px 10px;align-items:start}
-        .amount-words{font-size:10px;color:var(--text);margin-bottom:8px;line-height:1.35}
-        .amount-words strong{color:var(--teal-dark)}
-        .section-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--teal);margin-bottom:5px;display:flex;align-items:center;gap:5px}
-        .section-title::before{content:'';display:inline-block;width:2.5px;height:9px;background:var(--accent);border-radius:2px}
-        .tc-list{list-style:none;padding:0;margin-bottom:8px}
-        .tc-list li{font-size:8.5px;color:#2a4a52;line-height:1.3;padding:1px 0 1px 14px;position:relative}
-        .tc-list li::before{content:attr(data-n);position:absolute;left:0;font-weight:700;color:var(--teal);font-size:8.5px}
-        .bank-row{font-size:9.5px;color:var(--muted);padding:2px 0;display:flex;gap:6px;align-items:center}
-        .bank-row span:first-child{font-weight:600;color:var(--text);min-width:95px}
-
-        /* Tax block */
-        .tax-block{padding-left:16px;border-left:1.5px solid var(--border)}
-        .tax-row{display:flex;justify-content:space-between;font-size:10px;padding:3px 0;border-bottom:1px solid #eef4f6;color:var(--text)}
-        .tax-row:last-child{border-bottom:none}
-        .tax-row.hl{color:var(--teal-dark);font-weight:700}
-        .total-box{background:var(--teal);border-radius:6px;padding:10px 14px;margin-top:8px;text-align:center}
-        .total-label{color:rgba(255,255,255,0.8);font-size:9px;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px}
-        .total-amount{color:#fff;font-family:'Nunito',sans-serif;font-size:18px;font-weight:800;letter-spacing:0}
-
-        /* Footer */
-        .footer{margin:6px 20px 10px;padding-top:6px;border-top:1.5px solid var(--border);text-align:center;flex-shrink:0}
-        .footer p{font-size:9px;color:var(--muted);line-height:1.3;font-style:italic}
-
-        /* Print */
-        @media print{
-          @page{size:A4 portrait;margin:0}
-          html,body{width:210mm;height:297mm;margin:0;overflow:hidden}
-          body{background:#fff;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
-          .page{box-shadow:none;border:none;border-radius:0;width:210mm;max-width:210mm;height:297mm;overflow:hidden;display:flex;flex-direction:column}
-          .header{padding:5mm 7mm 3.5mm}
-          .header img{height:30px!important;border-radius:4px!important}
-          .brand-name{font-size:18px!important}
-          .brand-sub{font-size:7.8px!important;margin-top:1px!important;line-height:1.2!important}
-          .inv-label{font-size:13px!important}
-          .inv-meta{font-size:8px!important;margin-top:2px!important;line-height:1.3!important}
-          .accent-bar{height:2px!important}
-          .info-box{padding:3mm 3.5mm!important}
-          .info-box-head{font-size:7px!important;margin-bottom:1.5mm!important;letter-spacing:0.5px!important}
-          .info-box p{font-size:8px!important;line-height:1.18!important}
-          .co-name{font-size:8.5px!important}
-          .table-wrap{padding:0 6mm!important}
-          table{margin-top:2.5mm!important}
-          thead th{padding:2.5px 4px!important;font-size:7.5px!important;letter-spacing:0.3px!important}
-          td{padding:2.5px 4px!important;font-size:8px!important;line-height:1.15!important}
-          td small{font-size:7px!important}
-          .sub-row td{padding:2.5px 4px!important;font-size:8px!important}
-          .bottom-shell{margin-top:auto!important;padding-top:1mm!important;page-break-inside:avoid}
-          .bottom{grid-template-columns:minmax(0,1.08fr) minmax(0,0.92fr);padding:0 6mm 1mm!important;margin-top:0!important;page-break-inside:avoid;gap:0}
-          .amount-words{font-size:7.5px!important;margin-bottom:2mm!important;line-height:1.15!important}
-          .section-title{font-size:7px!important;margin-bottom:1.2mm!important;letter-spacing:0.4px!important}
-          .tc-list{margin-bottom:2mm!important}
-          .tc-list li{font-size:6.5px!important;padding:0 0 0.4px 10px!important;line-height:1.1!important}
-          .tc-list li::before{font-size:6.5px!important}
-          .bank-row{font-size:7.2px!important;padding:0.4px 0!important}
-          .bank-row span:first-child{min-width:60px!important}
-          .tax-block{padding-left:3.5mm!important}
-          .tax-row{font-size:7.5px!important;padding:1px 0!important}
-          .total-box{padding:2mm 2.5mm!important;margin-top:1.8mm!important;border-radius:4px!important}
-          .total-amount{font-size:11px!important}
-          .total-label{font-size:6.5px!important}
-          .tax-block .fab-section{margin-top:2.5mm!important}
-          .footer{margin:1mm 6mm 2mm!important;padding-top:1mm!important;page-break-inside:avoid}
-          .footer p{font-size:7px!important;line-height:1.1!important}
-          tr{page-break-inside:avoid}
-          tbody tr:hover{background:transparent}
-        }
-      </style>
-      </head>
-      <body>
-
-      <div class="page" id="invoice">
-
-        <!-- Header -->
-        <div class="header">
-          <div>
-            <div style="display:flex;align-items:center;gap:10px">
-              <img src="${INVOICE_LOGO}" style="height:40px;border-radius:6px" alt="Arshi Enterprises Logo"/>
-              <div class="brand-name">Arshi Enterprises</div>
-            </div>
-            <div class="brand-sub">
-              Near Brajesh Auto Mobile Maranga,<br>
-              Purnea, Bihar, 854304<br>
-              GST No: 10ATIPK1589P1ZA
-            </div>
-          </div>
-          <div class="invoice-title-block">
-            <div class="inv-label">Proforma Invoice</div>
-            <div class="inv-meta">
-              Date: ${piDate}<br>
-              PI No: ${piInvoiceNo}
-            </div>
-          </div>
-        </div>
-
-        <!-- Accent bar -->
-        <div class="accent-bar"></div>
-
-        <!-- Customer / Ship To / Shipping -->
-        <div class="info-grid">
-          <div class="info-box">
-            <div class="info-box-head">${req.isSubDealer ? 'Dealer / Sub-Dealer' : 'Customer'}</div>
-            <p class="co-name">${customerName}</p>
-            <p>${customerAddress}</p>
-            <p>GSTIN: ${customerGstin}</p>
-          </div>
-          <div class="info-box">
-            <div class="info-box-head">Ship To</div>
-            <p class="co-name">${customerName}</p>
-            <p>${customerAddress}</p>
-            <p>GSTIN: ${customerGstin}</p>
-          </div>
-          <div class="info-box">
-            <div class="info-box-head">Shipping Details</div>
-            <p class="co-name">${customerName}</p>
-            <p>${customerAddress}</p>
-            <p>Mobile: ${customerMob}</p>
-            <p>GSTIN: ${customerGstin}</p>
-          </div>
-        </div>
-
-        <!-- Items Table -->
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th style="width:32px;text-align:center">SL</th>
-                <th style="text-align:left">Description</th>
-                <th style="width:40px;text-align:right">QTY</th>
-                <th style="width:78px;text-align:right">Unit Price</th>
-                <th style="width:88px;text-align:right">Taxable Amt</th>
-                <th style="width:44px;text-align:right">GST</th>
-                <th style="width:92px;text-align:right">Amount (₹)</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${itemsHtml}
-            </tbody>
-            <tfoot>
-              <tr class="sub-row">
-                <td colspan="4" style="text-align:right;padding-right:10px;font-size:11px;letter-spacing:0.4px">Sub Total (Taxable)</td>
-                <td class="num" style="font-size:11px">${formatCurrencyIG(subtotal)}</td>
-                <td></td>
-                <td class="num" style="font-size:11px">${formatCurrencyIG(totalAmt)}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-
-        <!-- Bottom: Terms + Tax -->
-        <div class="bottom-shell">
-          <div class="bottom">
-          <div>
-            <div class="amount-words">
-              <strong>Amount in Words:</strong> ${amountInWords}
-            </div>
-
-            <div class="section-title">Terms &amp; Conditions</div>
-            <ul class="tc-list">
-              <li data-n="1.">100% Advance payment required.</li>
-              <li data-n="2.">Goods once sold cannot be taken back.</li>
-              <li data-n="3.">Installation Charges (@INR 500) extra per unit. (Negotiable in bulk orders at one location.)</li>
-              <li data-n="4.">Courier charges to be paid by customer.</li>
-              <li data-n="5.">Warranty — 12 Months from date of Supply; applicable before 15 days of due date.</li>
-              <li data-n="6.">Standard Force Majeure will apply. No warranty on burnt/damaged goods.</li>
-              <li data-n="7.">Service during warranty year @INR 500 per unit will be applicable.</li>
-            </ul>
-
-            <div class="section-title">Bank Details</div>
-            <div class="bank-row"><span>Account Number</span><span style="color:#888">---------------------</span></div>
-            <div class="bank-row"><span>Bank &amp; Branch</span><span style="color:#888">---------------------</span></div>
-            <div class="bank-row"><span>IFSC Code</span><span style="color:#888">---------------------</span></div>
-          </div>
-
-          <div class="tax-block">
-            <div class="section-title">Tax Summary</div>
-            <div class="tax-row"><span>Taxable Amount</span><span>${formatCurrencyIG(subtotal)}</span></div>
-            ${isIntraState ? `
-              <div class="tax-row hl"><span>SGST @ 9%</span><span>${formatCurrencyIG(sgstTotal)}</span></div>
-              <div class="tax-row hl"><span>CGST @ 9%</span><span>${formatCurrencyIG(cgstTotal)}</span></div>
-              <div class="tax-row"><span>IGST @ 18%</span><span>0.00</span></div>
-            ` : `
-              <div class="tax-row"><span>SGST @ 9%</span><span>0.00</span></div>
-              <div class="tax-row"><span>CGST @ 9%</span><span>0.00</span></div>
-              <div class="tax-row hl"><span>IGST @ 18%</span><span>${formatCurrencyIG(igstTotal)}</span></div>
-            `}
-            <div class="tax-row hl" style="border-top:1.5px solid var(--teal-mid);margin-top:2px;padding-top:4px"><span>Total Tax</span><span>${formatCurrencyIG(roundCurrency(sgstTotal + cgstTotal + igstTotal))}</span></div>
-            
-            <div class="total-box">
-              <div class="total-label">Grand Total</div>
-              <div class="total-amount">₹ ${formatCurrencyIG(totalAmt)}</div>
-            </div>
-
-            <div class="fab-section" style="margin-top:14px">
-              <div class="section-title">Features &amp; Benefits (FaB)</div>
-              <ul class="tc-list" style="margin-bottom:0">
-                <li data-n="1.">Multiple Mobile  access</li>
-                <li data-n="2.">Real time Track your Vehicle Anywhere via your Mob. &amp; PC.</li>
-                <li data-n="3.">Direction /Speed &amp; Ignition On/Off Detection.</li>
-                <li data-n="4.">Ignition Cut off Alarm.</li>
-                <li data-n="5.">Multiple Geo-fence setup &amp; alarm.</li>
-                <li data-n="6.">Back-up data from 01hrs to last 30 days.</li>
-                <li data-n="7.">Moving overview Km/Per day, Stay Detail’s/O. Speed Detail’s &amp; Alarm Detail’s and etc</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        <!-- Footer -->
-        <div class="footer">
-          <p>This document is computer generated and does not require the Registrar's signature or the Company's stamp to be considered valid.</p>
-        </div>
-        </div>
-
-      </div>
-
-      <script>
-        window.onload = function() {
-          window.print();
-        };
-      </script>
-      </body>
-      </html>
-    `);
-    
+    printWindow.document.open();
+    printWindow.document.write(renderProformaInvoiceHtml(req, {
+      logo: INVOICE_LOGO,
+      includeActions: true,
+      autoPrint: true,
+    }));
     printWindow.document.close();
   };
 
@@ -1373,7 +930,7 @@ const InvoiceGenerator = () => {
                     <tr key={req._id} style={{ borderBottom: '1px solid #eee' }}>
                       <td style={{ padding: '10px' }}>{((page - 1) * limit) + index + 1}</td>
                       <td style={{ padding: '10px' }}>{new Date(req.dateTime).toLocaleDateString()}</td>
-                      <td style={{ padding: '10px', color: 'var(--primary-blue)', fontWeight: 'bold' }}>{req.piNo || 'AE-01'}</td>
+                      <td style={{ padding: '10px', color: 'var(--primary-blue)', fontWeight: 'bold' }}>{req.piNo || 'AE_PI_001'}</td>
                       <td style={{ padding: '10px', fontWeight: '600' }}>{req.endCustomerName || 'JYOTI CONSTRUCTION'}</td>
                       <td style={{ padding: '10px' }}>{req.rmn || '--'}</td>
                       <td style={{ padding: '10px' }}>{req.poaNo || '--'}</td>
