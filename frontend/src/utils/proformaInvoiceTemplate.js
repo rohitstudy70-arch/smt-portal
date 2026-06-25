@@ -67,7 +67,7 @@ export const getSenderDetails = (userObj) => {
   }
 
   return {
-    brandName: userObj.companyName || userObj.displayName || userObj.username || 'Arshi GPS',
+    brandName: userObj.companyName || userObj.displayName || userObj.username || 'Arshi Enterprises',
     companyName: userObj.companyName || userObj.displayName || '',
     address: userObj.address || '',
     cityStatePin: `${userObj.city || ''}${userObj.city && userObj.state ? ', ' : ''}${userObj.state || ''}${userObj.pincode ? ', ' : ''}${userObj.pincode || ''}`,
@@ -231,7 +231,7 @@ export const buildProformaInvoiceData = (invoice = {}) => {
       total,
     },
     amountInWords: numberToWords(total),
-    downloadFileName: `Arshi_GPS_Proforma_Invoice_${sanitizeFilenamePart(piNo)}.html`,
+    downloadFileName: `Arshi_Enterprises_Proforma_Invoice_${sanitizeFilenamePart(piNo)}.html`,
   };
 };
 
@@ -281,7 +281,7 @@ export const renderProformaInvoiceHtml = (invoice, { logo, includeActions = true
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Arshi GPS - Proforma Invoice</title>
+<title>Arshi Enterprises - Proforma Invoice</title>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
@@ -352,10 +352,29 @@ export const renderProformaInvoiceHtml = (invoice, { logo, includeActions = true
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
     }
-    body{background:#fff;padding:0}
+    @page {
+      size: A4 portrait;
+      margin: 8mm 10mm;
+    }
+    body{background:#fff;padding:0;margin:0}
     .action-bar{display:none}
-    .page{box-shadow:none;border:none;border-radius:0;max-width:100%}
-    .bank-row input{border-bottom:1px dashed #aaa}
+    .page{box-shadow:none;border:none;border-radius:0;max-width:100%;margin:0;padding:0}
+    .header{padding:15px 20px 10px}
+    .info-box{padding:10px 15px}
+    table{margin-top:10px}
+    td, thead th{padding:8px 10px;font-size:12px}
+    .empty-row td{height:24px}
+    .bottom{margin-top:10px;padding:0 20px 15px}
+    .tc-list{margin-bottom:10px}
+    .tc-list li{padding:2px 0 2px 18px;font-size:11px}
+    .bank-row{padding:2px 0;font-size:11px}
+    .bank-row input{border-bottom:1px dashed #aaa;font-size:11px;width:150px}
+    .tax-block{padding-left:15px}
+    .tax-row{padding:3px 0;font-size:11.5px}
+    .total-box{padding:10px 12px;margin-top:8px}
+    .total-amount{font-size:20px}
+    .footer{margin:10px 20px 10px;padding-top:8px}
+    .footer p{font-size:10px}
     tbody tr:hover{background:transparent}
   }
   @media screen and (max-width: 768px){
@@ -379,7 +398,7 @@ ${includeActions ? renderActionBar() : ''}
   <div class="header">
     <div>
       <div style="display:flex;align-items:center;gap:12px">
-        <img src="${escapeHtml(logo || '')}" style="height:64px;width:auto;object-fit:contain" alt="Arshi GPS Logo">
+        <img src="${escapeHtml(logo || '')}" style="height:64px;width:auto;object-fit:contain" alt="Arshi Enterprises Logo">
         <div class="brand-name">${escapeHtml(data.sender.brandName)}</div>
       </div>
       <div class="brand-sub">${senderAddressHtml}</div>

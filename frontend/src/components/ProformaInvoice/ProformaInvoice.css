@@ -457,18 +457,20 @@
 
   @page {
     size: A4 portrait;
-    margin: 0;
+    margin: 8mm 10mm;
   }
 
   body {
     background: #fff;
     padding: 0;
+    margin: 0;
   }
 
   .proforma-invoice-wrapper {
     background: #fff;
     padding: 0;
     margin: 0;
+    min-height: auto;
   }
 
   .proforma-action-bar {
@@ -480,10 +482,82 @@
     border: none;
     border-radius: 0;
     max-width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  .proforma-header {
+    padding: 15px 20px 10px;
+  }
+
+  .proforma-info-box {
+    padding: 10px 15px;
+  }
+
+  .proforma-table {
+    margin-top: 10px;
+  }
+
+  .proforma-table td, 
+  .proforma-table thead th {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .proforma-empty-row td {
+    height: 24px;
+  }
+
+  .proforma-bottom {
+    margin-top: 10px;
+    padding: 0 20px 15px;
+  }
+
+  .proforma-tc-list {
+    margin-bottom: 10px;
+  }
+
+  .proforma-tc-list li {
+    padding: 2px 0 2px 18px;
+    font-size: 11px;
+  }
+
+  .proforma-bank-row {
+    padding: 2px 0;
+    font-size: 11px;
   }
 
   .proforma-bank-row input {
     border-bottom: 1px dashed #aaa;
+    font-size: 11px;
+    width: 150px;
+  }
+
+  .proforma-tax-block {
+    padding-left: 15px;
+  }
+
+  .proforma-tax-row {
+    padding: 3px 0;
+    font-size: 11.5px;
+  }
+
+  .proforma-total-box {
+    padding: 10px 12px;
+    margin-top: 8px;
+  }
+
+  .proforma-total-amount {
+    font-size: 20px;
+  }
+
+  .proforma-footer {
+    margin: 10px 20px 10px;
+    padding-top: 8px;
+  }
+
+  .proforma-footer p {
+    font-size: 10px;
   }
 
   .proforma-table tbody tr:hover {
