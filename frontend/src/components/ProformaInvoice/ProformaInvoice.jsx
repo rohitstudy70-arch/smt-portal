@@ -38,8 +38,8 @@ const ProformaInvoice = () => {
       return {
         brandName: 'Arshi Enterprises',
         companyName: '',
-        address: 'Near Brajesh Auto Mobile Maranga',
-        cityStatePin: 'Purnea, Bihar, 854304 | Ph:-7782808063, 919905959287',
+        address: 'Near-Brajesh Automobiles[Mahindra Showroom] NH-31,Maranga,',
+        cityStatePin: 'Pin Code-854303 Purnia(BIHAR) | Ph:-7782808063,919905959287',
         gstNo: '10ATIPK1589P1ZA'
       };
     }
@@ -324,13 +324,15 @@ const ProformaInvoice = () => {
               </div>
               <div class="section-title">Terms &amp; Conditions</div>
               <ul class="tc-list">
-                <li data-n="1.">100% Advance payment required.</li>
-                <li data-n="2.">Goods once sold cannot be taken back.</li>
-                <li data-n="3.">Installation Charges (@INR 500) extra per unit. (Negotiable in bulk orders at one location.)</li>
-                <li data-n="4.">Courier charges to be paid by customer.</li>
-                <li data-n="5.">Warranty — 12 Months from date of Supply; applicable before 15 days of due date.</li>
-                <li data-n="6.">Standard Force Majeure will apply. No warranty on burnt/damaged goods.</li>
-                <li data-n="7.">Service during warranty year @INR 500 per unit will be applicable.</li>
+                <li data-n="1.">Payment 100% in Advance.</li>
+                <li data-n="2.">Price are further negotiable if quantity increases.</li>
+                <li data-n="3.">Goods once sold cannot be taken back.</li>
+                <li data-n="4.">Installation Charges (@INR500) is extra applicable per unit. (Installation charges are further negotiable if quantity increases and vehicles are received in Bulk at one location)</li>
+                <li data-n="5.">Warranty. - 12 Months from the date of Supply, Warranty applicable before 15days of due date.</li>
+                <li data-n="6.">Courier if any to be paid by customer.</li>
+                <li data-n="7.">Standard Force Majeure will apply. (No warranty of burnt damaged goods)</li>
+                <li data-n="8.">If any service is required during the year, then it's charges @INR500 per unit will be applicable.</li>
+                <li data-n="9.">Software & Platform charges will be applicable from 2nd year onwards @INR1550+GST per unit / per year.</li>
               </ul>
               <div class="section-title">Bank Details</div>
               <div class="bank-row"><span>Account Name</span><span style="font-weight:700;color:var(--text)">ARSHI ENTERPRISES</span></div>
@@ -340,12 +342,9 @@ const ProformaInvoice = () => {
             </div>
             <div>
               <div class="section-title">Tax Summary</div>
-              ${isIntraState ? `
-                <div class="tax-row hl"><span>SGST @ 9%</span><span>${totals.sgst.toFixed(2)}</span></div>
-                <div class="tax-row hl"><span>CGST @ 9%</span><span>${totals.cgst.toFixed(2)}</span></div>
-              ` : `
-                <div class="tax-row hl"><span>IGST @ 18%</span><span>${totals.igst.toFixed(2)}</span></div>
-              `}
+              <div class="tax-row"><span>SGST @ 9%</span><span>${isIntraState ? totals.sgst.toFixed(2) : '0.00'}</span></div>
+              <div class="tax-row"><span>CGST @ 9%</span><span>${isIntraState ? totals.cgst.toFixed(2) : '0.00'}</span></div>
+              <div class="tax-row"><span>IGST @ 18%</span><span>${!isIntraState ? totals.igst.toFixed(2) : '0.00'}</span></div>
               <div class="tax-row hl"><span>Total Tax</span><span>${(totals.sgst + totals.cgst + totals.igst).toFixed(2)}</span></div>
               <div class="total-box">
                 <div class="total-label">Total Amount</div>
@@ -538,13 +537,15 @@ const ProformaInvoice = () => {
 
             <div className="proforma-section-title">Terms &amp; Conditions</div>
             <ul className="proforma-tc-list">
-              <li data-n="1.">100% Advance payment required.</li>
-              <li data-n="2.">Goods once sold cannot be taken back.</li>
-              <li data-n="3.">Installation Charges (@INR 500) extra per unit. (Negotiable in bulk orders at one location.)</li>
-              <li data-n="4.">Courier charges to be paid by customer.</li>
-              <li data-n="5.">Warranty — 12 Months from date of Supply; applicable before 15 days of due date.</li>
-              <li data-n="6.">Standard Force Majeure will apply. No warranty on burnt/damaged goods.</li>
-              <li data-n="7.">Service during warranty year @INR 500 per unit will be applicable.</li>
+              <li data-n="1.">Payment 100% in Advance.</li>
+              <li data-n="2.">Price are further negotiable if quantity increases.</li>
+              <li data-n="3.">Goods once sold cannot be taken back.</li>
+              <li data-n="4.">Installation Charges (@INR500) is extra applicable per unit. (Installation charges are further negotiable if quantity increases and vehicles are received in Bulk at one location)</li>
+              <li data-n="5.">Warranty. - 12 Months from the date of Supply, Warranty applicable before 15days of due date.</li>
+              <li data-n="6.">Courier if any to be paid by customer.</li>
+              <li data-n="7.">Standard Force Majeure will apply. (No warranty of burnt damaged goods)</li>
+              <li data-n="8.">If any service is required during the year, then it's charges @INR500 per unit will be applicable.</li>
+              <li data-n="9.">Software & Platform charges will be applicable from 2nd year onwards @INR1550+GST per unit / per year.</li>
             </ul>
 
             <div className="proforma-section-title">Bank Details</div>
@@ -555,23 +556,18 @@ const ProformaInvoice = () => {
           </div>
           <div className="proforma-tax-block">
             <div className="proforma-section-title">Tax Summary</div>
-            {isIntraState ? (
-              <>
-                <div className="proforma-tax-row proforma-hl">
-                  <span>SGST @ 9%</span>
-                  <span>₹{totals.sgst.toFixed(2)}</span>
-                </div>
-                <div className="proforma-tax-row proforma-hl">
-                  <span>CGST @ 9%</span>
-                  <span>₹{totals.cgst.toFixed(2)}</span>
-                </div>
-              </>
-            ) : (
-              <div className="proforma-tax-row proforma-hl">
-                <span>IGST @ 18%</span>
-                <span>₹{totals.igst.toFixed(2)}</span>
-              </div>
-            )}
+            <div className="proforma-tax-row proforma-hl">
+              <span>SGST @ 9%</span>
+              <span>₹{isIntraState ? totals.sgst.toFixed(2) : '0.00'}</span>
+            </div>
+            <div className="proforma-tax-row proforma-hl">
+              <span>CGST @ 9%</span>
+              <span>₹{isIntraState ? totals.cgst.toFixed(2) : '0.00'}</span>
+            </div>
+            <div className="proforma-tax-row proforma-hl">
+              <span>IGST @ 18%</span>
+              <span>₹{!isIntraState ? totals.igst.toFixed(2) : '0.00'}</span>
+            </div>
             <div className="proforma-tax-row proforma-hl">
               <span>Total Tax</span>
               <span>₹{(totals.sgst + totals.cgst + totals.igst).toFixed(2)}</span>
