@@ -321,7 +321,7 @@ export const renderProformaInvoiceHtml = (invoice, { logo, includeActions = true
   .page{background:var(--white);max-width:794px;margin:0 auto;border-radius:12px;overflow:hidden;box-shadow:0 6px 30px rgba(0,80,100,0.12);border:1px solid var(--border)}
   .header{background:var(--teal);padding:28px 36px 22px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px}
   .brand-name{font-family:'Nunito',sans-serif;font-size:34px;font-weight:800;color:#fff;letter-spacing:0}
-  .brand-sub{color:rgba(255,255,255,0.75);font-size:13px;margin-top:4px;line-height:1.65}
+  .brand-sub{color:rgba(255,255,255,0.85);font-size:11.5px;margin-top:2px;line-height:1.55}
   .invoice-title-block{text-align:right;flex-shrink:0}
   .inv-label{font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:#fff;letter-spacing:1px;text-transform:uppercase}
   .inv-meta{color:rgba(255,255,255,0.80);font-size:12.5px;margin-top:7px;line-height:1.75}
@@ -357,8 +357,7 @@ export const renderProformaInvoiceHtml = (invoice, { logo, includeActions = true
   .tc-list li::before{content:attr(data-n);position:absolute;left:0;font-weight:700;color:var(--teal);font-size:11px}
   .bank-row{font-size:12px;color:var(--muted);padding:4px 0;display:flex;gap:8px;align-items:center}
   .bank-row span:first-child{font-weight:600;color:var(--text);min-width:115px}
-  .bank-row input{border:none;border-bottom:1.5px dashed var(--border);background:transparent;font-size:12px;color:var(--text);width:160px;outline:none;font-family:inherit;padding:1px 2px}
-  .bank-row input:focus{border-color:var(--teal)}
+  .bank-row span:last-child{font-weight:700;color:var(--text)}
   .tax-block{padding-left:26px;border-left:1.5px solid var(--border)}
   .tax-row{display:flex;justify-content:space-between;font-size:12.5px;padding:4.5px 0;border-bottom:1px solid #eef4f6;color:var(--text)}
   .tax-row:last-child{border-bottom:none}
@@ -389,7 +388,6 @@ export const renderProformaInvoiceHtml = (invoice, { logo, includeActions = true
     .tc-list{margin-bottom:10px}
     .tc-list li{padding:2px 0 2px 18px;font-size:11px}
     .bank-row{padding:2px 0;font-size:11px}
-    .bank-row input{border-bottom:1px dashed #aaa;font-size:11px;width:150px}
     .tax-block{padding-left:15px}
     .tax-row{padding:3px 0;font-size:11.5px}
     .total-box{padding:10px 12px;margin-top:8px}
@@ -418,10 +416,10 @@ ${includeActions ? renderActionBar() : ''}
 <div class="page" id="invoice">
   <div class="header">
     <div style="display:flex;align-items:flex-start;gap:12px">
-      <img src="${escapeHtml(logo || '')}" style="height:64px;width:auto;object-fit:contain" alt="Arshi Enterprises Logo">
+      <img src="${escapeHtml(logo || '')}" style="height:48px;width:auto;object-fit:contain" alt="Arshi Enterprises Logo">
       <div>
         <div class="brand-name">${escapeHtml(data.sender.brandName)}</div>
-        <div class="brand-sub" style="margin-top:4px">${senderAddressHtml}</div>
+        <div class="brand-sub">${senderAddressHtml}</div>
       </div>
     </div>
     <div class="invoice-title-block">

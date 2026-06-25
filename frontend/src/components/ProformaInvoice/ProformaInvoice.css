@@ -81,7 +81,7 @@
 }
 
 .proforma-logo {
-  height: 64px;
+  height: 48px;
   width: auto;
   object-fit: contain;
 }
@@ -95,10 +95,10 @@
 }
 
 .proforma-brand-sub {
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 13px;
-  margin-top: 4px;
-  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 11.5px;
+  margin-top: 2px;
+  line-height: 1.55;
 }
 
 .proforma-invoice-title-block {
@@ -330,20 +330,9 @@
   min-width: 115px;
 }
 
-.proforma-bank-row input {
-  border: none;
-  border-bottom: 1.5px dashed #cce4e8;
-  background: transparent;
-  font-size: 12px;
+.proforma-bank-row span:last-child {
+  font-weight: 700;
   color: #1a2a30;
-  width: 160px;
-  outline: none;
-  font-family: inherit;
-  padding: 1px 2px;
-}
-
-.proforma-bank-row input:focus {
-  border-color: #007b8a;
 }
 
 .proforma-tax-block {
@@ -527,11 +516,7 @@
     font-size: 11px;
   }
 
-  .proforma-bank-row input {
-    border-bottom: 1px dashed #aaa;
-    font-size: 11px;
-    width: 150px;
-  }
+
 
   .proforma-tax-block {
     padding-left: 15px;
