@@ -396,12 +396,12 @@ export const renderProformaInvoiceHtml = (invoice, { logo, includeActions = true
 ${includeActions ? renderActionBar() : ''}
 <div class="page" id="invoice">
   <div class="header">
-    <div>
-      <div style="display:flex;align-items:center;gap:12px">
-        <img src="${escapeHtml(logo || '')}" style="height:64px;width:auto;object-fit:contain" alt="Arshi Enterprises Logo">
+    <div style="display:flex;align-items:flex-start;gap:12px">
+      <img src="${escapeHtml(logo || '')}" style="height:64px;width:auto;object-fit:contain" alt="Arshi Enterprises Logo">
+      <div>
         <div class="brand-name">${escapeHtml(data.sender.brandName)}</div>
+        <div class="brand-sub" style="margin-top:4px">${senderAddressHtml}</div>
       </div>
-      <div class="brand-sub">${senderAddressHtml}</div>
     </div>
     <div class="invoice-title-block">
       <div class="inv-label">Proforma Invoice</div>

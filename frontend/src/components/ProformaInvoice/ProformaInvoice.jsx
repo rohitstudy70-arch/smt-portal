@@ -88,18 +88,18 @@ const ProformaInvoice = () => {
 
       <div className="proforma-page" id="invoice">
         <div className="proforma-header">
-          <div>
-            <div className="proforma-brand-row">
-              <img src={INVOICE_LOGO} className="proforma-logo" alt="Arshi Enterprises Logo" />
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+            <img src={INVOICE_LOGO} className="proforma-logo" alt="Arshi Enterprises Logo" />
+            <div>
               <div className="proforma-brand-name">{invoiceData.sender.brandName}</div>
-            </div>
-            <div className="proforma-brand-sub">
-              {invoiceData.senderLines.map((line) => (
-                <span key={line}>
-                  {line}
-                  <br />
-                </span>
-              ))}
+              <div className="proforma-brand-sub">
+                {invoiceData.senderLines.map((line) => (
+                  <span key={line}>
+                    {line}
+                    <br />
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
           <div className="proforma-invoice-title-block">
