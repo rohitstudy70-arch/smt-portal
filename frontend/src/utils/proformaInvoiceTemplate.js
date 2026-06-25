@@ -147,7 +147,6 @@ const getFallbackItems = (invoice = {}) => {
 export const buildProformaInvoiceData = (invoice = {}) => {
   const sender = getSenderDetails(invoice.userId);
   const senderLines = [
-    sender.companyName || sender.brandName,
     sender.address,
     sender.cityStatePin,
     sender.phone ? sender.phone : '',
