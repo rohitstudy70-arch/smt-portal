@@ -242,6 +242,31 @@ const AddProduct = () => {
       nextErrors.billAmount = 'Bill Amount cannot be negative';
     }
 
+    if (!isRenewal) {
+      if (formData.vendor === 'iTriangle') {
+        if (!formData.imei.trim()) {
+          nextErrors.imei = 'IMEI is required';
+        } else if (!/^\d{15}$/.test(formData.imei.trim())) {
+          nextErrors.imei = 'IMEI must be exactly 15 digits';
+        }
+        if (!formData.vehicleNumber.trim()) {
+          nextErrors.vehicleNumber = 'Vehicle Number is required';
+        }
+      } else {
+        if (!formData.imei.trim()) {
+          nextErrors.imei = 'IMEI is required';
+        } else if (!/^\d{15}$/.test(formData.imei.trim())) {
+          nextErrors.imei = 'IMEI must be exactly 15 digits';
+        }
+        if (!formData.serialNo.trim()) {
+          nextErrors.serialNo = 'Serial No is required';
+        }
+        if (isVltd && !formData.iccid.trim()) {
+          nextErrors.iccid = 'ICCID is required';
+        }
+      }
+    }
+
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -475,21 +500,23 @@ const AddProduct = () => {
               )}
 
               {(isVltd || isGps) && (
-                <div className="form-group">
-                  <label>IMEI No.</label>
+                <div className={`form-group ${errors.imei ? 'has-error' : ''}`}>
+                  <label>IMEI No. {formData.vendor === 'iTriangle' && <span className="required">*</span>}</label>
                   <input
                     type="text"
                     name="imei"
                     value={formData.imei}
                     onChange={(event) => updateFormField('imei', event.target.value)}
                     placeholder="Enter IMEI"
+                    maxLength={15}
                   />
+                  {errors.imei && <span className="error-text">{errors.imei}</span>}
                 </div>
               )}
 
               {(isVltd || isGps) && (
-                <div className="form-group">
-                  <label>{isGps ? 'VTS No.' : 'Serial No.'}</label>
+                <div className={`form-group ${errors.serialNo ? 'has-error' : ''}`}>
+                  <label>{isGps ? 'VTS No.' : 'Serial No.'} {formData.vendor !== 'iTriangle' && <span className="required">*</span>}</label>
                   <input
                     type="text"
                     name="serialNo"
@@ -497,12 +524,13 @@ const AddProduct = () => {
                     onChange={(event) => updateFormField('serialNo', event.target.value)}
                     placeholder={isGps ? 'Enter VTS Number' : 'Enter Serial Number'}
                   />
+                  {errors.serialNo && <span className="error-text">{errors.serialNo}</span>}
                 </div>
               )}
 
               {isVltd && (
-                <div className="form-group">
-                  <label>ICCID No.</label>
+                <div className={`form-group ${errors.iccid ? 'has-error' : ''}`}>
+                  <label>ICCID No. {formData.vendor !== 'iTriangle' && <span className="required">*</span>}</label>
                   <input
                     type="text"
                     name="iccid"
@@ -510,6 +538,7 @@ const AddProduct = () => {
                     onChange={(event) => updateFormField('iccid', event.target.value)}
                     placeholder="Enter ICCID"
                   />
+                  {errors.iccid && <span className="error-text">{errors.iccid}</span>}
                 </div>
               )}
 
@@ -552,8 +581,8 @@ const AddProduct = () => {
                 </div>
               )}
 
-              <div className="form-group">
-                <label>Vehicle Number</label>
+              <div className={`form-group ${errors.vehicleNumber ? 'has-error' : ''}`}>
+                <label>Vehicle Number {(!isRenewal && formData.vendor === 'iTriangle') && <span className="required">*</span>}</label>
                 <input
                   type="text"
                   name="vehicleNumber"
@@ -563,6 +592,7 @@ const AddProduct = () => {
                   readOnly={isRenewal}
                   className={isRenewal ? 'readonly-field' : ''}
                 />
+                {errors.vehicleNumber && <span className="error-text">{errors.vehicleNumber}</span>}
               </div>
 
               <div className="form-group">
