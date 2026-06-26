@@ -81,3 +81,35 @@
     width: 100%;
   }
 }
+
+.table-actions-btns {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.btn-action {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  color: #fff;
+  font-size: 12px;
+  transition: opacity 0.2s;
+}
+
+.btn-action:hover {
+  opacity: 0.8;
+}
+
+.btn-action.edit {
+  background: #42a5f5;
+}
+
+.btn-action.delete {
+  background: #d32f2f;
+}

@@ -3,11 +3,13 @@ import {
   FaBoxOpen,
   FaCheckCircle,
   FaChevronDown,
+  FaEdit,
   FaFilter,
   FaRedo,
   FaSave,
   FaSearch,
   FaTimesCircle,
+  FaTrash,
 } from 'react-icons/fa';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
@@ -91,6 +93,8 @@ const AddProduct = () => {
   const [toast, setToast] = useState({ show: false, type: '', message: '' });
   const [submitting, setSubmitting] = useState(false);
   const [searchingExisting, setSearchingExisting] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingProductId, setEditingProductId] = useState(null);
   const [dealerSearch, setDealerSearch] = useState('');
   const [dealerDropdownOpen, setDealerDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -279,12 +283,18 @@ const AddProduct = () => {
 
     setSubmitting(true);
     try {
-      await api.post('/products', formData);
-      showToast('success', 'Product added successfully!');
-      handleReset();
+      if (isEditMode) {
+        await api.put(`/products/${editingProductId}`, formData);
+        showToast('success', 'Product updated successfully!');
+        handleCancelEdit();
+      } else {
+        await api.post('/products', formData);
+        showToast('success', 'Product added successfully!');
+        handleReset();
+      }
       await fetchProducts(debouncedSearch);
     } catch (error) {
-      const message = error.response?.data?.message || 'Failed to add product. Please try again.';
+      const message = error.response?.data?.message || `Failed to ${isEditMode ? 'update' : 'add'} product. Please try again.`;
       showToast('error', message);
       if (message.toLowerCase().includes('dealer')) {
         setErrors((current) => ({ ...current, dealerId: message }));
@@ -302,6 +312,50 @@ const AddProduct = () => {
     setFormData(createEmptyForm(defaultDealer));
     setErrors({});
     setDealerSearch('');
+  };
+
+  const handleEditClick = (product) => {
+    setIsEditMode(true);
+    setEditingProductId(product._id);
+    setFormData({
+      dealerId: product.dealerId?._id || product.dealerId || '',
+      dealerName: getLinkedName(product.dealerId, product.dealerName),
+      subDealerId: product.subDealerId?._id || product.subDealerId || '',
+      subDealerName: product.subDealerName || '',
+      vendor: product.vendor || 'iTriangle',
+      productDescription: product.productDescription || 'VLTD',
+      existingDeviceSearch: product.existingDeviceSearch || '',
+      imei: product.imei || '',
+      serialNo: product.serialNo || '',
+      iccid: product.iccid || '',
+      msisdn1: product.msisdn1 || '',
+      msisdn2: product.msisdn2 || '',
+      itrNo: product.itrNo || '',
+      vehicleNumber: product.vehicleNumber || '',
+      validity: product.validity || '1 Year',
+      activationDate: product.activationDate ? getLocalDateString(product.activationDate) : '',
+      renewalDate: product.renewalDate ? getLocalDateString(product.renewalDate) : getLocalDateString(),
+      billAmount: product.billAmount || '',
+    });
+    setErrors({});
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditMode(false);
+    setEditingProductId(null);
+    handleReset();
+  };
+
+  const handleDeleteClick = async (productId) => {
+    if (window.confirm('Are you sure you want to delete this product?')) {
+      try {
+        await api.delete(`/products/${productId}`);
+        showToast('success', 'Product deleted successfully!');
+        await fetchProducts(debouncedSearch);
+      } catch (error) {
+        showToast('error', error.response?.data?.message || 'Failed to delete product.');
+      }
+    }
   };
 
   const renderDealerDropdown = () => (
@@ -360,7 +414,7 @@ const AddProduct = () => {
         <div className="add-device-card">
           <div className="add-device-header">
             <FaBoxOpen className="header-icon" />
-            <span>ADD PRODUCT</span>
+            <span>{isEditMode ? 'EDIT PRODUCT' : 'ADD PRODUCT'}</span>
           </div>
 
           <form className="add-device-form" onSubmit={handleSubmit}>
@@ -574,12 +628,25 @@ const AddProduct = () => {
             </div>
 
             <div className="form-actions">
-              <button type="button" className="btn-reset" onClick={handleReset}>
-                <FaRedo /> Reset
-              </button>
-              <button type="submit" className="btn-save" disabled={submitting}>
-                <FaSave /> {submitting ? 'Saving...' : 'Save Product'}
-              </button>
+              {isEditMode ? (
+                <>
+                  <button type="button" className="btn-reset" onClick={handleCancelEdit}>
+                    <FaTimesCircle /> Cancel
+                  </button>
+                  <button type="submit" className="btn-save" disabled={submitting}>
+                    <FaSave /> {submitting ? 'Updating...' : 'Update Product'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button type="button" className="btn-reset" onClick={handleReset}>
+                    <FaRedo /> Reset
+                  </button>
+                  <button type="submit" className="btn-save" disabled={submitting}>
+                    <FaSave /> {submitting ? 'Saving...' : 'Save Product'}
+                  </button>
+                </>
+              )}
             </div>
           </form>
         </div>
@@ -630,12 +697,13 @@ const AddProduct = () => {
                 <th>Expiry Date</th>
                 <th>Bill Amount</th>
                 <th>Created By</th>
+                {role === 'ADMIN' && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
               {productsLoading ? (
                 <tr>
-                  <td colSpan={14} className="table-empty">Loading products...</td>
+                  <td colSpan={role === 'ADMIN' ? 15 : 14} className="table-empty">Loading products...</td>
                 </tr>
               ) : products.length > 0 ? (
                 products.map((product) => (
@@ -658,11 +726,31 @@ const AddProduct = () => {
                     <td>{formatDate(product.newExpiryDate || product.expiryDate)}</td>
                     <td>INR {product.billAmount || 0}</td>
                     <td>{getLinkedName(product.createdBy)}</td>
+                    {role === 'ADMIN' && (
+                      <td>
+                        <div className="table-actions-btns">
+                          <button 
+                            className="btn-action edit" 
+                            onClick={() => handleEditClick(product)} 
+                            title="Edit Product"
+                          >
+                            <FaEdit />
+                          </button>
+                          <button 
+                            className="btn-action delete" 
+                            onClick={() => handleDeleteClick(product._id)} 
+                            title="Delete Product"
+                          >
+                            <FaTrash />
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={14} className="table-empty">No product records found.</td>
+                  <td colSpan={role === 'ADMIN' ? 15 : 14} className="table-empty">No product records found.</td>
                 </tr>
               )}
             </tbody>

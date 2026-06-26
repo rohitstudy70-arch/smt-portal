@@ -498,4 +498,88 @@ router.post('/', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
   }
 });
 
+// Edit Product
+router.put('/:id', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found.' });
+    }
+
+    const input = normalizeProductInput(req.body);
+
+    if (!productTypes.includes(input.productDescription)) {
+      return res.status(400).json({ message: 'Please select a valid product.' });
+    }
+
+    if (['Renewal', 'VLTD RENEWAL', 'GPS RENEWAL'].includes(input.productDescription) && !input.existingDeviceSearch) {
+      return res.status(400).json({ message: 'Existing Device Search is required for Renewal.' });
+    }
+
+    if (input.billAmount < 0) {
+      return res.status(400).json({ message: 'Bill Amount cannot be negative.' });
+    }
+
+    const ownership = await resolveProductDealer(req, input);
+    if (ownership.error) {
+      return res.status(ownership.error.status).json({ message: ownership.error.message });
+    }
+
+    const targetDealer = await User.findById(ownership.dealer._id);
+    if (!targetDealer) {
+      return res.status(404).json({ message: 'Dealer not found.' });
+    }
+
+    const dealerName = labelForUser(targetDealer);
+    const billAmount = Number(input.billAmount) || 0;
+
+    product.userId = targetDealer._id;
+    product.dealerId = targetDealer._id;
+    product.dealerName = dealerName;
+    product.subDealerId = input.subDealerId;
+    product.subDealerName = input.subDealerName;
+    product.vendor = input.vendor;
+    product.productDescription = input.productDescription;
+    product.existingDeviceSearch = input.existingDeviceSearch;
+    product.imei = input.imei;
+    product.serialNo = input.serialNo;
+    product.iccid = input.iccid;
+    product.msisdn1 = input.msisdn1;
+    product.msisdn2 = input.msisdn2;
+    product.itrNo = input.itrNo;
+    product.vehicleNumber = input.vehicleNumber;
+    product.validity = input.validity;
+    product.activationDate = input.activationDate;
+    product.renewalDate = input.renewalDate;
+    product.expiryDate = input.expiryDate;
+    product.newExpiryDate = input.newExpiryDate;
+    product.billAmount = billAmount;
+    product.updatedAt = new Date();
+
+    await product.save();
+
+    const populatedProduct = await populateProduct(Product.findById(product._id));
+    res.json({ message: 'Product updated successfully!', product: populatedProduct });
+  } catch (error) {
+    console.error('Update product error:', error.message);
+    res.status(500).json({ message: error.message || 'Server error' });
+  }
+});
+
+// Delete Product
+router.delete('/:id', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found.' });
+    }
+
+    await Product.findByIdAndDelete(product._id);
+    res.json({ message: 'Product deleted successfully.' });
+  } catch (error) {
+    console.error('Delete product error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;
