@@ -104,8 +104,8 @@ const AddProduct = () => {
   );
 
   const isRenewal = formData.productDescription === 'VLTD RENEWAL' || formData.productDescription === 'GPS RENEWAL' || formData.productDescription === 'Renewal';
-  const isVltd = formData.productDescription === 'VLTD' || formData.productDescription === 'VLTD RENEWAL';
-  const isGps = formData.productDescription === 'GPS' || formData.productDescription === 'GPS RENEWAL';
+  const isVltd = formData.productDescription === 'VLTD';
+  const isGps = formData.productDescription === 'GPS';
 
   const calculatedExpiry = useMemo(() => (
     isRenewal
@@ -435,13 +435,13 @@ const AddProduct = () => {
 
               {(isVltd || isGps) && (
                 <div className="form-group">
-                  <label>Serial No.</label>
+                  <label>{isGps ? 'VTS No.' : 'Serial No.'}</label>
                   <input
                     type="text"
                     name="serialNo"
                     value={formData.serialNo}
                     onChange={(event) => updateFormField('serialNo', event.target.value)}
-                    placeholder="Enter Serial Number"
+                    placeholder={isGps ? 'Enter VTS Number' : 'Enter Serial Number'}
                   />
                 </div>
               )}
