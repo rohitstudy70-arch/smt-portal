@@ -1,9 +1,9 @@
 const COMPANY_SENDER = {
   brandName: 'Arshi Enterprises',
   companyName: 'Arshi Enterprises',
-  address: 'Near-Brajesh Automobiles(Mahindra Showroom) NH-31,Maranga,',
-  cityStatePin: 'Pin Code-854303 Purnia(BIHAR)',
-  phone: 'Ph:-7782808063,919905959287',
+  address: 'Near Brajesh Automobiles (Mahindra Showroom), NH-31, Maranga',
+  cityStatePin: 'Purnea, Bihar - 854303',
+  phone: 'Ph: +91 7782808063, +91 9905959287',
   gstNo: '10ATIPK1589P1ZA',
 };
 
@@ -239,7 +239,7 @@ export const buildProformaInvoiceData = (invoice = {}) => {
     customerGstin,
     isIntraState,
     items,
-    emptyRows: Math.max(0, 5 - items.length),
+    emptyRows: Math.max(0, 2 - items.length),
     terms: TERMS,
     bankDetails: BANK_DETAILS,
     fabList: FAB_LIST,
@@ -374,26 +374,39 @@ export const renderProformaInvoiceHtml = (invoice, { logo, includeActions = true
     }
     @page {
       size: A4 portrait;
-      margin: 8mm 10mm;
+      margin: 4mm 6mm;
     }
     body{background:#fff;padding:0;margin:0}
     .action-bar{display:none}
-    .page{box-shadow:none;border:none;border-radius:0;max-width:100%;margin:0;padding:0}
-    .header{padding:15px 20px 10px}
-    .info-box{padding:10px 15px}
-    table{margin-top:10px}
-    td, thead th{padding:8px 10px;font-size:12px}
-    .empty-row td{height:24px}
-    .bottom{margin-top:10px;padding:0 20px 15px}
-    .tc-list{margin-bottom:10px}
-    .tc-list li{padding:2px 0 2px 18px;font-size:11px}
-    .bank-row{padding:2px 0;font-size:11px}
-    .tax-block{padding-left:15px}
-    .tax-row{padding:3px 0;font-size:11.5px}
-    .total-box{padding:10px 12px;margin-top:8px}
-    .total-amount{font-size:20px}
-    .footer{margin:10px 20px 10px;padding-top:8px}
-    .footer p{font-size:10px}
+    .page{box-shadow:none;border:none;border-radius:0;max-width:100%;margin:0;padding:0;page-break-inside:avoid}
+    .header{padding:10px 16px 8px}
+    .brand-name{font-size:26px}
+    .brand-sub{font-size:10px;line-height:1.4}
+    .inv-label{font-size:18px}
+    .inv-meta{font-size:11px;margin-top:4px}
+    .info-box{padding:6px 12px}
+    .info-box-head{margin-bottom:4px;font-size:9.5px}
+    .info-box p{font-size:11px;line-height:1.4}
+    .co-name{font-size:11.5px;margin-bottom:1px}
+    table{margin-top:8px}
+    thead th{padding:6px 8px;font-size:10.5px}
+    td{padding:6px 8px;font-size:11px}
+    .empty-row td{height:16px}
+    .bottom{margin-top:6px;padding:0 16px 8px}
+    .amount-words{font-size:11px;margin-bottom:8px}
+    .section-title{font-size:10px;margin-bottom:6px}
+    .tc-list{margin-bottom:6px}
+    .tc-list li{padding:1px 0 1px 12px;font-size:9px;line-height:1.25}
+    .bank-row{padding:1px 0;font-size:9.5px}
+    .bank-row span:first-child{min-width:90px}
+    .tax-block{padding-left:12px;padding-top:0}
+    .tax-row{padding:2px 0;font-size:10.5px}
+    .total-box{padding:6px 10px;margin-top:4px}
+    .total-label{font-size:9.5px}
+    .total-amount{font-size:16px}
+    .fab-container{margin-top:6px !important}
+    .footer{margin:6px 16px 6px;padding-top:4px}
+    .footer p{font-size:8.5px}
     tbody tr:hover{background:transparent}
   }
   @media screen and (max-width: 768px){
@@ -506,7 +519,7 @@ ${itemsHtml}${renderEmptyRowsHtml(data.emptyRows)}
         <div class="total-label">Total Amount</div>
         <div class="total-amount">INR ${formatCurrency(data.totals.total)}</div>
       </div>
-      <div style="margin-top:20px">
+      <div class="fab-container" style="margin-top:20px">
         <div class="section-title">Features &amp; Benefits (FaB)</div>
         <ul class="tc-list" style="margin-bottom:0">
           ${data.fabList.map((fab, index) => `<li data-n="${index + 1}.">${escapeHtml(fab)}</li>`).join('')}
