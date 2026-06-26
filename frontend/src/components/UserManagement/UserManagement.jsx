@@ -373,7 +373,7 @@ const UserManagement = () => {
                       <th>User</th>
                       <th>Type</th>
                       <th>Mobile No</th>
-                      <th>Email ID</th>
+                      <th>User ID</th>
                       <th style={{ width: '100px' }}>Actions</th>
                     </tr>
                   </thead>
@@ -389,7 +389,7 @@ const UserManagement = () => {
                           <td className="text-semibold">{user.displayName || user.username}</td>
                           <td>{user.userType || 'N/A'}</td>
                           <td>{user.mobileNo || '-'}</td>
-                          <td>{user.email || '-'}</td>
+                          <td>{user.username || '-'}</td>
                           <td>
                             <div className="action-buttons">
                               {canManageUser(user) && (
