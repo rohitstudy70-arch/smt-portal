@@ -20,7 +20,7 @@ const router = express.Router();
 router.use(protect, attachHierarchyScope);
 
 const productManageRoles = [PORTAL_ROLES.ADMIN, PORTAL_ROLES.DEALER];
-const productTypes = ['VLTD', 'GPS', 'Renewal'];
+const productTypes = ['VLTD', 'GPS', 'Renewal', 'VLTD RENEWAL', 'GPS RENEWAL'];
 
 const escapeRegExp = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -49,6 +49,8 @@ const normalizeProductType = (value) => {
   const normalized = String(value || 'VLTD').trim().toLowerCase();
   if (normalized === 'gps') return 'GPS';
   if (normalized === 'renewal') return 'Renewal';
+  if (normalized === 'vltd renewal') return 'VLTD RENEWAL';
+  if (normalized === 'gps renewal') return 'GPS RENEWAL';
   return 'VLTD';
 };
 
@@ -114,7 +116,7 @@ const normalizeProductInput = (body = {}) => {
     input.itrNo = '';
   }
 
-  if (input.productDescription === 'Renewal') {
+  if (['Renewal', 'VLTD RENEWAL', 'GPS RENEWAL'].includes(input.productDescription)) {
     input.serialNo = '';
     input.iccid = '';
     input.msisdn1 = '';
@@ -245,7 +247,7 @@ const createLedgerDebit = async ({ targetDealer, product, input, amount, created
     userId: targetDealer._id,
     transactionId: generateTransactionId(),
     paymentId: product._id.toString(),
-    paymentFor: input.productDescription === 'Renewal' ? 'Product Renewal' : 'Product Purchase',
+    paymentFor: ['Renewal', 'VLTD RENEWAL', 'GPS RENEWAL'].includes(input.productDescription) ? 'Product Renewal' : 'Product Purchase',
     referenceNo: input.vehicleNumber || input.imei || input.existingDeviceSearch || product._id.toString(),
     payMode: 'Itwallet',
     transactionType: 'Debit',
@@ -388,7 +390,7 @@ router.post('/', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
       return res.status(400).json({ message: 'Please select a valid product.' });
     }
 
-    if (input.productDescription === 'Renewal' && !input.existingDeviceSearch) {
+    if (['Renewal', 'VLTD RENEWAL', 'GPS RENEWAL'].includes(input.productDescription) && !input.existingDeviceSearch) {
       return res.status(400).json({ message: 'Existing Device Search is required for Renewal.' });
     }
 

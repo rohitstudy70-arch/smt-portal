@@ -33,7 +33,7 @@ const productSchema = new mongoose.Schema({
   },
   productDescription: {
     type: String,
-    enum: ['VLTD', 'GPS', 'Renewal'],
+    enum: ['VLTD', 'GPS', 'Renewal', 'VLTD RENEWAL', 'GPS RENEWAL'],
     default: 'VLTD',
   },
   existingDeviceSearch: {

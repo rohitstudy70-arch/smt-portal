@@ -103,9 +103,9 @@ const AddProduct = () => {
     [dealers, formData.dealerId]
   );
 
-  const isRenewal = formData.productDescription === 'Renewal';
-  const isVltd = formData.productDescription === 'VLTD';
-  const isGps = formData.productDescription === 'GPS';
+  const isRenewal = formData.productDescription === 'VLTD RENEWAL' || formData.productDescription === 'GPS RENEWAL' || formData.productDescription === 'Renewal';
+  const isVltd = formData.productDescription === 'VLTD' || formData.productDescription === 'VLTD RENEWAL';
+  const isGps = formData.productDescription === 'GPS' || formData.productDescription === 'GPS RENEWAL';
 
   const calculatedExpiry = useMemo(() => (
     isRenewal
@@ -389,7 +389,8 @@ const AddProduct = () => {
                 >
                   <option value="VLTD">VLTD</option>
                   <option value="GPS">GPS</option>
-                  <option value="Renewal">Renewal</option>
+                  <option value="VLTD RENEWAL">VLTD RENEWAL</option>
+                  <option value="GPS RENEWAL">GPS RENEWAL</option>
                 </select>
               </div>
 
@@ -641,7 +642,7 @@ const AddProduct = () => {
                   <tr key={product._id}>
                     <td>{getLinkedName(product.dealerId, product.dealerName)}</td>
                     <td>
-                      <span className={`product-type-pill product-${String(product.productDescription || '').toLowerCase()}`}>
+                      <span className={`product-type-pill product-${String(product.productDescription || '').toLowerCase().replace(/\s+/g, '-')}`}>
                         {product.productDescription || '-'}
                       </span>
                     </td>

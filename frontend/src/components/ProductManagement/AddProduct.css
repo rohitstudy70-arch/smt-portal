@@ -64,7 +64,9 @@
   color: #166534;
 }
 
-.product-type-pill.product-renewal {
+.product-type-pill.product-renewal,
+.product-type-pill.product-vltd-renewal,
+.product-type-pill.product-gps-renewal {
   background: #fef3c7;
   color: #92400e;
 }
