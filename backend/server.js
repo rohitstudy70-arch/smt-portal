@@ -9,7 +9,10 @@ const connectDB = require('./config/db');
 dotenv.config();
 
 // Connect to MongoDB
-connectDB();
+connectDB().then(() => {
+  const syncDevices = require('./utils/syncDevices');
+  syncDevices();
+});
 
 // Ensure upload folders exist
 const uploadDir = path.join(__dirname, 'uploads');

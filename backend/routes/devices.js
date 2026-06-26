@@ -679,6 +679,34 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
 
       await syncDueForUsers([ownership.ownerId]);
 
+      // Sync to Product collection
+      const Product = require('../models/Product');
+      await Product.create({
+        userId: deviceCreated.userId,
+        dealerId: deviceCreated.dealerId,
+        dealerName: deviceCreated.dealerName,
+        subDealerId: deviceCreated.subDealerId,
+        subDealerName: deviceCreated.subDealerName,
+        vendor: deviceCreated.vendor || 'iTriangle',
+        productDescription: deviceCreated.deviceType === 'GPS' ? 'GPS' : 'VLTD',
+        existingDeviceSearch: '',
+        imei: deviceCreated.imei,
+        serialNo: deviceCreated.serialNo,
+        iccid: deviceCreated.iccid,
+        msisdn1: deviceCreated.msisdn1,
+        msisdn2: deviceCreated.msisdn2,
+        itrNo: deviceCreated.itrNo,
+        vehicleNumber: '',
+        validity: deviceCreated.validity || '1 Year',
+        activationDate: deviceCreated.presentDate,
+        expiryDate: deviceCreated.expiryDate,
+        billAmount: deviceCreated.billAmount || 0,
+        createdBy: req.user._id,
+        createdByRole: req.portalRole,
+        createdAt: deviceCreated.createdAt,
+        updatedAt: deviceCreated.updatedAt || deviceCreated.createdAt,
+      });
+
       const populatedDevice = await populateDevice(Device.findById(deviceCreated._id));
       res.status(201).json({ message: 'Device added successfully!', device: populatedDevice });
     } catch (err) {
@@ -726,6 +754,7 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
       return res.status(404).json({ message: 'Device not found or access denied.' });
     }
 
+    const originalImei = device.imei;
     const input = normalizeDeviceInput(req.body);
 
     if (!input.imei || !input.iccid || !input.serialNo) {
@@ -923,6 +952,33 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
 
       await syncDueForUsers([...oldDueOwnerIds, ...getDueOwnerIdsFromDevice(device)]);
 
+      // Sync update to Product collection
+      const Product = require('../models/Product');
+      await Product.findOneAndUpdate(
+        { imei: originalImei },
+        {
+          userId: device.userId,
+          dealerId: device.dealerId,
+          dealerName: device.dealerName,
+          subDealerId: device.subDealerId,
+          subDealerName: device.subDealerName,
+          vendor: device.vendor || 'iTriangle',
+          productDescription: device.deviceType === 'GPS' ? 'GPS' : 'VLTD',
+          imei: device.imei,
+          serialNo: device.serialNo,
+          iccid: device.iccid,
+          msisdn1: device.msisdn1,
+          msisdn2: device.msisdn2,
+          itrNo: device.itrNo,
+          validity: device.validity || '1 Year',
+          activationDate: device.presentDate,
+          expiryDate: device.expiryDate,
+          billAmount: device.billAmount || 0,
+          updatedAt: new Date(),
+        },
+        { upsert: true }
+      );
+
       const populatedDevice = await populateDevice(Device.findById(device._id));
       res.json({ message: 'Device updated successfully!', device: populatedDevice });
 
@@ -962,6 +1018,11 @@ router.delete('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
     const dueOwnerIds = getDueOwnerIdsFromDevice(device);
     await Device.findByIdAndDelete(device._id);
     await syncDueForUsers(dueOwnerIds);
+
+    // Sync delete to Product collection
+    const Product = require('../models/Product');
+    await Product.deleteOne({ imei: device.imei });
+
     res.json({ message: 'Device deleted successfully.' });
   } catch (error) {
     console.error('Delete device error:', error.message);
