@@ -25,6 +25,7 @@ import {
   FaRupeeSign,
   FaCoins,
   FaChartLine,
+  FaBoxOpen,
 } from 'react-icons/fa';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
@@ -97,6 +98,7 @@ const statCatalog = {
   availableDevices: { label: 'Available Devices', icon: FaSimCard, tone: 'amber' },
   activeCustomers: { label: 'Active Customers', icon: FaUsers, tone: 'green' },
   pendingRenewals: { label: 'Pending Renewals', icon: FaRedo, tone: 'violet' },
+  totalProducts: { label: 'Total Products', icon: FaBoxOpen, tone: 'blue' },
 };
 
 const statKeysByRole = {
@@ -108,6 +110,7 @@ const statKeysByRole = {
     'expiredDevices',
     'devicesAddedToday',
     'renewalDueDevices',
+    'totalProducts',
   ],
   DEALER: [
     'assignedDevices',
@@ -115,6 +118,7 @@ const statKeysByRole = {
     'renewalDueDevices',
     'availableDevices',
     'totalDevices',
+    'totalProducts',
   ],
   SUB_DEALER: [
     'availableDevices',
@@ -652,6 +656,9 @@ const CustomerDevicePortal = () => {
         break;
       case 'availableDevices':
         openView('devices');
+        break;
+      case 'totalProducts':
+        navigate('/add-product');
         break;
       default:
         break;

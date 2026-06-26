@@ -372,7 +372,7 @@ router.get('/', requireRoles(...productManageRoles), async (req, res) => {
   }
 });
 
-router.post('/', requireRoles(...productManageRoles), async (req, res) => {
+router.post('/', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
   let productCreated = null;
   let transactionCreated = null;
   let balanceRollback = null;

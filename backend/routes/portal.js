@@ -5,6 +5,7 @@ const AuditLog = require('../models/AuditLog');
 const RenewalRequest = require('../models/RenewalRequest');
 const DuePayment = require('../models/DuePayment');
 const ActivationRequest = require('../models/ActivationRequest');
+const Product = require('../models/Product');
 const { protect } = require('../middleware/auth');
 const {
   getDueOwnerIdsFromDevice,
@@ -96,6 +97,20 @@ const buildDeviceScopeQuery = (scope) => {
       { assignedTo: { $in: scope.userIds } },
       { dealerId: { $in: scope.userIds } },
       { subDealerId: { $in: scope.userIds } },
+      { createdBy: { $in: scope.userIds } },
+    ],
+  };
+};
+
+const buildProductScopeQuery = (scope) => {
+  if (scope.role === 'ADMIN') {
+    return {};
+  }
+
+  return {
+    $or: [
+      { userId: { $in: scope.userIds } },
+      { dealerId: { $in: scope.userIds } },
       { createdBy: { $in: scope.userIds } },
     ],
   };
@@ -220,6 +235,8 @@ router.get('/summary', protect, async (req, res) => {
       ? { $and: [deviceScopeQuery, { assignedTo: { $nin: [null, selfId] } }] }
       : { ...deviceScopeQuery, assignedTo: { $ne: null } };
 
+    const productScopeQuery = buildProductScopeQuery(scope);
+
     const [
       totalDevices,
       activeDevices,
@@ -230,6 +247,7 @@ router.get('/summary', protect, async (req, res) => {
       renewalDueDevices,
       totalRenewals,
       pendingRenewals,
+      totalProducts,
     ] = await Promise.all([
       Device.countDocuments(deviceScopeQuery),
       Device.countDocuments({ ...deviceScopeQuery, status: { $in: ['Active', 'Activated'] } }),
@@ -240,6 +258,7 @@ router.get('/summary', protect, async (req, res) => {
       Device.countDocuments({ ...deviceScopeQuery, expiryDate: { $gte: now, $lte: dueDate } }),
       RenewalRequest.countDocuments(requestScopeQuery),
       RenewalRequest.countDocuments({ ...requestScopeQuery, status: { $in: ['Requested', 'Processing'] } }),
+      Product.countDocuments(productScopeQuery),
     ]);
 
     res.json({
@@ -257,6 +276,7 @@ router.get('/summary', protect, async (req, res) => {
       activeCustomers: customerRecords.filter((item) => item.status !== 'Inactive').length,
       totalRenewals,
       pendingRenewals,
+      totalProducts,
     });
   } catch (error) {
     console.error('Portal summary error:', error.message);

@@ -350,218 +350,220 @@ const AddProduct = () => {
         </div>
       )}
 
-      <div className="add-device-card">
-        <div className="add-device-header">
-          <FaBoxOpen className="header-icon" />
-          <span>ADD PRODUCT</span>
-        </div>
+      {role === 'ADMIN' && (
+        <div className="add-device-card">
+          <div className="add-device-header">
+            <FaBoxOpen className="header-icon" />
+            <span>ADD PRODUCT</span>
+          </div>
 
-        <form className="add-device-form" onSubmit={handleSubmit}>
-          <div className="form-grid">
-            {renderDealerDropdown()}
+          <form className="add-device-form" onSubmit={handleSubmit}>
+            <div className="form-grid">
+              {renderDealerDropdown()}
 
-            <div className="form-group">
-              <label>Product Description</label>
-              <select
-                name="productDescription"
-                value={formData.productDescription}
-                onChange={(event) => updateProductType(event.target.value)}
-              >
-                <option value="VLTD">VLTD</option>
-                <option value="GPS">GPS</option>
-                <option value="Renewal">Renewal</option>
-              </select>
-            </div>
+              <div className="form-group">
+                <label>Product Description</label>
+                <select
+                  name="productDescription"
+                  value={formData.productDescription}
+                  onChange={(event) => updateProductType(event.target.value)}
+                >
+                  <option value="VLTD">VLTD</option>
+                  <option value="GPS">GPS</option>
+                  <option value="Renewal">Renewal</option>
+                </select>
+              </div>
 
-            {isRenewal && (
-              <div className={`form-group ${errors.existingDeviceSearch ? 'has-error' : ''}`}>
-                <label>Existing Device Search <span className="required">*</span></label>
-                <div className="inline-search-row">
+              {isRenewal && (
+                <div className={`form-group ${errors.existingDeviceSearch ? 'has-error' : ''}`}>
+                  <label>Existing Device Search <span className="required">*</span></label>
+                  <div className="inline-search-row">
+                    <input
+                      type="text"
+                      name="existingDeviceSearch"
+                      value={formData.existingDeviceSearch}
+                      onChange={(event) => updateFormField('existingDeviceSearch', event.target.value)}
+                      placeholder="IMEI / Vehicle Number"
+                    />
+                    <button
+                      type="button"
+                      className="btn-inline-search"
+                      onClick={handleExistingSearch}
+                      disabled={searchingExisting}
+                      title="Search existing device"
+                    >
+                      <FaSearch />
+                      <span>{searchingExisting ? 'Searching' : 'Search'}</span>
+                    </button>
+                  </div>
+                  {errors.existingDeviceSearch && <span className="error-text">{errors.existingDeviceSearch}</span>}
+                </div>
+              )}
+
+              {(isVltd || isGps) && (
+                <div className="form-group">
+                  <label>IMEI No.</label>
                   <input
                     type="text"
-                    name="existingDeviceSearch"
-                    value={formData.existingDeviceSearch}
-                    onChange={(event) => updateFormField('existingDeviceSearch', event.target.value)}
-                    placeholder="IMEI / Vehicle Number"
+                    name="imei"
+                    value={formData.imei}
+                    onChange={(event) => updateFormField('imei', event.target.value)}
+                    placeholder="Enter IMEI"
                   />
-                  <button
-                    type="button"
-                    className="btn-inline-search"
-                    onClick={handleExistingSearch}
-                    disabled={searchingExisting}
-                    title="Search existing device"
-                  >
-                    <FaSearch />
-                    <span>{searchingExisting ? 'Searching' : 'Search'}</span>
-                  </button>
                 </div>
-                {errors.existingDeviceSearch && <span className="error-text">{errors.existingDeviceSearch}</span>}
-              </div>
-            )}
+              )}
 
-            {(isVltd || isGps) && (
+              {(isVltd || isGps) && (
+                <div className="form-group">
+                  <label>Serial No.</label>
+                  <input
+                    type="text"
+                    name="serialNo"
+                    value={formData.serialNo}
+                    onChange={(event) => updateFormField('serialNo', event.target.value)}
+                    placeholder="Enter Serial Number"
+                  />
+                </div>
+              )}
+
+              {isVltd && (
+                <div className="form-group">
+                  <label>ICCID No.</label>
+                  <input
+                    type="text"
+                    name="iccid"
+                    value={formData.iccid}
+                    onChange={(event) => updateFormField('iccid', event.target.value)}
+                    placeholder="Enter ICCID"
+                  />
+                </div>
+              )}
+
+              {isVltd && (
+                <div className="form-group">
+                  <label>MSISDN 1</label>
+                  <input
+                    type="text"
+                    name="msisdn1"
+                    value={formData.msisdn1}
+                    onChange={(event) => updateFormField('msisdn1', event.target.value)}
+                    placeholder="Enter MSISDN 1"
+                  />
+                </div>
+              )}
+
+              {isVltd && (
+                <div className="form-group">
+                  <label>MSISDN 2</label>
+                  <input
+                    type="text"
+                    name="msisdn2"
+                    value={formData.msisdn2}
+                    onChange={(event) => updateFormField('msisdn2', event.target.value)}
+                    placeholder="Enter MSISDN 2"
+                  />
+                </div>
+              )}
+
+              {isVltd && (
+                <div className="form-group">
+                  <label>ITR No.</label>
+                  <input
+                    type="text"
+                    name="itrNo"
+                    value={formData.itrNo}
+                    onChange={(event) => updateFormField('itrNo', event.target.value)}
+                    placeholder="Enter ITR Number"
+                  />
+                </div>
+              )}
+
               <div className="form-group">
-                <label>IMEI No.</label>
+                <label>Vehicle Number</label>
                 <input
                   type="text"
-                  name="imei"
-                  value={formData.imei}
-                  onChange={(event) => updateFormField('imei', event.target.value)}
-                  placeholder="Enter IMEI"
+                  name="vehicleNumber"
+                  value={formData.vehicleNumber}
+                  onChange={(event) => updateFormField('vehicleNumber', event.target.value)}
+                  placeholder={isRenewal ? 'Auto-filled when found' : 'Enter Vehicle Number'}
+                  readOnly={isRenewal}
+                  className={isRenewal ? 'readonly-field' : ''}
                 />
               </div>
-            )}
 
-            {(isVltd || isGps) && (
               <div className="form-group">
-                <label>Serial No.</label>
+                <label>Validity</label>
+                <select
+                  name="validity"
+                  value={formData.validity}
+                  onChange={(event) => updateFormField('validity', event.target.value)}
+                >
+                  <option value="1 Year">1 Year</option>
+                  <option value="2 Year">2 Year</option>
+                  <option value="3 Year">3 Year</option>
+                </select>
+              </div>
+
+              {!isRenewal && (
+                <div className="form-group">
+                  <label>Activation Date</label>
+                  <input
+                    type="date"
+                    name="activationDate"
+                    value={formData.activationDate}
+                    onChange={(event) => updateFormField('activationDate', event.target.value)}
+                  />
+                </div>
+              )}
+
+              {isRenewal && (
+                <div className="form-group">
+                  <label>Renewal Date</label>
+                  <input
+                    type="date"
+                    name="renewalDate"
+                    value={formData.renewalDate}
+                    onChange={(event) => updateFormField('renewalDate', event.target.value)}
+                  />
+                </div>
+              )}
+
+              <div className="form-group">
+                <label>{isRenewal ? 'New Expiry Date' : 'Expiry Date'}</label>
                 <input
                   type="text"
-                  name="serialNo"
-                  value={formData.serialNo}
-                  onChange={(event) => updateFormField('serialNo', event.target.value)}
-                  placeholder="Enter Serial Number"
+                  value={formatDate(calculatedExpiry)}
+                  readOnly
+                  className="readonly-field"
                 />
               </div>
-            )}
 
-            {isVltd && (
-              <div className="form-group">
-                <label>ICCID No.</label>
+              <div className={`form-group ${errors.billAmount ? 'has-error' : ''}`}>
+                <label>Bill Amount</label>
                 <input
-                  type="text"
-                  name="iccid"
-                  value={formData.iccid}
-                  onChange={(event) => updateFormField('iccid', event.target.value)}
-                  placeholder="Enter ICCID"
+                  type="number"
+                  name="billAmount"
+                  value={formData.billAmount}
+                  onChange={(event) => updateFormField('billAmount', event.target.value)}
+                  placeholder="Enter Bill Amount"
+                  min="0"
+                  step="0.01"
                 />
+                {errors.billAmount && <span className="error-text">{errors.billAmount}</span>}
               </div>
-            )}
-
-            {isVltd && (
-              <div className="form-group">
-                <label>MSISDN 1</label>
-                <input
-                  type="text"
-                  name="msisdn1"
-                  value={formData.msisdn1}
-                  onChange={(event) => updateFormField('msisdn1', event.target.value)}
-                  placeholder="Enter MSISDN 1"
-                />
-              </div>
-            )}
-
-            {isVltd && (
-              <div className="form-group">
-                <label>MSISDN 2</label>
-                <input
-                  type="text"
-                  name="msisdn2"
-                  value={formData.msisdn2}
-                  onChange={(event) => updateFormField('msisdn2', event.target.value)}
-                  placeholder="Enter MSISDN 2"
-                />
-              </div>
-            )}
-
-            {isVltd && (
-              <div className="form-group">
-                <label>ITR No.</label>
-                <input
-                  type="text"
-                  name="itrNo"
-                  value={formData.itrNo}
-                  onChange={(event) => updateFormField('itrNo', event.target.value)}
-                  placeholder="Enter ITR Number"
-                />
-              </div>
-            )}
-
-            <div className="form-group">
-              <label>Vehicle Number</label>
-              <input
-                type="text"
-                name="vehicleNumber"
-                value={formData.vehicleNumber}
-                onChange={(event) => updateFormField('vehicleNumber', event.target.value)}
-                placeholder={isRenewal ? 'Auto-filled when found' : 'Enter Vehicle Number'}
-                readOnly={isRenewal}
-                className={isRenewal ? 'readonly-field' : ''}
-              />
             </div>
 
-            <div className="form-group">
-              <label>Validity</label>
-              <select
-                name="validity"
-                value={formData.validity}
-                onChange={(event) => updateFormField('validity', event.target.value)}
-              >
-                <option value="1 Year">1 Year</option>
-                <option value="2 Year">2 Year</option>
-                <option value="3 Year">3 Year</option>
-              </select>
+            <div className="form-actions">
+              <button type="button" className="btn-reset" onClick={handleReset}>
+                <FaRedo /> Reset
+              </button>
+              <button type="submit" className="btn-save" disabled={submitting}>
+                <FaSave /> {submitting ? 'Saving...' : 'Save Product'}
+              </button>
             </div>
-
-            {!isRenewal && (
-              <div className="form-group">
-                <label>Activation Date</label>
-                <input
-                  type="date"
-                  name="activationDate"
-                  value={formData.activationDate}
-                  onChange={(event) => updateFormField('activationDate', event.target.value)}
-                />
-              </div>
-            )}
-
-            {isRenewal && (
-              <div className="form-group">
-                <label>Renewal Date</label>
-                <input
-                  type="date"
-                  name="renewalDate"
-                  value={formData.renewalDate}
-                  onChange={(event) => updateFormField('renewalDate', event.target.value)}
-                />
-              </div>
-            )}
-
-            <div className="form-group">
-              <label>{isRenewal ? 'New Expiry Date' : 'Expiry Date'}</label>
-              <input
-                type="text"
-                value={formatDate(calculatedExpiry)}
-                readOnly
-                className="readonly-field"
-              />
-            </div>
-
-            <div className={`form-group ${errors.billAmount ? 'has-error' : ''}`}>
-              <label>Bill Amount</label>
-              <input
-                type="number"
-                name="billAmount"
-                value={formData.billAmount}
-                onChange={(event) => updateFormField('billAmount', event.target.value)}
-                placeholder="Enter Bill Amount"
-                min="0"
-                step="0.01"
-              />
-              {errors.billAmount && <span className="error-text">{errors.billAmount}</span>}
-            </div>
-          </div>
-
-          <div className="form-actions">
-            <button type="button" className="btn-reset" onClick={handleReset}>
-              <FaRedo /> Reset
-            </button>
-            <button type="submit" className="btn-save" disabled={submitting}>
-              <FaSave /> {submitting ? 'Saving...' : 'Save Product'}
-            </button>
-          </div>
-        </form>
-      </div>
+          </form>
+        </div>
+      )}
 
       <div className="add-device-card device-list-card">
         <div className="add-device-header">

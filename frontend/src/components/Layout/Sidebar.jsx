@@ -188,7 +188,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           <li className={`sidebar-menu-item ${location.pathname === '/add-product' ? 'active' : ''}`}>
             <NavLink to="/add-product">
               <FaBoxOpen className="menu-icon" />
-              <span className="menu-text">Add Product</span>
+              <span className="menu-text">{role === 'ADMIN' ? 'Add Product' : 'Products'}</span>
             </NavLink>
           </li>
         )}
