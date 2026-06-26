@@ -25,7 +25,6 @@ const TERMS = [
   'Payment 100% in Advance.',
   'Price are further negotiable if quantity increases.',
   'Goods once sold cannot be taken back.',
-  'Installation Charges (@INR500) is extra applicable on per unit. (Installation charges are further negotiable if quantity increases and vehicles are received in Bulk at one location)',
   'Warranty – 12 Months from the date of Supply, Warranty applicable before 15days of due date.',
   'Courier if any to be paid by customer.',
   'Standard Force Majeure will apply. (No warranty of burnt damaged goods)',
