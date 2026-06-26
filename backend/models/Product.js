@@ -78,7 +78,7 @@ const productSchema = new mongoose.Schema({
   },
   validity: {
     type: String,
-    enum: ['1 Year', '2 Year', '3 Year'],
+    enum: ['1 Year', '2 Year', '2 Years', '3 Year', '3 Years'],
     default: '1 Year',
   },
   activationDate: {

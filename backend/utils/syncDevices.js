@@ -1,6 +1,13 @@
 const Device = require('../models/Device');
 const Product = require('../models/Product');
 
+const normalizeValidity = (value) => {
+  const normalized = String(value || '1 Year').trim().toLowerCase();
+  if (normalized === '2 year' || normalized === '2 years') return '2 Year';
+  if (normalized === '3 year' || normalized === '3 years') return '3 Year';
+  return '1 Year';
+};
+
 const syncDevicesToProducts = async () => {
   try {
     console.log('🔄 [Migration] Checking sync from Devices to Products...');
@@ -27,7 +34,7 @@ const syncDevicesToProducts = async () => {
           msisdn2: device.msisdn2,
           itrNo: device.itrNo,
           vehicleNumber: '',
-          validity: device.validity || '1 Year',
+          validity: normalizeValidity(device.validity),
           activationDate: device.presentDate,
           renewalDate: null,
           expiryDate: device.expiryDate,
