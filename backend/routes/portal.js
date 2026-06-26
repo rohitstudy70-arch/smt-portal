@@ -205,6 +205,21 @@ router.get('/summary', protect, async (req, res) => {
       customerRecords.map((item) => item.regMobNo || item.customerName).filter(Boolean)
     );
 
+    // Role-aware device counting:
+    // For ADMIN/DEALER: available = assignedTo null, assigned = assignedTo not null (across full scope)
+    // For SUB_DEALER: available = devices in their stock (assignedTo null OR assignedTo = self),
+    //                 assigned  = devices already forwarded (assignedTo not null AND not self)
+    const isSubDealer = scope.role === 'SUB_DEALER';
+    const selfId = req.user._id;
+
+    const availableQuery = isSubDealer
+      ? { $and: [deviceScopeQuery, { $or: [{ assignedTo: null }, { assignedTo: selfId }] }] }
+      : { ...deviceScopeQuery, assignedTo: null };
+
+    const assignedQuery = isSubDealer
+      ? { $and: [deviceScopeQuery, { assignedTo: { $nin: [null, selfId] } }] }
+      : { ...deviceScopeQuery, assignedTo: { $ne: null } };
+
     const [
       totalDevices,
       activeDevices,
@@ -220,8 +235,8 @@ router.get('/summary', protect, async (req, res) => {
       Device.countDocuments({ ...deviceScopeQuery, status: { $in: ['Active', 'Activated'] } }),
       Device.countDocuments({ ...deviceScopeQuery, expiryDate: { $lt: now, $ne: null } }),
       Device.countDocuments({ ...deviceScopeQuery, presentDate: { $gte: todayStart, $lte: todayEnd } }),
-      Device.countDocuments({ ...deviceScopeQuery, assignedTo: null }),
-      Device.countDocuments({ ...deviceScopeQuery, assignedTo: { $ne: null } }),
+      Device.countDocuments(availableQuery),
+      Device.countDocuments(assignedQuery),
       Device.countDocuments({ ...deviceScopeQuery, expiryDate: { $gte: now, $lte: dueDate } }),
       RenewalRequest.countDocuments(requestScopeQuery),
       RenewalRequest.countDocuments({ ...requestScopeQuery, status: { $in: ['Requested', 'Processing'] } }),

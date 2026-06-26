@@ -31,7 +31,16 @@ router.get('/sub-users', protect, async (req, res) => {
       const descendants = await getDescendantUsers(req.user._id);
       subUsers = descendants
         .map(d => d.toObject ? d.toObject() : d)
-        .filter((user) => isSupportedUserType(user.userType));
+        .filter((user) => {
+          if (!isSupportedUserType(user.userType)) return false;
+          // Strict parentId check: Sub Dealers must directly belong to this dealer.
+          // This prevents showing Sub Dealers of other dealers (e.g. HOD Dealer's sub dealers).
+          if (user.userType === 'Sub Dealer') {
+            const parentIdStr = user.parentId ? user.parentId.toString() : null;
+            return parentIdStr === req.user._id.toString();
+          }
+          return true;
+        });
     }
 
     // Fetch device counts for the matched users

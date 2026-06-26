@@ -16,6 +16,7 @@ const DeviceManagement = () => {
   const role = getRole(user);
 
   const [subUsers, setSubUsers] = useState([]);
+  const [allUsersMap, setAllUsersMap] = useState({}); // _id -> user, for quick lookup
   const [devices, setDevices] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -46,6 +47,10 @@ const DeviceManagement = () => {
       try {
         const res = await api.get('/users/sub-users');
         setSubUsers(res.data);
+        // Build a quick-lookup map for parent dealer names
+        const map = {};
+        res.data.forEach(u => { map[u._id] = u; });
+        setAllUsersMap(map);
       } catch (err) {
         console.error('Error fetching sub-users:', err);
       }
@@ -248,9 +253,43 @@ const DeviceManagement = () => {
                     required
                   >
                     <option value="">-Select User-</option>
-                    {subUsers.map(u => (
-                      <option key={u._id} value={u._id}>{u.displayName || u.username}</option>
-                    ))}
+                    {role === 'ADMIN' ? (
+                      // For Admin: show Dealers and Sub Dealers in separate groups
+                      // so Admin can directly assign to any Sub Dealer without choosing Dealer first
+                      <>
+                        {subUsers.filter(u => u.userType !== 'Sub Dealer' && u.userType !== 'Administration' && u.role !== 'partner').length > 0 && (
+                          <optgroup label="── Dealers ──">
+                            {subUsers
+                              .filter(u => u.userType !== 'Sub Dealer' && u.userType !== 'Administration' && u.role !== 'partner')
+                              .map(u => (
+                                <option key={u._id} value={u._id}>
+                                  {u.displayName || u.username}
+                                </option>
+                              ))}
+                          </optgroup>
+                        )}
+                        {subUsers.filter(u => u.userType === 'Sub Dealer').length > 0 && (
+                          <optgroup label="── Sub Dealers ──">
+                            {subUsers
+                              .filter(u => u.userType === 'Sub Dealer')
+                              .map(u => {
+                                const parentDealer = u.parentId ? allUsersMap[u.parentId] : null;
+                                const parentLabel = parentDealer ? ` [${parentDealer.displayName || parentDealer.username}]` : '';
+                                return (
+                                  <option key={u._id} value={u._id}>
+                                    {u.displayName || u.username}{parentLabel}
+                                  </option>
+                                );
+                              })}
+                          </optgroup>
+                        )}
+                      </>
+                    ) : (
+                      // For Dealer: show their own sub dealers directly
+                      subUsers.map(u => (
+                        <option key={u._id} value={u._id}>{u.displayName || u.username}</option>
+                      ))
+                    )}
                   </select>
                 </div>
               </div>

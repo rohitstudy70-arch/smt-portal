@@ -94,7 +94,7 @@ const Login = () => {
           </div>
 
           <div className="login-footer">
-            <p>2019 &copy; iTriangle Infotech Pvt Ltd</p>
+            <p>2026 &copy; Arshi Enterprises. All rights reserved.</p>
           </div>
         </div>
       </div>

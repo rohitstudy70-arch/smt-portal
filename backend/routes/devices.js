@@ -435,6 +435,20 @@ router.post('/assign', requireRoles(...deviceManageRoles), async (req, res) => {
       return res.status(400).json({ message: 'Please select a valid Dealer or Sub Dealer.' });
     }
 
+    // Extra guard: if a DEALER is assigning to a SUB_DEALER, ensure the sub dealer's
+    // parentId strictly matches the assigning dealer's own _id.
+    // This prevents a dealer from assigning devices to a sub dealer who belongs to a
+    // different (e.g. HOD) dealer — even if that sub dealer somehow appears in the scope.
+    if (req.portalRole === PORTAL_ROLES.DEALER && targetRole === PORTAL_ROLES.SUB_DEALER) {
+      const parentIdStr = subUser.parentId ? subUser.parentId.toString() : null;
+      const dealerIdStr = req.user._id.toString();
+      if (parentIdStr !== dealerIdStr) {
+        return res.status(403).json({
+          message: 'Forbidden: This Sub Dealer does not belong to your dealership. Only their assigned dealer can assign devices to them.',
+        });
+      }
+    }
+
     let targetImeis = [];
     if (imeisText) {
       const inputImeis = imeisText.split(/[\s,;\n]+/).map((i) => i.trim()).filter(Boolean);
