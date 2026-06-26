@@ -67,7 +67,7 @@
 
 .proforma-header {
   background: #007b8a;
-  padding: 28px 36px 22px;
+  padding: 28px 28px 22px;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -84,6 +84,7 @@
   height: 48px;
   width: auto;
   object-fit: contain;
+  border-radius: 6px;
 }
 
 .proforma-brand-name {
@@ -138,8 +139,13 @@
   border-right: 1px solid #cce4e8;
 }
 
+.proforma-info-box:first-child {
+  padding-left: 28px;
+}
+
 .proforma-info-box:last-child {
   border-right: none;
+  padding-right: 28px;
 }
 
 .proforma-info-box-head {
@@ -500,6 +506,14 @@
 
   .proforma-info-box {
     padding: 6px 12px;
+  }
+
+  .proforma-info-box:first-child {
+    padding-left: 16px;
+  }
+
+  .proforma-info-box:last-child {
+    padding-right: 16px;
   }
 
   .proforma-info-box-head {

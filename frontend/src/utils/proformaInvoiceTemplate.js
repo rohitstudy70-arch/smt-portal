@@ -319,7 +319,7 @@ export const renderProformaInvoiceHtml = (invoice, { logo, includeActions = true
   .btn-secondary:hover{background:var(--teal-light)}
   .btn svg{width:16px;height:16px;flex-shrink:0}
   .page{background:var(--white);max-width:794px;margin:0 auto;border-radius:12px;overflow:hidden;box-shadow:0 6px 30px rgba(0,80,100,0.12);border:1px solid var(--border)}
-  .header{background:var(--teal);padding:28px 36px 22px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px}
+  .header{background:var(--teal);padding:28px 28px 22px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px}
   .brand-name{font-family:'Nunito',sans-serif;font-size:34px;font-weight:800;color:#fff;letter-spacing:0}
   .brand-sub{color:rgba(255,255,255,0.85);font-size:11.5px;margin-top:2px;line-height:1.55}
   .invoice-title-block{text-align:right;flex-shrink:0}
@@ -328,7 +328,8 @@ export const renderProformaInvoiceHtml = (invoice, { logo, includeActions = true
   .accent-bar{height:5px;background:linear-gradient(90deg,var(--accent) 0%,#f5d26e 50%,var(--teal-mid) 100%)}
   .info-grid{display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1.5px solid var(--border)}
   .info-box{padding:16px 20px;border-right:1px solid var(--border)}
-  .info-box:last-child{border-right:none}
+  .info-box:first-child{padding-left:28px}
+  .info-box:last-child{border-right:none;padding-right:28px}
   .info-box-head{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--teal);margin-bottom:9px;display:flex;align-items:center;gap:6px}
   .info-box-head::before{content:'';display:inline-block;width:3px;height:12px;background:var(--accent);border-radius:2px}
   .info-box p{font-size:12.5px;color:var(--text);line-height:1.65}
@@ -385,6 +386,8 @@ export const renderProformaInvoiceHtml = (invoice, { logo, includeActions = true
     .inv-label{font-size:18px}
     .inv-meta{font-size:11px;margin-top:4px}
     .info-box{padding:6px 12px}
+    .info-box:first-child{padding-left:16px}
+    .info-box:last-child{padding-right:16px}
     .info-box-head{margin-bottom:4px;font-size:9.5px}
     .info-box p{font-size:11px;line-height:1.4}
     .co-name{font-size:11.5px;margin-bottom:1px}
@@ -429,7 +432,7 @@ ${includeActions ? renderActionBar() : ''}
 <div class="page" id="invoice">
   <div class="header">
     <div style="display:flex;align-items:flex-start;gap:12px">
-      <img src="${escapeHtml(logo || '')}" style="height:48px;width:auto;object-fit:contain" alt="Arshi Enterprises Logo">
+      <img src="${escapeHtml(logo || '')}" style="height:48px;width:auto;object-fit:contain;border-radius:6px" alt="Arshi Enterprises Logo">
       <div>
         <div class="brand-name">${escapeHtml(data.sender.brandName)}</div>
         <div class="brand-sub">${senderAddressHtml}</div>

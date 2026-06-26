@@ -41,7 +41,11 @@ const DEFAULT_INVOICE_ITEMS = [
   }
 ];
 
-const createDefaultInvoiceItems = () => DEFAULT_INVOICE_ITEMS.map(item => ({ ...item }));
+const MAX_PRODUCT_ROWS = 6;
+
+const createDefaultInvoiceItems = () => DEFAULT_INVOICE_ITEMS
+  .slice(0, MAX_PRODUCT_ROWS)
+  .map(item => ({ ...item }));
 
 const toNumber = (value) => {
   const parsed = Number(value);
@@ -112,7 +116,7 @@ const InvoiceGenerator = () => {
   const [dealersList, setDealersList] = useState([]);
   const [isCustomDealer, setIsCustomDealer] = useState(false);
 
-  // Dynamic invoice items state (preloaded with default rows shown in the screenshot)
+  // Dynamic PI product rows.
   const [items, setItems] = useState(createDefaultInvoiceItems);
 
   const activeState = isSubDealer ? dealerState : customerState;
@@ -157,11 +161,16 @@ const InvoiceGenerator = () => {
   };
 
   const handleAddItem = () => {
+    if (items.length >= MAX_PRODUCT_ROWS) {
+      alert('Maximum 6 product rows are allowed in one PI bill.');
+      return;
+    }
+
     setItems([
       ...items,
       {
         description: '',
-        validity: '12 Month',
+        validity: '',
         unitPrice: 0,
         gstRate: 18,
         qty: 1
@@ -171,7 +180,7 @@ const InvoiceGenerator = () => {
 
   const handleRemoveItem = (index) => {
     if (items.length === 1) {
-      alert('At least one item is required in the invoice.');
+      alert('At least one product row is required in the PI bill.');
       return;
     }
     setItems(items.filter((_, idx) => idx !== index));
@@ -314,7 +323,7 @@ const InvoiceGenerator = () => {
       return;
     }
 
-    const detailedItems = items.map(item => {
+    const detailedItems = items.slice(0, MAX_PRODUCT_ROWS).map(item => {
       const det = calculateItemDetails(item);
       return {
         description: det.description,
@@ -390,19 +399,19 @@ const InvoiceGenerator = () => {
 
       setRefreshTrigger(prev => prev + 1);
       setSingleSubmitting(false);
-      alert('Invoice Generated & Saved Successfully!');
+      alert('PI No Generated & Saved Successfully!');
       fetchNextPiNo();
     } catch (err) {
       console.error('Error submitting invoice:', err);
       setSingleSubmitting(false);
-      alert(err.response?.data?.message || 'Failed to generate invoice.');
+      alert(err.response?.data?.message || 'Failed to generate PI bill.');
     }
   };
 
   const handleDownloadInvoice = (req) => {
     const printWindow = window.open('', '_blank', 'width=900,height=800');
     if (!printWindow) {
-      alert('Popup blocker enabled. Please allow popups to download/print the invoice.');
+      alert('Popup blocker enabled. Please allow popups to download/print the PI bill.');
       return;
     }
 
@@ -454,7 +463,7 @@ const InvoiceGenerator = () => {
       <div className="ig-header">
         <span className="ig-title">
           <FaFileInvoiceDollar style={{ marginRight: '8px', color: 'var(--accent-color)' }} />
-          Invoice & Billing Generator
+          PI No Generator
         </span>
       </div>
 
@@ -624,7 +633,7 @@ const InvoiceGenerator = () => {
             </div>
 
             <div className="form-field">
-              <label>PI Number</label>
+              <label>PI No</label>
               <input 
                 type="text" 
                 value={piNo}
@@ -634,20 +643,10 @@ const InvoiceGenerator = () => {
               />
             </div>
 
-            <div className="form-field">
-              <label>Invoice Number</label>
-              <input 
-                type="text" 
-                value={invoiceNo}
-                readOnly
-                placeholder="Generating..."
-                style={{ backgroundColor: '#f1f5f9', cursor: 'not-allowed' }}
-              />
-            </div>
           </div>
 
           {/* Section 2: Items Builder */}
-          <div className="form-section-title">2. Invoice Items & Charges Details</div>
+          <div className="form-section-title">2. Product Rows & Charges</div>
           <div className="items-builder-container" style={{ overflowX: 'auto', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '15px', background: '#fafafa' }}>
             <table className="items-builder-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11.5px' }}>
               <thead>
