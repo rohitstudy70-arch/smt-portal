@@ -16,6 +16,21 @@ const productSchema = new mongoose.Schema({
     default: '',
     trim: true,
   },
+  subDealerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null,
+  },
+  subDealerName: {
+    type: String,
+    default: '',
+    trim: true,
+  },
+  vendor: {
+    type: String,
+    default: 'iTriangle',
+    trim: true,
+  },
   productDescription: {
     type: String,
     enum: ['VLTD', 'GPS', 'Renewal'],

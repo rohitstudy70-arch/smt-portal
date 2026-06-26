@@ -63,6 +63,9 @@ const calculateExpiry = (dateValue, validity) => {
 const createEmptyForm = (dealer) => ({
   dealerId: dealer?._id || '',
   dealerName: dealer ? getName(dealer) : '',
+  subDealerId: '',
+  subDealerName: '',
+  vendor: 'iTriangle',
   productDescription: 'VLTD',
   existingDeviceSearch: '',
   imei: '',
@@ -82,6 +85,8 @@ const AddProduct = () => {
   const { user } = useAuth();
   const role = getRole(user);
   const [dealers, setDealers] = useState([]);
+  const [subDealers, setSubDealers] = useState([]);
+  const [allUsersMap, setAllUsersMap] = useState({});
   const [products, setProducts] = useState([]);
   const [totalProducts, setTotalProducts] = useState(0);
   const [productsLoading, setProductsLoading] = useState(true);
@@ -93,6 +98,9 @@ const AddProduct = () => {
   const [dealerSearch, setDealerSearch] = useState('');
   const [dealerDropdownOpen, setDealerDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const [subDealerSearch, setSubDealerSearch] = useState('');
+  const [subDealerDropdownOpen, setSubDealerDropdownOpen] = useState(false);
+  const subDealerDropdownRef = useRef(null);
 
   const [tableSearch, setTableSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -101,6 +109,17 @@ const AddProduct = () => {
     () => dealers.find((dealer) => dealer._id === formData.dealerId),
     [dealers, formData.dealerId]
   );
+
+  const availableSubDealers = useMemo(() => {
+    if (!formData.dealerId) return [];
+    return subDealers.filter((sd) => sd.parentId === formData.dealerId);
+  }, [subDealers, formData.dealerId]);
+
+  const filteredSubDealers = useMemo(() => {
+    return availableSubDealers.filter((subDealer) =>
+      getName(subDealer).toLowerCase().includes(subDealerSearch.toLowerCase())
+    );
+  }, [availableSubDealers, subDealerSearch]);
 
   const isRenewal = formData.productDescription === 'Renewal';
   const isVltd = formData.productDescription === 'VLTD';
@@ -148,38 +167,53 @@ const AddProduct = () => {
   }, [debouncedSearch, fetchProducts]);
 
   useEffect(() => {
-    const fetchDealers = async () => {
+    const fetchDealersAndSubDealers = async () => {
       try {
         const response = await api.get('/users/sub-users');
         const allUsers = response.data || [];
+
+        const map = {};
+        allUsers.forEach((u) => { map[u._id] = u; });
+        setAllUsersMap(map);
 
         let dealerList = [];
         if (role === 'ADMIN') {
           dealerList = allUsers.filter((item) => (
             item.userType === 'Dealer'
-            || (!item.userType && item.role !== 'partner')
+            || item.userType === ''
+            || item.userType === 'Administration'
+            || item.role === 'partner'
           ));
+          if (user && !dealerList.some((u) => u._id === user._id)) {
+            dealerList.unshift(user);
+          }
         } else {
           dealerList = user ? [user] : [];
         }
 
+        const subDealerList = allUsers.filter((item) => item.userType === 'Sub Dealer');
+
         setDealers(dealerList);
+        setSubDealers(subDealerList);
 
         if (dealerList.length === 1) {
           setFormData(createEmptyForm(dealerList[0]));
         }
       } catch (error) {
-        showToast('error', error.response?.data?.message || 'Failed to load dealers.');
+        showToast('error', error.response?.data?.message || 'Failed to load users.');
       }
     };
 
-    fetchDealers();
+    fetchDealersAndSubDealers();
   }, [role, user]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setDealerDropdownOpen(false);
+      }
+      if (subDealerDropdownRef.current && !subDealerDropdownRef.current.contains(event.target)) {
+        setSubDealerDropdownOpen(false);
       }
     };
 
@@ -212,12 +246,24 @@ const AddProduct = () => {
       ...current,
       dealerId: dealer._id,
       dealerName: getName(dealer),
+      subDealerId: '',
+      subDealerName: '',
     }));
     setDealerSearch('');
     setDealerDropdownOpen(false);
     if (errors.dealerId || errors.dealerName) {
       setErrors((current) => ({ ...current, dealerId: '', dealerName: '' }));
     }
+  };
+
+  const selectSubDealer = (subDealer) => {
+    setFormData((current) => ({
+      ...current,
+      subDealerId: subDealer ? subDealer._id : '',
+      subDealerName: subDealer ? getName(subDealer) : '',
+    }));
+    setSubDealerSearch('');
+    setSubDealerDropdownOpen(false);
   };
 
   const validate = () => {
@@ -296,6 +342,7 @@ const AddProduct = () => {
     setFormData(createEmptyForm(defaultDealer));
     setErrors({});
     setDealerSearch('');
+    setSubDealerSearch('');
   };
 
   const renderDealerDropdown = () => (
@@ -360,6 +407,74 @@ const AddProduct = () => {
           <form className="add-device-form" onSubmit={handleSubmit}>
             <div className="form-grid">
               {renderDealerDropdown()}
+
+              {(role === 'ADMIN' || role === 'DEALER') && (
+                <div className="form-group">
+                  <label>Sub Dealer Name</label>
+                  <div className="searchable-dropdown" ref={subDealerDropdownRef}>
+                    <div
+                      className="dropdown-trigger"
+                      onClick={() => {
+                        if (!formData.dealerId) {
+                          showToast('error', 'Please select a Dealer first.');
+                          return;
+                        }
+                        if (availableSubDealers.length === 0) {
+                          showToast('error', 'No sub dealers found for this dealer.');
+                          return;
+                        }
+                        setSubDealerDropdownOpen(!subDealerDropdownOpen);
+                      }}
+                    >
+                      <span className={formData.subDealerName ? '' : 'placeholder'}>
+                        {formData.subDealerName || (formData.dealerId ? 'Select Sub Dealer' : 'Select Dealer First')}
+                      </span>
+                      <FaChevronDown className={`dropdown-arrow ${subDealerDropdownOpen ? 'open' : ''}`} />
+                    </div>
+                    {subDealerDropdownOpen && (
+                      <div className="dropdown-menu">
+                        <div className="dropdown-search">
+                          <FaSearch className="search-icon" />
+                          <input
+                            type="text"
+                            placeholder="Search sub dealer..."
+                            value={subDealerSearch}
+                            onChange={(event) => setSubDealerSearch(event.target.value)}
+                            autoFocus
+                          />
+                        </div>
+                        <ul className="dropdown-list">
+                          <li onClick={() => selectSubDealer(null)}>
+                            <em>None (No Sub Dealer)</em>
+                          </li>
+                          {filteredSubDealers.length > 0 ? (
+                            filteredSubDealers.map((subDealer) => (
+                              <li key={subDealer._id} onClick={() => selectSubDealer(subDealer)}>
+                                {getName(subDealer)}
+                              </li>
+                            ))
+                          ) : (
+                            <li className="no-results">No sub dealers found</li>
+                          )}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="form-group">
+                <label>Vendor Name</label>
+                <select name="vendor" value={formData.vendor} onChange={(event) => updateFormField('vendor', event.target.value)}>
+                  <option value="iTriangle">iTriangle</option>
+                  <option value="Acute">Acute</option>
+                  <option value="Markon">Markon</option>
+                  <option value="RDM">RDM</option>
+                  <option value="BB">BB</option>
+                  <option value="TrackNow">TrackNow</option>
+                  <option value="Road point">Road point</option>
+                </select>
+              </div>
 
               <div className="form-group">
                 <label>Product Description</label>
@@ -597,7 +712,9 @@ const AddProduct = () => {
             <thead>
               <tr>
                 <th>Dealer Name</th>
+                <th>Sub Dealer Name</th>
                 <th>Product</th>
+                <th>Vendor</th>
                 <th>Existing Search</th>
                 <th>IMEI</th>
                 <th>Serial Number</th>
@@ -614,17 +731,19 @@ const AddProduct = () => {
             <tbody>
               {productsLoading ? (
                 <tr>
-                  <td colSpan={13} className="table-empty">Loading products...</td>
+                  <td colSpan={15} className="table-empty">Loading products...</td>
                 </tr>
               ) : products.length > 0 ? (
                 products.map((product) => (
                   <tr key={product._id}>
                     <td>{getLinkedName(product.dealerId, product.dealerName)}</td>
+                    <td>{getLinkedName(product.subDealerId, product.subDealerName)}</td>
                     <td>
                       <span className={`product-type-pill product-${String(product.productDescription || '').toLowerCase()}`}>
                         {product.productDescription || '-'}
                       </span>
                     </td>
+                    <td>{product.vendor || '-'}</td>
                     <td>{product.existingDeviceSearch || '-'}</td>
                     <td className={product.imei ? 'strong-cell' : ''}>{product.imei || '-'}</td>
                     <td>{product.serialNo || '-'}</td>
@@ -640,7 +759,7 @@ const AddProduct = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={13} className="table-empty">No product records found.</td>
+                  <td colSpan={15} className="table-empty">No product records found.</td>
                 </tr>
               )}
             </tbody>

@@ -87,6 +87,9 @@ const normalizeProductInput = (body = {}) => {
   const input = {
     dealerId: String(body.dealerId || '').trim(),
     dealerName: String(body.dealerName || '').trim(),
+    subDealerId: (body.subDealerId && body.subDealerId.match(/^[0-9a-fA-F]{24}$/)) ? body.subDealerId : null,
+    subDealerName: String(body.subDealerName || '').trim(),
+    vendor: String(body.vendor || '').trim(),
     productDescription,
     existingDeviceSearch: String(body.existingDeviceSearch || body.search || '').trim(),
     imei: String(body.imei || body.imeiNo || '').trim(),
@@ -182,6 +185,7 @@ const buildProductFilterQuery = (queryParams = {}) => {
 
 const populateProduct = (query) => query
   .populate('dealerId', 'displayName companyName username userType availableBalance')
+  .populate('subDealerId', 'displayName companyName username userType')
   .populate('createdBy', 'displayName companyName username userType');
 
 const findDealerFromName = (scope, dealerName) => {
@@ -409,6 +413,9 @@ router.post('/', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
       userId: targetDealer._id,
       dealerId: targetDealer._id,
       dealerName,
+      subDealerId: input.subDealerId,
+      subDealerName: input.subDealerName,
+      vendor: input.vendor,
       productDescription: input.productDescription,
       existingDeviceSearch: input.existingDeviceSearch,
       imei: input.imei,
