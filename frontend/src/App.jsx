@@ -5,6 +5,7 @@ import CustomerDevicePortal from './components/Portal/CustomerDevicePortal';
 import ActivationRequests from './components/ServiceRequests/ActivationRequests';
 import Layout from './components/Layout/Layout';
 import ChangePassword from './components/AccountSettings/ChangePassword';
+import EditProfile from './components/AccountSettings/EditProfile';
 import UserManagement from './components/UserManagement/UserManagement';
 import DeviceManagement from './components/DeviceManagement/DeviceManagement';
 import AddDevice from './components/DeviceManagement/AddDevice';
@@ -106,6 +107,17 @@ function App() {
           } 
         />
 
+        <Route 
+          path="/account/edit-profile" 
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <EditProfile />
+              </Layout>
+            </ProtectedRoute>
+          } 
+        />
+
 
         
         <Route 
@@ -144,7 +156,7 @@ function App() {
         <Route 
           path="/add-device" 
           element={
-            <ProtectedRoute allowedRoles={['ADMIN', 'DEALER']}>
+            <ProtectedRoute allowedRoles={['ADMIN']}>
               <Layout>
                 <AddDevice />
               </Layout>

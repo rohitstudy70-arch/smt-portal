@@ -120,6 +120,13 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           </div>
           <ul className={`sidebar-submenu ${accountSettingsOpen || isAccountSettingsActive ? 'open' : ''}`}>
 
+            <li className={location.pathname === '/account/edit-profile' ? 'active' : ''}>
+              <NavLink to="/account/edit-profile">
+                <FaUserEdit className="submenu-icon" />
+                Edit Profile
+              </NavLink>
+            </li>
+
             <li className={location.pathname === '/account/change-password' ? 'active' : ''}>
               <NavLink to="/account/change-password">
                 <FaKey className="submenu-icon" />
@@ -168,7 +175,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           </li>
         )}
 
-        {canShow(['ADMIN', 'DEALER']) && (
+        {canShow(['ADMIN']) && (
           <li className={`sidebar-menu-item ${location.pathname === '/add-device' ? 'active' : ''}`}>
             <NavLink to="/add-device">
               <FaPlusCircle className="menu-icon" />

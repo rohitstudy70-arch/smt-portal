@@ -22,7 +22,9 @@ const router = express.Router();
 
 router.use(protect, attachHierarchyScope);
 
-const deviceManageRoles = [PORTAL_ROLES.ADMIN, PORTAL_ROLES.DEALER];
+const deviceManageRoles = [PORTAL_ROLES.ADMIN, PORTAL_ROLES.DEALER]; // assign/unassign
+const deviceCreateRoles = [PORTAL_ROLES.ADMIN]; // add/edit/delete devices — ADMIN only
+
 
 const escapeRegExp = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -555,7 +557,7 @@ router.post('/assign', requireRoles(...deviceManageRoles), async (req, res) => {
 // @route   POST /api/devices
 // @desc    Create a new device
 // @access  Protected
-router.post('/', requireRoles(...deviceManageRoles), async (req, res) => {
+router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
   try {
     console.log('Create device req.body:', req.body);
     const input = normalizeDeviceInput(req.body);
@@ -716,7 +718,7 @@ router.post('/', requireRoles(...deviceManageRoles), async (req, res) => {
 // @route   PUT /api/devices/:id
 // @desc    Update an existing device
 // @access  Protected
-router.put('/:id', requireRoles(...deviceManageRoles), async (req, res) => {
+router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
   try {
     const scopeQuery = buildDeviceScopeQuery(req.hierarchyScope);
     const device = await Device.findOne(combineQueries(scopeQuery, { _id: req.params.id }));
@@ -949,7 +951,7 @@ router.put('/:id', requireRoles(...deviceManageRoles), async (req, res) => {
 // @route   DELETE /api/devices/:id
 // @desc    Permanently delete a device
 // @access  Protected
-router.delete('/:id', requireRoles(...deviceManageRoles), async (req, res) => {
+router.delete('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
   try {
     const scopeQuery = buildDeviceScopeQuery(req.hierarchyScope);
     const device = await Device.findOne(combineQueries(scopeQuery, { _id: req.params.id }));
