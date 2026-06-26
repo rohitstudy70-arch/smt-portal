@@ -838,6 +838,7 @@ const ActivationRequests = () => {
                         required
                       >
                         <option value="">Select Year</option>
+                        <option value="NA">NA</option>
                         {Array.from({ length: 25 }, (_, i) => {
                           const year = new Date().getFullYear() - i;
                           return <option key={year} value={year}>{year}</option>;

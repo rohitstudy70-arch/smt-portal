@@ -22,8 +22,8 @@ const router = express.Router();
 
 router.use(protect, attachHierarchyScope);
 
-const deviceManageRoles = [PORTAL_ROLES.ADMIN, PORTAL_ROLES.DEALER]; // assign/unassign
-const deviceCreateRoles = [PORTAL_ROLES.ADMIN]; // add/edit/delete devices — ADMIN only
+const deviceManageRoles = [PORTAL_ROLES.ADMIN, PORTAL_ROLES.DEALER, PORTAL_ROLES.SUB_DEALER]; // assign/unassign
+const deviceCreateRoles = [PORTAL_ROLES.ADMIN, PORTAL_ROLES.DEALER, PORTAL_ROLES.SUB_DEALER]; // add/edit/delete devices — ADMIN, DEALER, SUB_DEALER allowed
 
 
 const escapeRegExp = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

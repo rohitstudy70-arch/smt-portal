@@ -837,7 +837,7 @@ const CustomerDevicePortal = () => {
           </div>
         ) : null}
 
-        {(role === 'ADMIN' || role === 'DEALER') ? (
+        {(role === 'ADMIN' || role === 'DEALER' || role === 'SUB_DEALER') ? (
           <div className="portal-dashboard-actions" key="add-device-actions">
             <Link className="portal-dashboard-card" to="/add-device">
               <FaPlus className="portal-dashboard-card-icon" />

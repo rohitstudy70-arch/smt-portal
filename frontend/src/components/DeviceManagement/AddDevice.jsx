@@ -498,7 +498,7 @@ const AddDevice = () => {
             </div>
 
             <div className={`form-group ${errors.serialNo ? 'has-error' : ''}`}>
-              <label>Serial No. <span className="required">*</span></label>
+              <label>Serial No. <span className="required"></span></label>
               <input
                 type="text"
                 name="serialNo"
@@ -510,7 +510,7 @@ const AddDevice = () => {
             </div>
 
             <div className={`form-group ${errors.iccid ? 'has-error' : ''}`}>
-              <label>ICCID No. <span className="required">*</span></label>
+              <label>ICCID No. <span className="required"></span></label>
               <input
                 type="text"
                 name="iccid"

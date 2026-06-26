@@ -156,7 +156,7 @@ function App() {
         <Route 
           path="/add-device" 
           element={
-            <ProtectedRoute allowedRoles={['ADMIN']}>
+            <ProtectedRoute allowedRoles={operationsRoles}>
               <Layout>
                 <AddDevice />
               </Layout>
