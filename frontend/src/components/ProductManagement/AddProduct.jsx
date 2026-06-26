@@ -369,18 +369,8 @@ const AddProduct = () => {
 
 
 
-              <div className="form-group">
-                <label>Vendor Name</label>
-                <select name="vendor" value={formData.vendor} onChange={(event) => updateFormField('vendor', event.target.value)}>
-                  <option value="iTriangle">iTriangle</option>
-                  <option value="Acute">Acute</option>
-                  <option value="Markon">Markon</option>
-                  <option value="RDM">RDM</option>
-                  <option value="BB">BB</option>
-                  <option value="TrackNow">TrackNow</option>
-                  <option value="Road point">Road point</option>
-                </select>
-              </div>
+
+
 
               <div className="form-group">
                 <label>Product Description</label>
@@ -619,7 +609,6 @@ const AddProduct = () => {
               <tr>
                 <th>Dealer Name</th>
                 <th>Product</th>
-                <th>Vendor</th>
                 <th>Existing Search</th>
                 <th>IMEI</th>
                 <th>Serial Number</th>
@@ -636,7 +625,7 @@ const AddProduct = () => {
             <tbody>
               {productsLoading ? (
                 <tr>
-                  <td colSpan={14} className="table-empty">Loading products...</td>
+                  <td colSpan={13} className="table-empty">Loading products...</td>
                 </tr>
               ) : products.length > 0 ? (
                 products.map((product) => (
@@ -647,7 +636,6 @@ const AddProduct = () => {
                         {product.productDescription || '-'}
                       </span>
                     </td>
-                    <td>{product.vendor || '-'}</td>
                     <td>{product.existingDeviceSearch || '-'}</td>
                     <td className={product.imei ? 'strong-cell' : ''}>{product.imei || '-'}</td>
                     <td>{product.serialNo || '-'}</td>
@@ -663,7 +651,7 @@ const AddProduct = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={14} className="table-empty">No product records found.</td>
+                  <td colSpan={13} className="table-empty">No product records found.</td>
                 </tr>
               )}
             </tbody>
