@@ -386,10 +386,6 @@ router.post('/', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
   try {
     const input = normalizeProductInput(req.body);
 
-    if (req.portalRole !== PORTAL_ROLES.ADMIN && input.vendor === 'iTriangle') {
-      return res.status(400).json({ message: 'Selection of model iTriangle is restricted to admin only.' });
-    }
-
     if (!productTypes.includes(input.productDescription)) {
       return res.status(400).json({ message: 'Please select a valid product.' });
     }
@@ -511,10 +507,6 @@ router.put('/:id', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
     }
 
     const input = normalizeProductInput(req.body);
-
-    if (req.portalRole !== PORTAL_ROLES.ADMIN && input.vendor === 'iTriangle') {
-      return res.status(400).json({ message: 'Selection of model iTriangle is restricted to admin only.' });
-    }
 
     if (!productTypes.includes(input.productDescription)) {
       return res.status(400).json({ message: 'Please select a valid product.' });
