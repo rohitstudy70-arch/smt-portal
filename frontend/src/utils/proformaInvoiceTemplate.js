@@ -34,13 +34,13 @@ const TERMS = [
 ];
 
 const FAB_LIST = [
-  'Multiple Mobile Axes.',
-  'Real time Track your Vehicle Anywhere via your mob. & pc.',
+  'Multiple Mobile Access.',
+  'Real time Track your Vehicle Anywhere via your Mob & Pc.',
   'Direction /Speed & Ignition On/Off Detection.',
   'Ignition Cut off Alarm.',
   'Multiple Geo-Fence setup & alarm.',
   'Back-up data from 01hrs to last 30days.',
-  "Moving overview km/Per day, Stay Detail's & Alarm Detail's etc.",
+  "Moving overview Km/Per day, Stay Detail's & Alarm Detail's etc.",
 ];
 
 export const toNumber = (value) => {
