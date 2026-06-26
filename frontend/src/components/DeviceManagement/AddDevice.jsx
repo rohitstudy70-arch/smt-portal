@@ -47,12 +47,12 @@ const getLocalDateString = (dateObj) => {
   return `${year}-${month}-${day}`;
 };
 
-const createEmptyForm = (dealer) => ({
+const createEmptyForm = (dealer, defaultVendor = 'iTriangle') => ({
   dealerId: dealer?._id || '',
   dealerName: dealer ? getName(dealer) : '',
   subDealerId: '',
   subDealerName: '',
-  vendor: 'iTriangle',
+  vendor: defaultVendor,
   imei: '',
   iccid: '',
   serialNo: '',
@@ -204,7 +204,9 @@ const AddDevice = () => {
         setSubDealers(subDealerList);
 
         if (dealerList.length === 1) {
-          setFormData(createEmptyForm(dealerList[0]));
+          setFormData(createEmptyForm(dealerList[0], role === 'ADMIN' ? 'iTriangle' : 'Acute'));
+        } else {
+          setFormData(createEmptyForm(null, role === 'ADMIN' ? 'iTriangle' : 'Acute'));
         }
       } catch (error) {
         showToast('error', error.response?.data?.message || 'Failed to load users.');
@@ -324,7 +326,7 @@ const AddDevice = () => {
 
   const handleReset = () => {
     const defaultDealer = dealers.length === 1 ? dealers[0] : dealers.find((d) => d._id === formData.dealerId);
-    setFormData(createEmptyForm(defaultDealer || selectedDealer));
+    setFormData(createEmptyForm(defaultDealer || selectedDealer, role === 'ADMIN' ? 'iTriangle' : 'Acute'));
     setErrors({});
     setDealerSearch('');
     setSubDealerSearch('');
@@ -474,7 +476,7 @@ const AddDevice = () => {
             <div className="form-group">
               <label>Model</label>
               <select name="vendor" value={formData.vendor} onChange={(event) => updateFormField('vendor', event.target.value)}>
-                <option value="iTriangle">iTriangle</option>
+                {role === 'ADMIN' && <option value="iTriangle">iTriangle</option>}
                 <option value="Acute">Acute</option>
                 <option value="Markon">Markon</option>
                 <option value="RDM">RDM</option>

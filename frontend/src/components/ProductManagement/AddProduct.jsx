@@ -62,10 +62,10 @@ const calculateExpiry = (dateValue, validity) => {
   return date;
 };
 
-const createEmptyForm = (dealer) => ({
+const createEmptyForm = (dealer, defaultVendor = 'iTriangle') => ({
   dealerId: dealer?._id || '',
   dealerName: dealer ? getName(dealer) : '',
-  vendor: 'iTriangle',
+  vendor: defaultVendor,
   productDescription: 'VLTD',
   existingDeviceSearch: '',
   imei: '',
@@ -176,7 +176,9 @@ const AddProduct = () => {
         setDealers(dealerList);
 
         if (dealerList.length === 1) {
-          setFormData(createEmptyForm(dealerList[0]));
+          setFormData(createEmptyForm(dealerList[0], role === 'ADMIN' ? 'iTriangle' : 'Acute'));
+        } else {
+          setFormData(createEmptyForm(null, role === 'ADMIN' ? 'iTriangle' : 'Acute'));
         }
       } catch (error) {
         showToast('error', error.response?.data?.message || 'Failed to load dealers.');
@@ -334,7 +336,7 @@ const AddProduct = () => {
 
   const handleReset = () => {
     const defaultDealer = dealers.length === 1 ? dealers[0] : selectedDealer;
-    setFormData(createEmptyForm(defaultDealer));
+    setFormData(createEmptyForm(defaultDealer, role === 'ADMIN' ? 'iTriangle' : 'Acute'));
     setErrors({});
     setDealerSearch('');
   };
@@ -449,7 +451,7 @@ const AddProduct = () => {
               <div className="form-group">
                 <label>Model</label>
                 <select name="vendor" value={formData.vendor} onChange={(event) => updateFormField('vendor', event.target.value)}>
-                  <option value="iTriangle">iTriangle</option>
+                  {role === 'ADMIN' && <option value="iTriangle">iTriangle</option>}
                   <option value="Acute">Acute</option>
                   <option value="Markon">Markon</option>
                   <option value="RDM">RDM</option>

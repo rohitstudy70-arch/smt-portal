@@ -562,6 +562,10 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
     console.log('Create device req.body:', req.body);
     const input = normalizeDeviceInput(req.body);
 
+    if (req.portalRole !== PORTAL_ROLES.ADMIN && input.vendor === 'iTriangle') {
+      return res.status(400).json({ message: 'Selection of model iTriangle is restricted to admin only.' });
+    }
+
     if (!input.imei || !input.iccid || !input.serialNo) {
       return res.status(400).json({ message: 'IMEI, ICCID, and Serial No are required.' });
     }
@@ -756,6 +760,10 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
 
     const originalImei = device.imei;
     const input = normalizeDeviceInput(req.body);
+
+    if (req.portalRole !== PORTAL_ROLES.ADMIN && input.vendor === 'iTriangle') {
+      return res.status(400).json({ message: 'Selection of model iTriangle is restricted to admin only.' });
+    }
 
     if (!input.imei || !input.iccid || !input.serialNo) {
       return res.status(400).json({ message: 'IMEI, ICCID, and Serial No are required.' });
