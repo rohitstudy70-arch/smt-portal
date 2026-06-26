@@ -472,7 +472,7 @@ const AddDevice = () => {
             )}
 
             <div className="form-group">
-              <label>Vendor Name</label>
+              <label>Model</label>
               <select name="vendor" value={formData.vendor} onChange={(event) => updateFormField('vendor', event.target.value)}>
                 <option value="iTriangle">iTriangle</option>
                 <option value="Acute">Acute</option>

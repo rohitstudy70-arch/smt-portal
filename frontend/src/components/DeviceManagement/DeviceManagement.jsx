@@ -490,7 +490,7 @@ const DeviceManagement = () => {
 
               <div className="filter-item">
                 <select value={filterVendor} onChange={(e) => { setFilterVendor(e.target.value); setPage(1); }}>
-                  <option value="">-Select Vendor-</option>
+                  <option value="">-Select Model-</option>
                   <option value="iTriangle">iTriangle</option>
                   <option value="Acute">Acute</option>
                   <option value="Markon">Markon</option>
@@ -522,7 +522,7 @@ const DeviceManagement = () => {
               <thead>
                 <tr>
                   <th style={{ width: '60px' }}>Sl No.</th>
-                  <th>Vendor</th>
+                  <th>Model</th>
                   <th>Type</th>
                   <th>Device</th>
                   <th>IMEI No</th>

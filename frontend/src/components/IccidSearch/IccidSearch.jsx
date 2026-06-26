@@ -103,7 +103,7 @@ const IccidSearch = () => {
       || '-';
 
     const details = `--- DEVICE DETAILS ---
-Vendor Name: ${vendorName}
+Model: ${vendorName}
 Dealer Name: ${dealerName}
 IMEI No: ${device.imei || '—'}
 Serial No: ${device.serialNo || '—'}
@@ -218,7 +218,7 @@ State: ${latestRequest?.userId?.state || device.dealerId?.state || '—'}`;
           {/* Top Info and Action Buttons */}
           <div className="top-info-container">
             <div className="vendor-dealer-info">
-              <div>Vendor Name: <strong>{device.vendor || '—'}</strong></div>
+              <div>Model: <strong>{device.vendor || '—'}</strong></div>
               <div>Dealer Name: <strong>{device.dealerName || device.dealerId?.displayName || device.dealerId?.companyName || '—'}</strong></div>
             </div>
             <div className="top-actions" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>

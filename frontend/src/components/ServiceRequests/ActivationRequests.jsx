@@ -750,7 +750,7 @@ const ActivationRequests = () => {
                       />
                     </div>
                     <div className="form-group-custom">
-                      <label>Vendor Name</label>
+                      <label>Model</label>
                       <input 
                         type="text" 
                         value={formData.vendor} 
