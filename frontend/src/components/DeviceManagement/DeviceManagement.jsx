@@ -36,6 +36,7 @@ const DeviceManagement = () => {
   const [page, setPage] = useState(1);
   const [filterUser, setFilterUser] = useState('');
   const [filterDealer, setFilterDealer] = useState('');
+  const [filterSubDealer, setFilterSubDealer] = useState('');
   const [filterVendor, setFilterVendor] = useState('');
   const [search, setSearch] = useState('');
 
@@ -71,6 +72,7 @@ const DeviceManagement = () => {
           page,
         };
       if (filterDealer) params.dealerId = filterDealer;
+      if (filterSubDealer) params.subDealerId = filterSubDealer;
       const res = await api.get('/devices', { params });
       setDevices(res.data.devices);
       setTotal(res.data.total);
@@ -94,7 +96,7 @@ const DeviceManagement = () => {
   // Refetch when other filters or page changes (excluding search parameter change, which is handled above)
   useEffect(() => {
     fetchDevices();
-  }, [activeTab, filterUser, filterDealer, filterVendor, limit, page]);
+  }, [activeTab, filterUser, filterDealer, filterSubDealer, filterVendor, limit, page]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -423,14 +425,57 @@ const DeviceManagement = () => {
                 </select>
               </div>
 
-              <div className="filter-item">
-                <select value={filterDealer} onChange={(e) => { setFilterDealer(e.target.value); setPage(1); }}>
-                  <option value="">-Select Dealer-</option>
-                  {subUsers.filter(u => u.userType === 'Dealer' || u.userType === '' || u.userType === 'Administration' || u.role === 'partner').map(u => (
-                    <option key={u._id} value={u._id}>{u.displayName || u.username} ({u.deviceCount ?? 0} devices)</option>
-                  ))}
-                </select>
-              </div>
+              {/* Show Dealer filter ONLY for ADMIN role */}
+              {role === 'ADMIN' && (
+                <div className="filter-item">
+                  <select 
+                    value={filterDealer} 
+                    onChange={(e) => { 
+                      setFilterDealer(e.target.value); 
+                      setFilterSubDealer(''); // reset subdealer selection when dealer changes
+                      setPage(1); 
+                    }}
+                  >
+                    <option value="">-Select Dealer-</option>
+                    {subUsers
+                      .filter(u => u.userType === 'Dealer' || u.userType === '' || u.userType === 'Administration' || u.role === 'partner')
+                      .map(u => (
+                        <option key={u._id} value={u._id}>
+                          {u.displayName || u.username} ({u.deviceCount ?? 0} devices)
+                        </option>
+                      ))
+                    }
+                  </select>
+                </div>
+              )}
+
+              {/* Show Sub Dealer filter for ADMIN and DEALER roles */}
+              {(role === 'ADMIN' || role === 'DEALER') && (
+                <div className="filter-item">
+                  <select 
+                    value={filterSubDealer} 
+                    onChange={(e) => { 
+                      setFilterSubDealer(e.target.value); 
+                      setPage(1); 
+                    }}
+                  >
+                    <option value="">-Select Sub Dealer-</option>
+                    {subUsers
+                      .filter(u => u.userType === 'Sub Dealer')
+                      .filter(u => !filterDealer || u.parentId === filterDealer)
+                      .map(u => {
+                        const parentDealer = u.parentId ? allUsersMap[u.parentId] : null;
+                        const parentLabel = parentDealer ? ` (Dealer: ${parentDealer.displayName || parentDealer.username})` : '';
+                        return (
+                          <option key={u._id} value={u._id}>
+                            {u.displayName || u.username}{parentLabel}
+                          </option>
+                        );
+                      })
+                    }
+                  </select>
+                </div>
+              )}
 
               {activeTab === 'Assigned' && (
                 <div className="filter-item">
