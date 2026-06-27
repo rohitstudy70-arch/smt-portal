@@ -157,6 +157,7 @@ const buildRequestScopeQuery = (scope) => {
   return {
     $or: [
       { userId: { $in: scope.userIds } },
+      { dealerId: { $in: scope.userIds } },
       { customerId: { $in: scope.userIds } },
       { subDealerName: { $in: scope.userNames } },
     ],
