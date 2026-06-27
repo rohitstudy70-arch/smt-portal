@@ -95,6 +95,27 @@ const renewalRequestSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  receivedAmount: {
+    type: Number,
+    default: 0,
+  },
+  remainingDue: {
+    type: Number,
+    default: 0,
+  },
+  paymentStatus: {
+    type: String,
+    enum: ['Pending', 'Partially Paid', 'Paid', 'Cancelled'],
+    default: 'Pending',
+  },
+  transactionId: {
+    type: String,
+    default: '',
+  },
+  paymentDate: {
+    type: Date,
+    default: null,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
