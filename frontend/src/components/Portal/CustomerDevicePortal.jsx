@@ -194,6 +194,7 @@ const CustomerDevicePortal = () => {
   const [notice, setNotice] = useState('');
   const [summary, setSummary] = useState(null);
   const [dueSummary, setDueSummary] = useState(null);
+  const [renewalDueSummary, setRenewalDueSummary] = useState(null);
   const [dealers, setDealers] = useState([]);
   const [deviceDealerOptions, setDeviceDealerOptions] = useState([]);
   const [subDealers, setSubDealers] = useState([]);
@@ -413,6 +414,7 @@ const CustomerDevicePortal = () => {
         loginLogsRes,
         deviceDealersRes,
         dueSummaryRes,
+        renewalDueSummaryRes,
       ] = await Promise.all([
         api.get('/portal/summary'),
         canManageUsers ? api.get('/portal/users', { params: { type: 'dealer' } }) : Promise.resolve({ data: [] }),
@@ -425,10 +427,12 @@ const CustomerDevicePortal = () => {
         canManageUsers ? api.get('/portal/login-logs').catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
         canManageUsers ? api.get('/users/dealers').catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
         isOps ? api.get('/due-dashboard/summary').catch(() => ({ data: null })) : Promise.resolve({ data: null }),
+        api.get('/portal/renewals/due-summary').catch(() => ({ data: null })),
       ]);
 
       setSummary(summaryRes.data);
       setDueSummary(dueSummaryRes?.data || null);
+      setRenewalDueSummary(renewalDueSummaryRes?.data || null);
       setDealers(dealersRes.data || []);
       setUsers(usersRes.data || []);
       setCustomers(customersRes.data || []);
@@ -1115,6 +1119,81 @@ const CustomerDevicePortal = () => {
                     <span className="portal-stat-label">Expiring This Month</span>
                   </div>
                   <FaHistory className="portal-stat-icon" />
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {renewalDueSummary ? (
+          <div className="portal-panel" style={{ marginTop: '20px' }} key="renewal-due-summary-panel">
+            <div className="portal-panel-header" style={{ borderTop: '4px solid #8b5cf6' }}>
+              <div>
+                <h2>Renewal Due Overview</h2>
+                <span>Outstanding renewal dues and collection records</span>
+              </div>
+              <FaFileInvoiceDollar className="portal-panel-icon" style={{ color: '#8b5cf6' }} />
+            </div>
+            <div style={{ padding: '16px' }}>
+              <div className="portal-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '15px' }}>
+                <div 
+                  className="portal-stat stat-red" 
+                  onClick={() => navigate(userRole === 'ADMIN' ? '/renewal-due-management' : '/dashboard?view=renewals')} 
+                  style={{ cursor: 'pointer' }}
+                >
+                  <div>
+                    <span className="portal-stat-value">₹{(renewalDueSummary.totalDue || 0).toLocaleString()}</span>
+                    <span className="portal-stat-label">Total Renewal Due</span>
+                  </div>
+                  <FaRupeeSign className="portal-stat-icon" />
+                </div>
+
+                <div 
+                  className="portal-stat stat-amber" 
+                  onClick={() => navigate(userRole === 'ADMIN' ? '/renewal-due-management' : '/dashboard?view=renewals')} 
+                  style={{ cursor: 'pointer' }}
+                >
+                  <div>
+                    <span className="portal-stat-value">₹{(renewalDueSummary.todayDue || 0).toLocaleString()}</span>
+                    <span className="portal-stat-label">Today's Renewal Due</span>
+                  </div>
+                  <FaRupeeSign className="portal-stat-icon" />
+                </div>
+
+                <div 
+                  className="portal-stat stat-blue" 
+                  onClick={() => navigate(userRole === 'ADMIN' ? '/renewal-due-management' : '/dashboard?view=renewals')} 
+                  style={{ cursor: 'pointer' }}
+                >
+                  <div>
+                    <span className="portal-stat-value">₹{(renewalDueSummary.pendingDue || 0).toLocaleString()}</span>
+                    <span className="portal-stat-label">Pending Renewal Amount</span>
+                  </div>
+                  <FaRupeeSign className="portal-stat-icon" />
+                </div>
+
+                <div 
+                  className="portal-stat stat-green" 
+                  onClick={() => navigate(userRole === 'ADMIN' ? '/renewal-due-management' : '/dashboard?view=renewals')} 
+                  style={{ cursor: 'pointer' }}
+                >
+                  <div>
+                    <span className="portal-stat-value">₹{(renewalDueSummary.paidAmount || 0).toLocaleString()}</span>
+                    <span className="portal-stat-label">Paid Renewal Amount</span>
+                  </div>
+                  <FaRupeeSign className="portal-stat-icon" />
+                </div>
+
+                <div 
+                  className="portal-stat stat-violet" 
+                  onClick={() => navigate(userRole === 'ADMIN' ? '/renewal-due-management' : '/dashboard?view=renewals')} 
+                  style={{ cursor: 'pointer' }}
+                >
+                  <div>
+                    <span className="portal-stat-value">₹{(renewalDueSummary.overdueDue || 0).toLocaleString()}</span>
+                    <span className="portal-stat-label">Overdue Renewal Amount (Over 30 Days)</span>
+                  </div>
+                  <FaRupeeSign className="portal-stat-icon" />
                 </div>
               </div>
             </div>

@@ -15,6 +15,7 @@ import InvoiceGenerator from './components/InvoiceGenerator/InvoiceGenerator';
 import ProformaInvoice from './components/ProformaInvoice/ProformaInvoice';
 import IccidSearch from './components/IccidSearch/IccidSearch';
 import DueDashboard from './components/DueDashboard/DueDashboard';
+import RenewalDueManagement from './components/RenewalDueManagement/RenewalDueManagement';
 
 const getRole = (user) => {
   if (user?.role === 'partner') return 'ADMIN';
@@ -137,6 +138,17 @@ function App() {
             <ProtectedRoute allowedRoles={operationsRoles}>
               <Layout>
                 <DueDashboard />
+              </Layout>
+            </ProtectedRoute>
+          } 
+        />
+
+        <Route 
+          path="/renewal-due-management" 
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <Layout>
+                <RenewalDueManagement />
               </Layout>
             </ProtectedRoute>
           } 

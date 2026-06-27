@@ -157,6 +157,15 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           </li>
         )}
 
+        {canShow(['ADMIN']) && (
+          <li className={`sidebar-menu-item ${location.pathname === '/renewal-due-management' ? 'active' : ''}`}>
+            <NavLink to="/renewal-due-management">
+              <FaFileInvoiceDollar className="menu-icon" />
+              <span className="menu-text">Renewal Due Management</span>
+            </NavLink>
+          </li>
+        )}
+
         {canShow(operationsRoles) && (
           <li className={`sidebar-menu-item ${location.pathname === '/due-dashboard' && new URLSearchParams(location.search).get('tab') !== 'renewals' ? 'active' : ''}`}>
             <NavLink to="/due-dashboard">

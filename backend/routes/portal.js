@@ -1084,6 +1084,10 @@ router.put('/renewals/:id', protect, async (req, res) => {
       'paymentMode',
       'remarks',
       'status',
+      'receivedAmount',
+      'transactionId',
+      'paymentDate',
+      'paymentStatus',
     ];
 
     if (req.body.imei && !/^\d{15}$/.test(req.body.imei)) {
@@ -1141,6 +1145,141 @@ router.delete('/renewals/:id', protect, async (req, res) => {
     res.json({ message: 'Renewal Request Deleted Successfully.' });
   } catch (error) {
     console.error('Portal delete renewal error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.get('/renewals/due-summary', protect, async (req, res) => {
+  try {
+    const scope = await getScope(req.user);
+    const query = buildRequestScopeQuery(scope);
+
+    // Sum matching records
+    const renewals = await RenewalRequest.find(query);
+
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const summary = {
+      totalDue: 0,
+      todayDue: 0,
+      pendingDue: 0,
+      paidAmount: 0,
+      overdueDue: 0
+    };
+
+    renewals.forEach(r => {
+      if (r.status === 'Rejected') return; // skip rejected
+
+      const rDate = new Date(r.renewalDate);
+
+      // Remaining due amount
+      const remaining = r.remainingDue || 0;
+      const received = r.receivedAmount || 0;
+
+      summary.totalDue += remaining;
+      summary.paidAmount += received;
+
+      if (rDate >= todayStart) {
+        summary.todayDue += remaining;
+      }
+
+      if (r.paymentStatus === 'Pending') {
+        summary.pendingDue += remaining;
+      }
+
+      // Overdue is not paid and renewal date older than 30 days
+      if (r.paymentStatus !== 'Paid' && rDate < thirtyDaysAgo) {
+        summary.overdueDue += remaining;
+      }
+    });
+
+    res.json(summary);
+  } catch (error) {
+    console.error('Portal renewals due-summary error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.get('/renewals/admin-due-dashboard', protect, async (req, res) => {
+  try {
+    const scope = await getScope(req.user);
+    const { dealerId, paymentStatus, fromDate, toDate, requestId, imei, vehicleNumber } = req.query;
+
+    const query = buildRequestScopeQuery(scope);
+
+    if (dealerId) query.dealerId = dealerId;
+    if (paymentStatus) query.paymentStatus = paymentStatus;
+    if (requestId) query.requestId = new RegExp(requestId.trim(), 'i');
+    if (imei) query.imei = new RegExp(imei.trim(), 'i');
+    if (vehicleNumber) query.vehicleNumber = new RegExp(vehicleNumber.trim(), 'i');
+    if (fromDate || toDate) {
+      query.renewalDate = {};
+      if (fromDate) query.renewalDate.$gte = new Date(fromDate);
+      if (toDate) {
+        const end = new Date(toDate);
+        end.setHours(23, 59, 59, 999);
+        query.renewalDate.$lte = end;
+      }
+    }
+
+    // skip rejected ones when computing dues
+    query.status = { $ne: 'Rejected' };
+
+    const renewals = await RenewalRequest.find(query).populate('dealerId', 'username');
+
+    const dealerMap = {};
+
+    renewals.forEach(r => {
+      const dealerKey = r.dealerId?._id?.toString() || r.dealerName;
+      if (!dealerMap[dealerKey]) {
+        dealerMap[dealerKey] = {
+          dealerId: r.dealerId?._id || null,
+          dealerName: r.dealerName,
+          dealerCode: r.dealerId?.username || '-',
+          pendingRequestsCount: 0,
+          totalRenewalAmount: 0,
+          receivedAmount: 0,
+          remainingDue: 0,
+          lastPaymentDate: null,
+          paymentStatus: 'Pending',
+          rawRequests: []
+        };
+      }
+
+      const d = dealerMap[dealerKey];
+      d.rawRequests.push(r);
+
+      if (r.paymentStatus !== 'Paid') {
+        d.pendingRequestsCount += 1;
+      }
+      d.totalRenewalAmount += r.billAmount || 0;
+      d.receivedAmount += r.receivedAmount || 0;
+      d.remainingDue += r.remainingDue || 0;
+
+      if (r.paymentDate) {
+        const pDate = new Date(r.paymentDate);
+        if (!d.lastPaymentDate || pDate > new Date(d.lastPaymentDate)) {
+          d.lastPaymentDate = r.paymentDate;
+        }
+      }
+    });
+
+    const result = Object.values(dealerMap).map(d => {
+      if (d.remainingDue <= 0) {
+        d.paymentStatus = 'Paid';
+      } else if (d.receivedAmount > 0) {
+        d.paymentStatus = 'Partially Paid';
+      } else {
+        d.paymentStatus = 'Pending';
+      }
+      return d;
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error('Portal admin-due-dashboard error:', error.message);
     res.status(500).json({ message: 'Server error' });
   }
 });
