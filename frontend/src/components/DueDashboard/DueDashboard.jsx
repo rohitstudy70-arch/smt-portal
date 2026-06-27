@@ -17,6 +17,7 @@ import {
   FaSyncAlt,
   FaUserTie,
   FaMobileAlt,
+  FaFileInvoiceDollar,
 } from 'react-icons/fa';
 import './DueDashboard.css';
 
@@ -43,6 +44,7 @@ const DueDashboard = () => {
 
   // State definitions
   const [summary, setSummary] = useState(null);
+  const [renewalSummary, setRenewalSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -135,8 +137,12 @@ const DueDashboard = () => {
   // Fetch summary metrics
   const fetchSummary = useCallback(async () => {
     try {
-      const res = await api.get('/due-dashboard/summary');
+      const [res, renewalRes] = await Promise.all([
+        api.get('/due-dashboard/summary'),
+        api.get('/portal/renewals/due-summary').catch(() => ({ data: null })),
+      ]);
       setSummary(res.data);
+      setRenewalSummary(renewalRes?.data || null);
     } catch (err) {
       console.error('Error fetching due summary:', err);
       setError('Failed to load summary statistics.');
@@ -650,6 +656,19 @@ const DueDashboard = () => {
             </div>
             <FaRupeeSign className="card-icon" />
           </div>
+
+          {renewalSummary && (
+            <div 
+              className="due-summary-card tone-violet clickable" 
+              onClick={() => navigate(isAdmin ? '/renewal-due-management' : '/dashboard?view=renewals')}
+            >
+              <div className="card-info">
+                <span className="card-value">₹{(renewalSummary.totalDue || 0).toLocaleString()}</span>
+                <span className="card-label">Renewal Due</span>
+              </div>
+              <FaFileInvoiceDollar className="card-icon" />
+            </div>
+          )}
 
           {isListView && (
             <>
