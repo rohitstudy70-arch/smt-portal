@@ -2129,7 +2129,8 @@ const CustomerDevicePortal = () => {
     <div className="portal-stack" key="view-renewals">
       {renderStatsHeader()}
 
-      <section className="portal-panel">
+      {userRole === 'ADMIN' && (
+        <section className="portal-panel">
         <div className="portal-panel-header">
           <div>
             <h2>{editingRenewalId ? 'Edit Renewal Request' : 'Create Renewal Request'}</h2>
@@ -2317,6 +2318,7 @@ const CustomerDevicePortal = () => {
           </div>
         </form>
       </section>
+      )}
 
       <section className="portal-panel" style={{ borderTop: '4px solid #3b82f6', background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.02)', borderRadius: '12px', marginBottom: '20px' }}>
         <div className="portal-panel-header" style={{ background: 'transparent', borderBottom: '1px solid #e2e8f0', padding: '18px 24px' }}>
