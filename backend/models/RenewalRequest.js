@@ -20,6 +20,15 @@ const renewalRequestSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  dealerCode: {
+    type: String,
+    default: '',
+  },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+  },
   customerName: {
     type: String,
     required: true,

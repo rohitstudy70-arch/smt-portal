@@ -1071,6 +1071,8 @@ router.post('/renewals', protect, async (req, res) => {
       userId: req.user._id,
       dealerId,
       dealerName: labelForUser(dealer),
+      dealerCode: dealer.username || '',
+      createdBy: req.user._id,
       customerName,
       customerMobile,
       imei,
@@ -1270,15 +1272,17 @@ router.get('/renewals/due-summary', protect, async (req, res) => {
       todayDue: 0,
       pendingDue: 0,
       paidAmount: 0,
-      overdueDue: 0
+      overdueDue: 0,
+      pendingRequestsCount: 0,
+      paidRequestsCount: 0,
+      overdueRequestsCount: 0,
     };
 
     renewals.forEach(r => {
-      if (r.status === 'Rejected') return; // skip rejected
+      if (r.status === 'Rejected' || r.paymentStatus === 'Cancelled') return;
 
       const rDate = new Date(r.renewalDate);
 
-      // Remaining due amount
       const remaining = r.remainingDue || 0;
       const received = r.receivedAmount || 0;
 
@@ -1289,13 +1293,16 @@ router.get('/renewals/due-summary', protect, async (req, res) => {
         summary.todayDue += remaining;
       }
 
-      if (r.paymentStatus === 'Pending') {
+      if (r.paymentStatus === 'Pending' || r.paymentStatus === 'Partially Paid') {
         summary.pendingDue += remaining;
+        summary.pendingRequestsCount += 1;
+      } else if (r.paymentStatus === 'Paid') {
+        summary.paidRequestsCount += 1;
       }
 
-      // Overdue is not paid and renewal date older than 30 days
       if (r.paymentStatus !== 'Paid' && rDate < thirtyDaysAgo) {
         summary.overdueDue += remaining;
+        summary.overdueRequestsCount += 1;
       }
     });
 

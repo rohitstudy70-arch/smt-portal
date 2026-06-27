@@ -1221,19 +1221,43 @@ const CustomerDevicePortal = () => {
                 </div>
 
                 <div 
-                  className="portal-stat stat-amber" 
+                  className="portal-stat stat-blue" 
                   onClick={() => navigate(userRole === 'ADMIN' ? '/renewal-due-management' : '/dashboard?view=renewals')} 
                   style={{ cursor: 'pointer' }}
                 >
                   <div>
-                    <span className="portal-stat-value">₹{(renewalDueSummary.todayDue || 0).toLocaleString()}</span>
-                    <span className="portal-stat-label">Today's Renewal Due</span>
+                    <span className="portal-stat-value">{(renewalDueSummary.pendingRequestsCount || 0)}</span>
+                    <span className="portal-stat-label">Pending Renewal Requests</span>
                   </div>
-                  <FaRupeeSign className="portal-stat-icon" />
+                  <FaFileInvoiceDollar className="portal-stat-icon" />
                 </div>
 
                 <div 
-                  className="portal-stat stat-blue" 
+                  className="portal-stat stat-green" 
+                  onClick={() => navigate(userRole === 'ADMIN' ? '/renewal-due-management' : '/dashboard?view=renewals')} 
+                  style={{ cursor: 'pointer' }}
+                >
+                  <div>
+                    <span className="portal-stat-value">{(renewalDueSummary.paidRequestsCount || 0)}</span>
+                    <span className="portal-stat-label">Paid Renewal Requests</span>
+                  </div>
+                  <FaFileInvoiceDollar className="portal-stat-icon" />
+                </div>
+
+                <div 
+                  className="portal-stat stat-violet" 
+                  onClick={() => navigate(userRole === 'ADMIN' ? '/renewal-due-management' : '/dashboard?view=renewals')} 
+                  style={{ cursor: 'pointer' }}
+                >
+                  <div>
+                    <span className="portal-stat-value">{(renewalDueSummary.overdueRequestsCount || 0)}</span>
+                    <span className="portal-stat-label">Overdue Requests</span>
+                  </div>
+                  <FaFileInvoiceDollar className="portal-stat-icon" />
+                </div>
+
+                <div 
+                  className="portal-stat stat-amber" 
                   onClick={() => navigate(userRole === 'ADMIN' ? '/renewal-due-management' : '/dashboard?view=renewals')} 
                   style={{ cursor: 'pointer' }}
                 >
@@ -1252,18 +1276,6 @@ const CustomerDevicePortal = () => {
                   <div>
                     <span className="portal-stat-value">₹{(renewalDueSummary.paidAmount || 0).toLocaleString()}</span>
                     <span className="portal-stat-label">Paid Renewal Amount</span>
-                  </div>
-                  <FaRupeeSign className="portal-stat-icon" />
-                </div>
-
-                <div 
-                  className="portal-stat stat-violet" 
-                  onClick={() => navigate(userRole === 'ADMIN' ? '/renewal-due-management' : '/dashboard?view=renewals')} 
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div>
-                    <span className="portal-stat-value">₹{(renewalDueSummary.overdueDue || 0).toLocaleString()}</span>
-                    <span className="portal-stat-label">Overdue Renewal Amount (Over 30 Days)</span>
                   </div>
                   <FaRupeeSign className="portal-stat-icon" />
                 </div>
@@ -2383,21 +2395,24 @@ const CustomerDevicePortal = () => {
             <thead>
               <tr>
                 <th>Request ID</th>
-                <th>Dealer</th>
+                {userRole === 'ADMIN' && <th>Dealer</th>}
                 <th>Customer Name</th>
                 <th>IMEI</th>
                 <th>Vehicle Number</th>
-                <th>Model</th>
-                <th>Activation Type</th>
-                <th>Product</th>
+                <th>Device Model</th>
+                {userRole === 'ADMIN' && <th>Activation Type</th>}
+                {userRole === 'ADMIN' && <th>Product</th>}
                 <th>Validity</th>
+                <th>Bill Amount</th>
+                <th>Received Amount</th>
+                <th>Remaining Due</th>
+                <th>Payment Status</th>
+                <th>Renewal Status</th>
                 <th>Renewal Date</th>
                 <th>New Expiry Date</th>
-                <th>Bill Amount</th>
-                <th>Payment Mode</th>
-                <th>Status</th>
-                <th>Created By</th>
-                <th>Created Date</th>
+                <th>Remarks</th>
+                {userRole === 'ADMIN' && <th>Created By</th>}
+                {userRole === 'ADMIN' && <th>Created Date</th>}
                 <th>Actions</th>
               </tr>
             </thead>
@@ -2405,18 +2420,31 @@ const CustomerDevicePortal = () => {
               {renewals.slice((renewalPage - 1) * renewalLimit, renewalPage * renewalLimit).map((renewal) => (
                 <tr key={renewal._id}>
                   <td className="strong" style={{ color: '#3b82f6' }}>{renewal.requestId}</td>
-                  <td>{renewal.dealerName}</td>
+                  {userRole === 'ADMIN' && <td>{renewal.dealerName}</td>}
                   <td>{renewal.customerName}</td>
                   <td>{renewal.imei}</td>
                   <td>{renewal.vehicleNumber}</td>
                   <td>{renewal.deviceModel}</td>
-                  <td>{renewal.activationType || '-'}</td>
-                  <td>{renewal.productDescription}</td>
+                  {userRole === 'ADMIN' && <td>{renewal.activationType || '-'}</td>}
+                  {userRole === 'ADMIN' && <td>{renewal.productDescription}</td>}
                   <td>{renewal.validity}</td>
-                  <td>{formatDate(renewal.renewalDate)}</td>
-                  <td>{formatDate(renewal.newExpiryDate)}</td>
-                  <td className="strong">₹{renewal.billAmount}</td>
-                  <td>{renewal.paymentMode}</td>
+                  <td className="strong">₹{(renewal.billAmount || 0).toLocaleString()}</td>
+                  <td>₹{(renewal.receivedAmount || 0).toLocaleString()}</td>
+                  <td className="strong" style={{ color: (renewal.remainingDue || 0) > 0 ? '#ef4444' : '#10b981' }}>₹{(renewal.remainingDue || 0).toLocaleString()}</td>
+                  <td>
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      textTransform: 'uppercase',
+                      background: renewal.paymentStatus === 'Paid' ? '#d1fae5' : renewal.paymentStatus === 'Partially Paid' ? '#fef3c7' : '#fee2e2',
+                      color: renewal.paymentStatus === 'Paid' ? '#065f46' : renewal.paymentStatus === 'Partially Paid' ? '#92400e' : '#991b1b',
+                    }}>
+                      {renewal.paymentStatus || 'Pending'}
+                    </span>
+                  </td>
                   <td>
                     {userRole === 'ADMIN' ? (
                       <select 
@@ -2435,8 +2463,11 @@ const CustomerDevicePortal = () => {
                       renderStatus(renewal.status)
                     )}
                   </td>
-                  <td>{renewal.userId?.displayName || renewal.userId?.username || 'System'}</td>
-                  <td>{formatDate(renewal.createdAt)}</td>
+                  <td>{formatDate(renewal.renewalDate)}</td>
+                  <td>{formatDate(renewal.newExpiryDate)}</td>
+                  <td>{renewal.remarks || '-'}</td>
+                  {userRole === 'ADMIN' && <td>{renewal.userId?.displayName || renewal.userId?.username || 'System'}</td>}
+                  {userRole === 'ADMIN' && <td>{formatDate(renewal.createdAt)}</td>}
                   <td>
                     <div style={{ display: 'flex', gap: '5px' }}>
                       <button 
