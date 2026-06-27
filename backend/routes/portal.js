@@ -984,11 +984,11 @@ router.post('/renewals', protect, async (req, res) => {
       validity = '1 Year',
       renewalDate,
       billAmount,
-      paymentMode,
+      paymentMode = '',
       remarks = ''
     } = req.body;
 
-    if (!dealerId || !customerName || !customerMobile || !imei || !vehicleNumber || !deviceModel || !productDescription || !renewalDate || !billAmount || !paymentMode) {
+    if (!dealerId || !customerName || !customerMobile || !imei || !vehicleNumber || !deviceModel || !productDescription || !renewalDate || !billAmount) {
       return res.status(400).json({ message: 'Please fill in all required fields.' });
     }
 

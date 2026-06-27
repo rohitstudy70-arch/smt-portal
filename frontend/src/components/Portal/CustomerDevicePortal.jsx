@@ -654,7 +654,6 @@ const CustomerDevicePortal = () => {
     if (!renewalForm.renewalDate) { alert('Renewal Date is required'); return; }
     if (!renewalForm.billAmount) { alert('Bill Amount is required'); return; }
     if (Number(renewalForm.billAmount) <= 0) { alert('Bill Amount cannot be zero or negative.'); return; }
-    if (!renewalForm.paymentMode) { alert('Payment Mode is required'); return; }
 
     try {
       if (editingRenewalId) {
@@ -2082,19 +2081,6 @@ const CustomerDevicePortal = () => {
                 onChange={(e) => handleRenewalFormChange('billAmount', e.target.value)} 
                 required 
               />
-            </label>
-
-            <label>
-              <span>Payment Mode *</span>
-              <select 
-                value={renewalForm.paymentMode} 
-                onChange={(e) => handleRenewalFormChange('paymentMode', e.target.value)}
-              >
-                <option value="Cash">Cash</option>
-                <option value="UPI">UPI</option>
-                <option value="Bank Transfer">Bank Transfer</option>
-                <option value="Cheque">Cheque</option>
-              </select>
             </label>
 
             <label style={{ gridColumn: 'span 2' }}>

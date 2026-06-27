@@ -65,8 +65,8 @@ const renewalRequestSchema = new mongoose.Schema({
   },
   paymentMode: {
     type: String,
-    enum: ['Cash', 'UPI', 'Bank Transfer', 'Cheque'],
-    required: true,
+    enum: ['Cash', 'UPI', 'Bank Transfer', 'Cheque', ''],
+    default: '',
   },
   remarks: {
     type: String,
