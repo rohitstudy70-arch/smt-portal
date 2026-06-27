@@ -15,6 +15,39 @@ const {
 
 const router = express.Router();
 
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// Multer Storage Configuration for Renewal Screenshot Uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = path.join(__dirname, '..', 'uploads', 'screenshots');
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|pdf/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (extname && mimetype) {
+      return cb(null, true);
+    }
+    cb(new Error('Only images (jpg, jpeg, png, gif) and PDF files are allowed.'));
+  },
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+});
+
 const getPortalRole = (user) => {
   if (!user) return null;
   if (user.role === 'partner') return 'ADMIN';
@@ -1125,6 +1158,69 @@ router.put('/renewals/:id', protect, async (req, res) => {
   } catch (error) {
     console.error('Portal update renewal error:', error.message);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   PUT /api/portal/renewals/:id/report-payment
+// @desc    Dealer uploads payment screenshot and payment details for a specific renewal request
+// @access  Protected (Dealer/Sub Dealer)
+router.put('/renewals/:id/report-payment', protect, upload.single('screenshot'), async (req, res) => {
+  try {
+    const { paymentMode, transactionId, paymentDate, remarks } = req.body;
+    const receivedAmount = Number(req.body.receivedAmount);
+
+    if (isNaN(receivedAmount) || receivedAmount <= 0) {
+      return res.status(400).json({ message: 'Valid payment amount is required.' });
+    }
+
+    const renewal = await RenewalRequest.findById(req.params.id);
+    if (!renewal) {
+      return res.status(404).json({ message: 'Renewal request not found.' });
+    }
+
+    const userRole = getPortalRole(req.user);
+    if (userRole !== 'ADMIN' && String(renewal.dealerId) !== String(req.user._id)) {
+      return res.status(403).json({ message: 'Unauthorized.' });
+    }
+
+    if (!paymentMode || !['Cash', 'UPI', 'NEFT', 'Bank Transfer', 'Cheque'].includes(paymentMode)) {
+      return res.status(400).json({ message: 'Valid payment mode is required.' });
+    }
+
+    if (!transactionId || !transactionId.trim()) {
+      return res.status(400).json({ message: 'Transaction ID / Reference Number is required.' });
+    }
+
+    let screenshotUrl = renewal.screenshotUrl || '';
+    if (req.file) {
+      screenshotUrl = `/uploads/screenshots/${req.file.filename}`;
+    } else if (paymentMode !== 'Cash' && !screenshotUrl) {
+      return res.status(400).json({ message: 'Payment screenshot proof is required for digital payments.' });
+    }
+
+    renewal.receivedAmount = receivedAmount;
+    renewal.paymentMode = paymentMode;
+    renewal.transactionId = transactionId.trim();
+    if (paymentDate) {
+      const parsed = new Date(paymentDate);
+      if (!isNaN(parsed.getTime())) {
+        renewal.paymentDate = parsed;
+      }
+    }
+    if (remarks) {
+      renewal.remarks = remarks.trim();
+    }
+    
+    // Set status to Under Review so Admin must verify it
+    renewal.status = 'Under Review';
+    renewal.screenshotUrl = screenshotUrl;
+
+    await renewal.save();
+
+    res.json({ message: 'Payment proof submitted successfully for verification.', renewal });
+  } catch (error) {
+    console.error('Report renewal payment error:', error.message);
+    res.status(500).json({ message: error.message || 'Server error' });
   }
 });
 

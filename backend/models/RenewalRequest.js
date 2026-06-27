@@ -77,6 +77,10 @@ const renewalRequestSchema = new mongoose.Schema({
     enum: ['Requested', 'Under Review', 'Approved', 'Activated', 'Completed', 'Rejected'],
     default: 'Requested',
   },
+  screenshotUrl: {
+    type: String,
+    default: '',
+  },
   createdAt: {
     type: Date,
     default: Date.now,

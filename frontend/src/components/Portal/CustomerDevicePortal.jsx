@@ -239,6 +239,16 @@ const CustomerDevicePortal = () => {
   const [renewalLimit, setRenewalLimit] = useState(10);
   const [editingRenewalId, setEditingRenewalId] = useState(null);
   const [viewingRenewal, setViewingRenewal] = useState(null);
+  const [reportPaymentRenewal, setReportPaymentRenewal] = useState(null);
+  const [renewalPaymentForm, setRenewalPaymentForm] = useState({
+    receivedAmount: '',
+    paymentMode: 'UPI',
+    transactionId: '',
+    paymentDate: new Date().toISOString().split('T')[0],
+    remarks: '',
+  });
+  const [renewalScreenshot, setRenewalScreenshot] = useState(null);
+  const [submittingRenewalPayment, setSubmittingRenewalPayment] = useState(false);
   const [resetForm, setResetForm] = useState({ userId: '', password: '' });
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [portalDateMode, setPortalDateMode] = useState('all');
@@ -727,6 +737,65 @@ const CustomerDevicePortal = () => {
         console.error(err);
         alert(err.response?.data?.message || 'Failed to delete renewal request.');
       }
+    }
+  };
+
+  const handleOpenReportPayment = (renewal) => {
+    const remaining = renewal.billAmount - (renewal.receivedAmount || 0);
+    setReportPaymentRenewal(renewal);
+    setRenewalPaymentForm({
+      receivedAmount: remaining,
+      paymentMode: 'UPI',
+      transactionId: '',
+      paymentDate: new Date().toISOString().split('T')[0],
+      remarks: '',
+    });
+    setRenewalScreenshot(null);
+  };
+
+  const handleRenewalPaymentSubmit = async (e) => {
+    e.preventDefault();
+    if (!renewalPaymentForm.receivedAmount || Number(renewalPaymentForm.receivedAmount) <= 0) {
+      alert('Please enter a valid amount.');
+      return;
+    }
+    const remaining = reportPaymentRenewal.billAmount - (reportPaymentRenewal.receivedAmount || 0);
+    if (Number(renewalPaymentForm.receivedAmount) > remaining) {
+      alert(`Payment amount cannot exceed remaining outstanding due (₹${remaining}).`);
+      return;
+    }
+    if (renewalPaymentForm.paymentMode !== 'Cash' && !renewalScreenshot) {
+      alert('Please upload a payment screenshot/proof.');
+      return;
+    }
+
+    try {
+      setSubmittingRenewalPayment(true);
+      const formDataObj = new FormData();
+      formDataObj.append('receivedAmount', Number(renewalPaymentForm.receivedAmount));
+      formDataObj.append('paymentMode', renewalPaymentForm.paymentMode);
+      formDataObj.append('transactionId', renewalPaymentForm.transactionId);
+      formDataObj.append('paymentDate', renewalPaymentForm.paymentDate);
+      formDataObj.append('remarks', renewalPaymentForm.remarks);
+      if (renewalScreenshot) {
+        formDataObj.append('screenshot', renewalScreenshot);
+      }
+
+      await api.put(`/portal/renewals/${reportPaymentRenewal._id}/report-payment`, formDataObj, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      showNotice('Payment proof submitted successfully for verification.');
+      setReportPaymentRenewal(null);
+      setRenewalScreenshot(null);
+      fetchRenewalsData();
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || 'Failed to submit payment proof.');
+    } finally {
+      setSubmittingRenewalPayment(false);
     }
   };
 
@@ -2360,6 +2429,36 @@ const CustomerDevicePortal = () => {
                       >
                         View
                       </button>
+                      {userRole !== 'ADMIN' && renewal.paymentStatus !== 'Paid' && renewal.status !== 'Rejected' && (
+                        <button 
+                          type="button" 
+                          title="Report Payment" 
+                          onClick={() => handleOpenReportPayment(renewal)}
+                          style={{ padding: '6px 8px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}
+                        >
+                          Pay
+                        </button>
+                      )}
+                      {renewal.screenshotUrl && (
+                        <a 
+                          href={`${(api.defaults.baseURL || '').replace(/\/api$/, '')}${renewal.screenshotUrl}`} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          style={{ 
+                            padding: '6px 8px', 
+                            background: '#8b5cf6', 
+                            color: '#fff', 
+                            textDecoration: 'none', 
+                            borderRadius: '4px', 
+                            fontSize: '11px', 
+                            fontWeight: '600',
+                            display: 'inline-flex',
+                            alignItems: 'center'
+                          }}
+                        >
+                          Proof
+                        </a>
+                      )}
                       {userRole === 'ADMIN' && (
                         <>
                           <button 
@@ -2671,7 +2770,11 @@ const CustomerDevicePortal = () => {
                 ['Renewal Date', formatDate(viewingRenewal.renewalDate)],
                 ['New Expiry Date', formatDate(viewingRenewal.newExpiryDate)],
                 ['Bill Amount', `₹${viewingRenewal.billAmount}`],
-                ['Payment Mode', viewingRenewal.paymentMode],
+                ['Received Amount', `₹${viewingRenewal.receivedAmount || 0}`],
+                ['Remaining Due', `₹${viewingRenewal.billAmount - (viewingRenewal.receivedAmount || 0)}`],
+                ['Payment Mode', viewingRenewal.paymentMode || '-'],
+                ['Transaction ID', viewingRenewal.transactionId || '-'],
+                ['Payment Date', viewingRenewal.paymentDate ? formatDate(viewingRenewal.paymentDate) : '-'],
                 ['Status', viewingRenewal.status],
                 ['Remarks', viewingRenewal.remarks || '-'],
                 ['Created Date', formatDate(viewingRenewal.createdAt)],
@@ -2681,7 +2784,141 @@ const CustomerDevicePortal = () => {
                   <strong style={{ color: '#1e293b', fontSize: '13px' }}>{val}</strong>
                 </div>
               ))}
+              
+              {viewingRenewal.screenshotUrl && (
+                <div style={{ marginTop: '15px', borderTop: '1px solid #cbd5e1', paddingTop: '15px' }}>
+                  <strong style={{ fontSize: '13px', color: '#475569', display: 'block', marginBottom: '8px' }}>Uploaded Screenshot Proof:</strong>
+                  <a 
+                    href={`${(api.defaults.baseURL || '').replace(/\/api$/, '')}${viewingRenewal.screenshotUrl}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    style={{ display: 'block', width: '100%', textAlign: 'center' }}
+                  >
+                    <img 
+                      src={`${(api.defaults.baseURL || '').replace(/\/api$/, '')}${viewingRenewal.screenshotUrl}`} 
+                      alt="Payment Receipt Screenshot" 
+                      style={{ maxWidth: '100%', maxHeight: '220px', borderRadius: '6px', border: '1px solid #cbd5e1', objectFit: 'contain', cursor: 'pointer' }}
+                      title="Click to view full size"
+                    />
+                  </a>
+                </div>
+              )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dealer Report Payment Modal for Renewal Requests */}
+      {reportPaymentRenewal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0, 0, 0, 0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', padding: '24px', borderRadius: '12px', width: '90%', maxWidth: '500px', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #cbd5e1', paddingBottom: '10px', marginBottom: '15px' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>Report Renewal Payment</h3>
+              <button 
+                type="button" 
+                onClick={() => setReportPaymentRenewal(null)} 
+                style={{ background: 'none', border: 'none', fontSize: '24px', lineHeight: '1', cursor: 'pointer', color: '#64748b' }}
+              >
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleRenewalPaymentSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div>
+                  <span style={{ fontSize: '11px', color: '#64748b', display: 'block', textTransform: 'uppercase', fontWeight: '700' }}>Request ID</span>
+                  <strong style={{ fontSize: '14px', color: '#1e293b' }}>{reportPaymentRenewal.requestId}</strong>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <span style={{ fontSize: '11px', color: '#64748b', display: 'block', textTransform: 'uppercase', fontWeight: '700' }}>Outstanding Due</span>
+                  <strong style={{ fontSize: '16px', color: '#ef4444' }}>
+                    ₹{(reportPaymentRenewal.billAmount - (reportPaymentRenewal.receivedAmount || 0)).toLocaleString()}
+                  </strong>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>Paid Amount *</span>
+                <input 
+                  type="number" 
+                  value={renewalPaymentForm.receivedAmount} 
+                  onChange={(e) => setRenewalPaymentForm(current => ({ ...current, receivedAmount: e.target.value }))}
+                  placeholder="Enter amount paid..."
+                  style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 12px', fontSize: '13px' }}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>Payment Mode *</span>
+                <select 
+                  value={renewalPaymentForm.paymentMode} 
+                  onChange={(e) => setRenewalPaymentForm(current => ({ ...current, paymentMode: e.target.value }))}
+                  style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 12px', fontSize: '13px' }}
+                  required
+                >
+                  <option value="UPI">UPI</option>
+                  <option value="Bank Transfer">Bank Transfer</option>
+                  <option value="NEFT">NEFT</option>
+                  <option value="Cheque">Cheque</option>
+                  <option value="Cash">Cash</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>Transaction ID / Reference Number *</span>
+                <input 
+                  type="text" 
+                  value={renewalPaymentForm.transactionId} 
+                  onChange={(e) => setRenewalPaymentForm(current => ({ ...current, transactionId: e.target.value }))}
+                  placeholder="Enter UPI reference or TXN ID..."
+                  style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 12px', fontSize: '13px' }}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>Payment Date *</span>
+                <input 
+                  type="date" 
+                  value={renewalPaymentForm.paymentDate} 
+                  onChange={(e) => setRenewalPaymentForm(current => ({ ...current, paymentDate: e.target.value }))}
+                  style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 12px', fontSize: '13px' }}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>
+                  Upload Screenshot Proof {renewalPaymentForm.paymentMode !== 'Cash' && <span style={{ color: 'red' }}>*</span>}
+                </span>
+                <input 
+                  type="file" 
+                  accept="image/*,application/pdf"
+                  onChange={(e) => setRenewalScreenshot(e.target.files[0])}
+                  style={{ fontSize: '12px' }}
+                  required={renewalPaymentForm.paymentMode !== 'Cash'}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>Remarks</span>
+                <textarea 
+                  value={renewalPaymentForm.remarks} 
+                  onChange={(e) => setRenewalPaymentForm(current => ({ ...current, remarks: e.target.value }))}
+                  placeholder="Add payment reference details..."
+                  style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 12px', fontSize: '13px', minHeight: '60px' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <button type="submit" disabled={submittingRenewalPayment} style={{ flex: 1, background: '#10b981', color: '#fff', border: 'none', padding: '10px', borderRadius: '6px', fontWeight: '600', cursor: submittingRenewalPayment ? 'not-allowed' : 'pointer' }}>
+                  {submittingRenewalPayment ? 'Submitting...' : 'Submit Payment Proof'}
+                </button>
+                <button type="button" onClick={() => setReportPaymentRenewal(null)} style={{ flex: 1, background: '#64748b', color: '#fff', border: 'none', padding: '10px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>
+                  Cancel
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
