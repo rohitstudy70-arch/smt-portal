@@ -250,6 +250,17 @@ const CustomerDevicePortal = () => {
   });
   const [renewalScreenshot, setRenewalScreenshot] = useState(null);
   const [submittingRenewalPayment, setSubmittingRenewalPayment] = useState(false);
+  const [selectedRenewalIds, setSelectedRenewalIds] = useState([]);
+  const [isBulkPaymentModalOpen, setIsBulkPaymentModalOpen] = useState(false);
+  const [bulkPaymentForm, setBulkPaymentForm] = useState({
+    receivedAmount: '',
+    paymentMode: 'UPI',
+    transactionId: '',
+    paymentDate: new Date().toISOString().split('T')[0],
+    remarks: '',
+  });
+  const [bulkScreenshot, setBulkScreenshot] = useState(null);
+  const [submittingBulkPayment, setSubmittingBulkPayment] = useState(false);
   const [resetForm, setResetForm] = useState({ userId: '', password: '' });
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [portalDateMode, setPortalDateMode] = useState('all');
@@ -741,6 +752,90 @@ const CustomerDevicePortal = () => {
         console.error(err);
         alert(err.response?.data?.message || 'Failed to delete renewal request.');
       }
+    }
+  };
+
+  const handleSelectRenewal = (id) => {
+    setSelectedRenewalIds(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllRenewals = (e) => {
+    const isChecked = e.target.checked;
+    const visibleRenewals = renewals.slice((renewalPage - 1) * renewalLimit, renewalPage * renewalLimit);
+    const visiblePayable = visibleRenewals.filter(r => r.paymentStatus !== 'Paid' && r.status !== 'Rejected');
+    
+    if (isChecked) {
+      const ids = visiblePayable.map(r => r._id);
+      setSelectedRenewalIds(prev => Array.from(new Set([...prev, ...ids])));
+    } else {
+      const idsToRemove = visiblePayable.map(r => r._id);
+      setSelectedRenewalIds(prev => prev.filter(id => !idsToRemove.includes(id)));
+    }
+  };
+
+  const handleOpenBulkPayment = () => {
+    if (selectedRenewalIds.length === 0) {
+      alert('Please select at least one renewal request.');
+      return;
+    }
+    const selectedRequests = renewals.filter(r => selectedRenewalIds.includes(r._id));
+    const totalDue = selectedRequests.reduce((sum, r) => sum + (r.remainingDue || 0), 0);
+    
+    setBulkPaymentForm({
+      receivedAmount: totalDue,
+      paymentMode: 'UPI',
+      transactionId: '',
+      paymentDate: new Date().toISOString().split('T')[0],
+      remarks: '',
+    });
+    setBulkScreenshot(null);
+    setIsBulkPaymentModalOpen(true);
+  };
+
+  const handleSaveBulkPayment = async (e) => {
+    e.preventDefault();
+    if (!bulkPaymentForm.receivedAmount || Number(bulkPaymentForm.receivedAmount) <= 0) {
+      alert('Valid payment amount is required.');
+      return;
+    }
+    if (!bulkPaymentForm.transactionId || !bulkPaymentForm.transactionId.trim()) {
+      alert('Transaction ID / Reference Number is required.');
+      return;
+    }
+    if (bulkPaymentForm.paymentMode !== 'Cash' && !bulkScreenshot) {
+      alert('Screenshot proof is required for digital payments.');
+      return;
+    }
+
+    setSubmittingBulkPayment(true);
+    try {
+      const formData = new FormData();
+      formData.append('requestIdsJson', JSON.stringify(selectedRenewalIds));
+      formData.append('receivedAmount', bulkPaymentForm.receivedAmount);
+      formData.append('paymentMode', bulkPaymentForm.paymentMode);
+      formData.append('transactionId', bulkPaymentForm.transactionId);
+      formData.append('paymentDate', bulkPaymentForm.paymentDate);
+      formData.append('remarks', bulkPaymentForm.remarks);
+      if (bulkScreenshot) {
+        formData.append('screenshot', bulkScreenshot);
+      }
+
+      await api.put('/portal/renewals/report-bulk-payment', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      showNotice('Bulk payment submitted successfully for verification.');
+      setIsBulkPaymentModalOpen(false);
+      setSelectedRenewalIds([]);
+      fetchRenewalsData();
+      loadPortalData();
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || 'Failed to submit bulk payment.');
+    } finally {
+      setSubmittingBulkPayment(false);
     }
   };
 
@@ -2390,10 +2485,56 @@ const CustomerDevicePortal = () => {
           </div>
           <FaHistory className="portal-panel-icon" />
         </div>
+        {selectedRenewalIds.length > 0 && (
+          <div style={{
+            background: '#eff6ff',
+            borderBottom: '1px solid #bfdbfe',
+            padding: '12px 24px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <span style={{ fontSize: '14px', fontWeight: '600', color: '#1e40af' }}>
+              {selectedRenewalIds.length} Renewal Requests selected for bulk payment
+            </span>
+            <button
+              type="button"
+              onClick={handleOpenBulkPayment}
+              style={{
+                background: '#2563eb',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '8px 16px',
+                fontSize: '13px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+              }}
+            >
+              Pay Selected Dues
+            </button>
+          </div>
+        )}
         <div className="portal-table-wrap" style={{ overflowX: 'auto' }}>
           <table className="portal-table" style={{ width: '100%', minWidth: '1600px' }}>
             <thead>
               <tr>
+                {userRole !== 'ADMIN' && (
+                  <th style={{ width: '40px', textAlign: 'center' }}>
+                    <input 
+                      type="checkbox" 
+                      onChange={handleSelectAllRenewals} 
+                      checked={
+                        renewals.slice((renewalPage - 1) * renewalLimit, renewalPage * renewalLimit)
+                          .filter(r => r.paymentStatus !== 'Paid' && r.status !== 'Rejected').length > 0 &&
+                        renewals.slice((renewalPage - 1) * renewalLimit, renewalPage * renewalLimit)
+                          .filter(r => r.paymentStatus !== 'Paid' && r.status !== 'Rejected')
+                          .every(r => selectedRenewalIds.includes(r._id))
+                      } 
+                    />
+                  </th>
+                )}
                 <th>Request ID</th>
                 {userRole === 'ADMIN' && <th>Dealer</th>}
                 <th>Customer Name</th>
@@ -2419,6 +2560,19 @@ const CustomerDevicePortal = () => {
             <tbody>
               {renewals.slice((renewalPage - 1) * renewalLimit, renewalPage * renewalLimit).map((renewal) => (
                 <tr key={renewal._id}>
+                  {userRole !== 'ADMIN' && (
+                    <td style={{ textAlign: 'center' }}>
+                      {renewal.paymentStatus !== 'Paid' && renewal.status !== 'Rejected' ? (
+                        <input 
+                          type="checkbox" 
+                          checked={selectedRenewalIds.includes(renewal._id)} 
+                          onChange={() => handleSelectRenewal(renewal._id)} 
+                        />
+                      ) : (
+                        '-'
+                      )}
+                    </td>
+                  )}
                   <td className="strong" style={{ color: '#3b82f6' }}>{renewal.requestId}</td>
                   {userRole === 'ADMIN' && <td>{renewal.dealerName}</td>}
                   <td>{renewal.customerName}</td>
@@ -2965,6 +3119,121 @@ const CustomerDevicePortal = () => {
                   {submittingRenewalPayment ? 'Submitting...' : 'Submit Payment Proof'}
                 </button>
                 <button type="button" onClick={() => setReportPaymentRenewal(null)} style={{ flex: 1, background: '#64748b', color: '#fff', border: 'none', padding: '10px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Dealer Bulk Report Payment Modal */}
+      {isBulkPaymentModalOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0, 0, 0, 0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', padding: '24px', borderRadius: '12px', width: '90%', maxWidth: '500px', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #cbd5e1', paddingBottom: '10px', marginBottom: '15px' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>Report Bulk Renewal Payment</h3>
+              <button 
+                type="button" 
+                onClick={() => setIsBulkPaymentModalOpen(false)} 
+                style={{ background: 'none', border: 'none', fontSize: '24px', lineHeight: '1', cursor: 'pointer', color: '#64748b' }}
+              >
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleSaveBulkPayment} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div>
+                  <span style={{ fontSize: '11px', color: '#64748b', display: 'block', textTransform: 'uppercase', fontWeight: '700' }}>Selected Requests</span>
+                  <strong style={{ fontSize: '14px', color: '#1e293b' }}>{selectedRenewalIds.length} Requests</strong>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <span style={{ fontSize: '11px', color: '#64748b', display: 'block', textTransform: 'uppercase', fontWeight: '700' }}>Total Outstanding</span>
+                  <strong style={{ fontSize: '16px', color: '#ef4444' }}>
+                    ₹{(renewals.filter(r => selectedRenewalIds.includes(r._id)).reduce((sum, r) => sum + (r.remainingDue || 0), 0)).toLocaleString()}
+                  </strong>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>Paid Amount *</span>
+                <input 
+                  type="number" 
+                  value={bulkPaymentForm.receivedAmount} 
+                  onChange={(e) => setBulkPaymentForm(current => ({ ...current, receivedAmount: e.target.value }))}
+                  placeholder="Enter amount paid..."
+                  style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 12px', fontSize: '13px' }}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>Payment Mode *</span>
+                <select 
+                  value={bulkPaymentForm.paymentMode} 
+                  onChange={(e) => setBulkPaymentForm(current => ({ ...current, paymentMode: e.target.value }))}
+                  style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 12px', fontSize: '13px' }}
+                  required
+                >
+                  <option value="UPI">UPI</option>
+                  <option value="Bank Transfer">Bank Transfer</option>
+                  <option value="NEFT">NEFT</option>
+                  <option value="Cheque">Cheque</option>
+                  <option value="Cash">Cash</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>Transaction ID / Reference Number *</span>
+                <input 
+                  type="text" 
+                  value={bulkPaymentForm.transactionId} 
+                  onChange={(e) => setBulkPaymentForm(current => ({ ...current, transactionId: e.target.value }))}
+                  placeholder="Enter UPI reference or TXN ID..."
+                  style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 12px', fontSize: '13px' }}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>Payment Date *</span>
+                <input 
+                  type="date" 
+                  value={bulkPaymentForm.paymentDate} 
+                  onChange={(e) => setBulkPaymentForm(current => ({ ...current, paymentDate: e.target.value }))}
+                  style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 12px', fontSize: '13px' }}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>
+                  Upload Screenshot Proof {bulkPaymentForm.paymentMode !== 'Cash' && <span style={{ color: 'red' }}>*</span>}
+                </span>
+                <input 
+                  type="file" 
+                  accept="image/*,application/pdf"
+                  onChange={(e) => setBulkScreenshot(e.target.files[0])}
+                  style={{ fontSize: '12px' }}
+                  required={bulkPaymentForm.paymentMode !== 'Cash'}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>Remarks</span>
+                <textarea 
+                  value={bulkPaymentForm.remarks} 
+                  onChange={(e) => setBulkPaymentForm(current => ({ ...current, remarks: e.target.value }))}
+                  placeholder="Add payment reference details..."
+                  style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 12px', fontSize: '13px', minHeight: '60px' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <button type="submit" disabled={submittingBulkPayment} style={{ flex: 1, background: '#2563eb', color: '#fff', border: 'none', padding: '10px', borderRadius: '6px', fontWeight: '600', cursor: submittingBulkPayment ? 'not-allowed' : 'pointer' }}>
+                  {submittingBulkPayment ? 'Submitting...' : 'Submit Bulk Payment'}
+                </button>
+                <button type="button" onClick={() => setIsBulkPaymentModalOpen(false)} style={{ flex: 1, background: '#64748b', color: '#fff', border: 'none', padding: '10px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>
                   Cancel
                 </button>
               </div>

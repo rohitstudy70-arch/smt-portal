@@ -1234,6 +1234,105 @@ router.put('/renewals/:id/report-payment', protect, upload.single('screenshot'),
   }
 });
 
+// @route   PUT /api/portal/renewals/report-bulk-payment
+// @desc    Dealer uploads payment screenshot and payment details for multiple renewal requests
+// @access  Protected (Dealer/Sub Dealer)
+router.put('/renewals/report-bulk-payment', protect, upload.single('screenshot'), async (req, res) => {
+  try {
+    const { requestIdsJson, paymentMode, transactionId, paymentDate, remarks } = req.body;
+    let totalReceived = Number(req.body.receivedAmount);
+
+    if (!requestIdsJson) {
+      return res.status(400).json({ message: 'Request IDs are required.' });
+    }
+
+    const requestIds = JSON.parse(requestIdsJson);
+    if (!Array.isArray(requestIds) || requestIds.length === 0) {
+      return res.status(400).json({ message: 'Valid Request IDs array is required.' });
+    }
+
+    if (isNaN(totalReceived) || totalReceived <= 0) {
+      return res.status(400).json({ message: 'Valid payment amount is required.' });
+    }
+
+    if (!paymentMode || !['Cash', 'UPI', 'NEFT', 'Bank Transfer', 'Cheque'].includes(paymentMode)) {
+      return res.status(400).json({ message: 'Valid payment mode is required.' });
+    }
+
+    if (!transactionId || !transactionId.trim()) {
+      return res.status(400).json({ message: 'Transaction ID / Reference Number is required.' });
+    }
+
+    const renewals = await RenewalRequest.find({ _id: { $in: requestIds } });
+    if (renewals.length === 0) {
+      return res.status(404).json({ message: 'No matching renewal requests found.' });
+    }
+
+    const userRole = getPortalRole(req.user);
+    if (userRole !== 'ADMIN') {
+      const unauthorized = renewals.some(r => String(r.dealerId) !== String(req.user._id));
+      if (unauthorized) {
+        return res.status(403).json({ message: 'Unauthorized access to some requests.' });
+      }
+    }
+
+    let screenshotUrl = '';
+    if (req.file) {
+      screenshotUrl = `/uploads/screenshots/${req.file.filename}`;
+    } else if (paymentMode !== 'Cash') {
+      return res.status(400).json({ message: 'Payment screenshot proof is required for digital payments.' });
+    }
+
+    let parsedDate = new Date();
+    if (paymentDate) {
+      const parsed = new Date(paymentDate);
+      if (!isNaN(parsed.getTime())) {
+        parsedDate = parsed;
+      }
+    }
+
+    let remainingPayment = totalReceived;
+    for (let r of renewals) {
+      const remainingDueForRequest = r.billAmount - (r.receivedAmount || 0);
+      if (remainingDueForRequest <= 0) continue;
+
+      if (remainingPayment <= 0) {
+        r.status = 'Under Review';
+        r.transactionId = transactionId.trim();
+        r.paymentMode = paymentMode;
+        r.paymentDate = parsedDate;
+        if (remarks) r.remarks = remarks.trim();
+        if (screenshotUrl) r.screenshotUrl = screenshotUrl;
+        await r.save();
+        continue;
+      }
+
+      let alloc = 0;
+      if (remainingPayment >= remainingDueForRequest) {
+        alloc = remainingDueForRequest;
+        remainingPayment -= remainingDueForRequest;
+      } else {
+        alloc = remainingPayment;
+        remainingPayment = 0;
+      }
+
+      r.receivedAmount = (r.receivedAmount || 0) + alloc;
+      r.status = 'Under Review';
+      r.transactionId = transactionId.trim();
+      r.paymentMode = paymentMode;
+      r.paymentDate = parsedDate;
+      if (remarks) r.remarks = remarks.trim();
+      if (screenshotUrl) r.screenshotUrl = screenshotUrl;
+      await r.save();
+    }
+
+    res.json({ message: 'Bulk payment reported successfully for verification.' });
+  } catch (error) {
+    console.error('Report bulk payment error:', error.message);
+    res.status(500).json({ message: error.message || 'Server error' });
+  }
+});
+
 router.delete('/renewals/:id', protect, async (req, res) => {
   try {
     const scope = await getScope(req.user);
