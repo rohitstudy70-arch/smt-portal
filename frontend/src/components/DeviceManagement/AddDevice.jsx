@@ -286,6 +286,11 @@ const AddDevice = () => {
     setSubmitting(true);
     try {
       if (editingDeviceId) {
+        if (user?.role !== 'partner') {
+          showToast('error', 'Access denied: Only the Admin ID is allowed to edit devices.');
+          setSubmitting(false);
+          return;
+        }
         await api.put(`/devices/${editingDeviceId}`, {
           ...formData,
           serialNo: formData.serialNo || formData.imei
@@ -314,6 +319,10 @@ const AddDevice = () => {
   };
 
   const handleDeleteDevice = async (deviceId, imei) => {
+    if (user?.role !== 'partner') {
+      showToast('error', 'Access denied: Only the Admin ID is allowed to delete devices.');
+      return;
+    }
     if (window.confirm(`Are you sure you want to permanently delete device with IMEI "${imei}"?`)) {
       try {
         const res = await api.delete(`/devices/${deviceId}`);
@@ -690,13 +699,13 @@ const AddDevice = () => {
                 <th>Expiry Date</th>
                 <th>Created By</th>
                 <th>Status</th>
-                <th>Actions</th>
+                {user?.role === 'partner' && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
               {devicesLoading ? (
                 <tr>
-                  <td colSpan={14} className="table-empty">Loading devices...</td>
+                  <td colSpan={user?.role === 'partner' ? 14 : 13} className="table-empty">Loading devices...</td>
                 </tr>
               ) : devices.length > 0 ? (
                 devices.map((device) => (
@@ -714,31 +723,33 @@ const AddDevice = () => {
                     <td>{formatDate(device.expiryDate)}</td>
                     <td>{getLinkedName(device.createdBy)}</td>
                     <td><span className={`device-status status-${String(device.status || 'active').toLowerCase()}`}>{device.status || 'Active'}</span></td>
-                    <td>
-                      <div className="action-buttons-cell">
-                        <button
-                          type="button"
-                          className="btn-action-edit"
-                          onClick={() => handleEditStart(device)}
-                          title="Edit Device"
-                        >
-                          <FaEdit /> Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="btn-action-delete"
-                          onClick={() => handleDeleteDevice(device._id, device.imei)}
-                          title="Delete Device"
-                        >
-                          <FaTrash /> Delete
-                        </button>
-                      </div>
-                    </td>
+                    {user?.role === 'partner' && (
+                      <td>
+                        <div className="action-buttons-cell">
+                          <button
+                            type="button"
+                            className="btn-action-edit"
+                            onClick={() => handleEditStart(device)}
+                            title="Edit Device"
+                          >
+                            <FaEdit /> Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-action-delete"
+                            onClick={() => handleDeleteDevice(device._id, device.imei)}
+                            title="Delete Device"
+                          >
+                            <FaTrash /> Delete
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={14} className="table-empty">No device records found.</td>
+                  <td colSpan={user?.role === 'partner' ? 14 : 13} className="table-empty">No device records found.</td>
                 </tr>
               )}
             </tbody>

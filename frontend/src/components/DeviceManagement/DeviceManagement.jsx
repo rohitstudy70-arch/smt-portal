@@ -149,6 +149,10 @@ const DeviceManagement = () => {
   };
 
   const canDeleteDevice = (device) => {
+    if (user?.role !== 'partner') {
+      return false;
+    }
+
     let targetOwnerRole = 'DEALER';
     if (device.assignedTo) {
       const assigneeType = device.assignedTo.userType || 'Dealer';
@@ -162,10 +166,10 @@ const DeviceManagement = () => {
     }
 
     if (targetOwnerRole === 'DEALER') {
-      return role === 'ADMIN';
+      return true;
     }
     if (targetOwnerRole === 'SUB_DEALER') {
-      return role === 'ADMIN' || role === 'DEALER';
+      return true;
     }
 
     return false;

@@ -141,6 +141,7 @@ const UserManagement = () => {
   };
 
   const canManageUser = (targetUser) => {
+    if (role !== 'ADMIN') return false;
     const targetUserType = targetUser.userType;
     if (targetUserType === 'Administration') {
       // Only full admin can manage Administration users
@@ -153,14 +154,15 @@ const UserManagement = () => {
   };
 
   const canDeleteUser = (targetUser) => {
+    if (role !== 'ADMIN') return false;
     if (!canManageUser(targetUser)) return false;
 
     const targetUserType = targetUser.userType || 'Dealer';
     if (targetUserType === 'Dealer') {
-      return role === 'ADMIN';
+      return true;
     }
     if (targetUserType === 'Sub Dealer') {
-      return role === 'ADMIN' || role === 'DEALER';
+      return true;
     }
     return false;
   };

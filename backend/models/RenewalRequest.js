@@ -11,49 +11,71 @@ const renewalRequestSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
   },
-  customerId: {
+  dealerId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     default: null,
   },
-  deviceId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Device',
-    default: null,
-  },
-  imei: {
+  dealerName: {
     type: String,
     required: true,
   },
   customerName: {
     type: String,
-    default: '',
+    required: true,
   },
-  dealerName: {
+  customerMobile: {
     type: String,
-    default: '',
+    required: true,
+  },
+  imei: {
+    type: String,
+    required: true,
+  },
+  vehicleNumber: {
+    type: String,
+    required: true,
+  },
+  deviceModel: {
+    type: String,
+    required: true,
+  },
+  productDescription: {
+    type: String,
+    required: true,
   },
   validity: {
     type: String,
     enum: ['1 Year', '2 Years'],
+    required: true,
     default: '1 Year',
   },
-  currentExpiryDate: {
+  renewalDate: {
     type: Date,
-    default: null,
+    required: true,
+    default: Date.now,
   },
-  requestedExpiryDate: {
+  newExpiryDate: {
     type: Date,
-    default: null,
+    required: true,
   },
-  status: {
+  billAmount: {
+    type: Number,
+    required: true,
+  },
+  paymentMode: {
     type: String,
-    enum: ['Requested', 'Processing', 'Completed', 'Rejected'],
-    default: 'Requested',
+    enum: ['Cash', 'UPI', 'Bank Transfer', 'Cheque'],
+    required: true,
   },
   remarks: {
     type: String,
     default: '',
+  },
+  status: {
+    type: String,
+    enum: ['Requested', 'Under Review', 'Approved', 'Activated', 'Completed', 'Rejected'],
+    default: 'Requested',
   },
   createdAt: {
     type: Date,

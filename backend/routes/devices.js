@@ -755,6 +755,9 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
 // @desc    Update an existing device
 // @access  Protected
 router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
+  if (req.user.role !== 'partner') {
+    return res.status(403).json({ message: 'Access denied: Only the Admin ID is allowed to edit devices.' });
+  }
   try {
     const scopeQuery = buildDeviceScopeQuery(req.hierarchyScope);
     const device = await Device.findOne(combineQueries(scopeQuery, { _id: req.params.id }));
@@ -1024,6 +1027,9 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
 // @desc    Permanently delete a device
 // @access  Protected
 router.delete('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
+  if (req.user.role !== 'partner') {
+    return res.status(403).json({ message: 'Access denied: Only the Admin ID is allowed to delete devices.' });
+  }
   try {
     const scopeQuery = buildDeviceScopeQuery(req.hierarchyScope);
     const device = await Device.findOne(combineQueries(scopeQuery, { _id: req.params.id }));

@@ -492,8 +492,8 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ message: 'Request not found' });
     }
 
-    if (req.portalRole !== PORTAL_ROLES.ADMIN && !isIdInScope(req.hierarchyScope, request.userId)) {
-      return res.status(403).json({ message: 'Unauthorized to edit this request' });
+    if (req.portalRole !== PORTAL_ROLES.ADMIN) {
+      return res.status(403).json({ message: 'Access denied: Only Admins are allowed to edit activation requests.' });
     }
 
     const updatableFields = [
@@ -533,12 +533,8 @@ router.delete('/:id', async (req, res) => {
       return res.status(404).json({ message: 'Request not found' });
     }
 
-    if (request.status === 'Completed' && req.portalRole !== PORTAL_ROLES.ADMIN) {
-      return res.status(400).json({ message: 'Cannot delete a completed request' });
-    }
-
-    if (req.portalRole !== PORTAL_ROLES.ADMIN && !isIdInScope(req.hierarchyScope, request.userId)) {
-      return res.status(403).json({ message: 'Unauthorized to delete this request' });
+    if (req.portalRole !== PORTAL_ROLES.ADMIN) {
+      return res.status(403).json({ message: 'Access denied: Only Admins are allowed to delete activation requests.' });
     }
 
     if (request.imei) {

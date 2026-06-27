@@ -160,8 +160,8 @@ router.post('/sub-user', protect, async (req, res) => {
 router.put('/sub-user/:id', protect, async (req, res) => {
   try {
     const role = getPortalRole(req.user);
-    if (!userManagementRoles.includes(role)) {
-      return res.status(403).json({ message: 'Access denied: You cannot manage users.' });
+    if (role !== 'ADMIN') {
+      return res.status(403).json({ message: 'Access denied: Only Admins are allowed to edit users.' });
     }
 
     const { userType, displayName, mobileNo, email, status } = req.body;
@@ -240,8 +240,8 @@ router.put('/sub-user/:id', protect, async (req, res) => {
 router.delete('/sub-user/:id', protect, async (req, res) => {
   try {
     const role = getPortalRole(req.user);
-    if (!userManagementRoles.includes(role)) {
-      return res.status(403).json({ message: 'Access denied: You cannot manage users.' });
+    if (role !== 'ADMIN') {
+      return res.status(403).json({ message: 'Access denied: Only Admins are allowed to manage user status.' });
     }
 
     const subUser = await User.findById(req.params.id);
@@ -290,8 +290,8 @@ router.delete('/sub-user/:id', protect, async (req, res) => {
 router.delete('/sub-user/:id/permanent', protect, async (req, res) => {
   try {
     const role = getPortalRole(req.user);
-    if (!userManagementRoles.includes(role)) {
-      return res.status(403).json({ message: 'Access denied: You cannot delete users.' });
+    if (role !== 'ADMIN') {
+      return res.status(403).json({ message: 'Access denied: Only Admins are allowed to delete users.' });
     }
 
     const subUser = await User.findById(req.params.id);

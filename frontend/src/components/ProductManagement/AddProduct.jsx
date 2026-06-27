@@ -309,6 +309,11 @@ const AddProduct = () => {
     setSubmitting(true);
     try {
       if (isEditMode) {
+        if (role !== 'ADMIN') {
+          showToast('error', 'Access denied: Only Admins can edit products.');
+          setSubmitting(false);
+          return;
+        }
         await api.put(`/products/${editingProductId}`, formData);
         showToast('success', 'Product updated successfully!');
         handleCancelEdit();
@@ -372,6 +377,10 @@ const AddProduct = () => {
   };
 
   const handleDeleteClick = async (productId) => {
+    if (role !== 'ADMIN') {
+      showToast('error', 'Access denied: Only Admins can delete products.');
+      return;
+    }
     if (window.confirm('Are you sure you want to delete this product?')) {
       try {
         await api.delete(`/products/${productId}`);

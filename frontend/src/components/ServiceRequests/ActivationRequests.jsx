@@ -1042,7 +1042,6 @@ const ActivationRequests = () => {
                   <th>Amount (₹)</th>
                   <th>Remarks</th>
                   <th>Status</th>
-                  <th>Actions</th>
                 </tr>
               )}
             </thead>
@@ -1166,30 +1165,12 @@ const ActivationRequests = () => {
                           {displayStatus}
                         </span>
                       </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '5px' }}>
-                          <button
-                            onClick={() => handleEditClick(req)}
-                            style={{ padding: '4px 8px', background: '#337ab7', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
-                          >
-                            Edit
-                          </button>
-                          {(req.status !== 'Completed' || role === 'ADMIN') && (
-                            <button
-                              onClick={() => handleDeleteRequest(req._id)}
-                              style={{ padding: '4px 8px', background: '#d9534f', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
-                            >
-                              Delete
-                            </button>
-                          )}
-                        </div>
-                      </td>
                     </tr>
                   );
                 })
               ) : (
                 <tr>
-                  <td colSpan={role === 'ADMIN' ? '10' : '13'} style={{ textAlign: 'center', padding: '20px', color: '#999', fontStyle: 'italic' }}>
+                  <td colSpan={role === 'ADMIN' ? '10' : '12'} style={{ textAlign: 'center', padding: '20px', color: '#999', fontStyle: 'italic' }}>
                     No records found
                   </td>
                 </tr>

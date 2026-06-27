@@ -209,7 +209,35 @@ const CustomerDevicePortal = () => {
   const [deviceForm, setDeviceForm] = useState(emptyDeviceForm);
   const [bulkText, setBulkText] = useState('');
   const [transferForm, setTransferForm] = useState({ deviceId: '', targetUserId: '', note: '' });
-  const [renewalForm, setRenewalForm] = useState({ deviceId: '', imei: '', customerId: '', validity: '1 Year', remarks: '' });
+  const [renewalForm, setRenewalForm] = useState({
+    dealerId: '',
+    customerName: '',
+    customerMobile: '',
+    imei: '',
+    vehicleNumber: '',
+    deviceModel: '',
+    productDescription: '',
+    validity: '1 Year',
+    renewalDate: new Date().toISOString().split('T')[0],
+    newExpiryDate: '',
+    billAmount: '',
+    paymentMode: 'Cash',
+    remarks: '',
+  });
+  const [renewalStats, setRenewalStats] = useState(null);
+  const [renewalFilters, setRenewalFilters] = useState({
+    dealerId: '',
+    status: '',
+    customerName: '',
+    imei: '',
+    vehicleNumber: '',
+    fromDate: '',
+    toDate: '',
+  });
+  const [renewalPage, setRenewalPage] = useState(1);
+  const [renewalLimit, setRenewalLimit] = useState(10);
+  const [editingRenewalId, setEditingRenewalId] = useState(null);
+  const [viewingRenewal, setViewingRenewal] = useState(null);
   const [resetForm, setResetForm] = useState({ userId: '', password: '' });
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [portalDateMode, setPortalDateMode] = useState('all');
@@ -444,6 +472,47 @@ const CustomerDevicePortal = () => {
     setSearch(initialSearch);
   }, [initialSearch]);
 
+  const calculateNewExpiryDate = (rDateStr, val) => {
+    if (!rDateStr) return '';
+    const date = new Date(rDateStr);
+    if (isNaN(date.getTime())) return '';
+    const years = val === '2 Years' ? 2 : 1;
+    date.setFullYear(date.getFullYear() + years);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const handleRenewalFormChange = (field, value) => {
+    setRenewalForm(current => {
+      const next = { ...current, [field]: value };
+      if (field === 'renewalDate' || field === 'validity') {
+        next.newExpiryDate = calculateNewExpiryDate(next.renewalDate, next.validity);
+      }
+      return next;
+    });
+  };
+
+  const fetchRenewalsData = async () => {
+    try {
+      const [renewalsRes, statsRes] = await Promise.all([
+        api.get('/portal/renewals', { params: renewalFilters }),
+        api.get('/portal/renewals/stats'),
+      ]);
+      setRenewals(renewalsRes.data || []);
+      setRenewalStats(statsRes.data || null);
+    } catch (err) {
+      console.error('Error fetching renewals:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (activeView === 'renewals') {
+      fetchRenewalsData();
+    }
+  }, [activeView, renewalFilters]);
+
   useEffect(() => {
     if (!deviceForm.dealerId && deviceDealerOptions.length === 1) {
       const dealer = deviceDealerOptions[0];
@@ -482,6 +551,10 @@ const CustomerDevicePortal = () => {
 
   const saveUserEdit = async (event) => {
     event.preventDefault();
+    if (userRole !== 'ADMIN') {
+      showNotice('Access denied: Only Admins can edit users.');
+      return;
+    }
     if (!editUser?._id) return;
     const payload = {
       userType: editUser.userType,
@@ -507,6 +580,10 @@ const CustomerDevicePortal = () => {
   };
 
   const setUserStatus = async (targetUser, nextStatus) => {
+    if (userRole !== 'ADMIN') {
+      showNotice('Access denied: Only Admins can change user status.');
+      return;
+    }
     await api.put(`/portal/users/${targetUser._id}`, { status: nextStatus });
     showNotice(`${getName(targetUser)} marked ${nextStatus}.`);
     await loadPortalData();
@@ -514,6 +591,10 @@ const CustomerDevicePortal = () => {
 
   const resetPassword = async (event) => {
     event.preventDefault();
+    if (userRole !== 'ADMIN') {
+      showNotice('Access denied: Only Admins can reset user passwords.');
+      return;
+    }
     if (!resetForm.userId || !resetForm.password) return;
     await api.post(`/portal/users/${resetForm.userId}/reset-password`, { password: resetForm.password });
     setResetForm({ userId: '', password: '' });
@@ -554,16 +635,219 @@ const CustomerDevicePortal = () => {
     await loadPortalData();
   };
 
-  const createRenewal = async (event) => {
+  const handleSaveRenewal = async (event) => {
     event.preventDefault();
-    const device = devices.find((item) => item._id === renewalForm.deviceId);
-    await api.post('/portal/renewals', {
-      ...renewalForm,
-      imei: renewalForm.imei || device?.imei,
+
+    // Validations
+    if (!renewalForm.dealerId) { alert('Dealer Name is required'); return; }
+    if (!renewalForm.customerName) { alert('Customer Name is required'); return; }
+    if (!renewalForm.customerMobile) { alert('Customer Mobile is required'); return; }
+    if (!renewalForm.imei) { alert('IMEI is required'); return; }
+    if (!/^\d{15}$/.test(renewalForm.imei)) { alert('IMEI must contain exactly 15 digits.'); return; }
+    if (!renewalForm.vehicleNumber) { alert('Vehicle Number is required'); return; }
+    if (!renewalForm.deviceModel) { alert('Device Model is required'); return; }
+    if (!renewalForm.productDescription) { alert('Product Description is required'); return; }
+    if (!renewalForm.renewalDate) { alert('Renewal Date is required'); return; }
+    if (!renewalForm.billAmount) { alert('Bill Amount is required'); return; }
+    if (Number(renewalForm.billAmount) <= 0) { alert('Bill Amount cannot be zero or negative.'); return; }
+    if (!renewalForm.paymentMode) { alert('Payment Mode is required'); return; }
+
+    try {
+      if (editingRenewalId) {
+        await api.put(`/portal/renewals/${editingRenewalId}`, renewalForm);
+        showNotice('Renewal Request Updated Successfully.');
+        setEditingRenewalId(null);
+      } else {
+        await api.post('/portal/renewals', renewalForm);
+        showNotice('Renewal Request Created Successfully.');
+      }
+      
+      setRenewalForm({
+        dealerId: '',
+        customerName: '',
+        customerMobile: '',
+        imei: '',
+        vehicleNumber: '',
+        deviceModel: '',
+        productDescription: '',
+        validity: '1 Year',
+        renewalDate: new Date().toISOString().split('T')[0],
+        newExpiryDate: calculateNewExpiryDate(new Date().toISOString().split('T')[0], '1 Year'),
+        billAmount: '',
+        paymentMode: 'Cash',
+        remarks: '',
+      });
+      fetchRenewalsData();
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || 'Failed to save renewal request.');
+    }
+  };
+
+  const handleEditRenewalClick = (renewal) => {
+    setEditingRenewalId(renewal._id);
+    setRenewalForm({
+      dealerId: renewal.dealerId || '',
+      customerName: renewal.customerName || '',
+      customerMobile: renewal.customerMobile || '',
+      imei: renewal.imei || '',
+      vehicleNumber: renewal.vehicleNumber || '',
+      deviceModel: renewal.deviceModel || '',
+      productDescription: renewal.productDescription || '',
+      validity: renewal.validity || '1 Year',
+      renewalDate: renewal.renewalDate ? new Date(renewal.renewalDate).toISOString().split('T')[0] : '',
+      newExpiryDate: renewal.newExpiryDate ? new Date(renewal.newExpiryDate).toISOString().split('T')[0] : '',
+      billAmount: renewal.billAmount || '',
+      paymentMode: renewal.paymentMode || 'Cash',
+      remarks: renewal.remarks || '',
     });
-    setRenewalForm({ deviceId: '', imei: '', customerId: '', validity: '1 Year', remarks: '' });
-    showNotice('Renewal request created.');
-    await loadPortalData();
+  };
+
+  const handleStatusChange = async (renewalId, nextStatus) => {
+    try {
+      await api.put(`/portal/renewals/${renewalId}`, { status: nextStatus });
+      showNotice(`Status updated to ${nextStatus}.`);
+      fetchRenewalsData();
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || 'Failed to update status.');
+    }
+  };
+
+  const handleDeleteRenewal = async (renewalId) => {
+    if (window.confirm('Are you sure you want to delete this renewal request?')) {
+      try {
+        await api.delete(`/portal/renewals/${renewalId}`);
+        showNotice('Renewal Request Deleted Successfully.');
+        fetchRenewalsData();
+      } catch (err) {
+        console.error(err);
+        alert(err.response?.data?.message || 'Failed to delete renewal request.');
+      }
+    }
+  };
+
+  const handlePrintInvoice = (renewal) => {
+    const printWindow = window.open('', '_blank');
+    const renewalDateFormatted = new Date(renewal.renewalDate).toLocaleDateString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric'
+    });
+    const expiryDateFormatted = new Date(renewal.newExpiryDate).toLocaleDateString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric'
+    });
+    const createdDateFormatted = new Date(renewal.createdAt).toLocaleDateString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric'
+    });
+
+    const htmlContent = `
+      <html>
+      <head>
+        <title>Invoice - ${renewal.requestId}</title>
+        <style>
+          body { font-family: 'Segoe UI', Arial, sans-serif; color: #333; margin: 40px; }
+          .invoice-box { max-width: 800px; margin: auto; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0, 0, 0, 0.15); padding: 30px; font-size: 14px; line-height: 24px; }
+          .invoice-header { display: flex; justify-content: space-between; border-bottom: 2px solid #3b82f6; padding-bottom: 20px; margin-bottom: 20px; }
+          .company-details h1 { margin: 0; color: #3b82f6; font-size: 24px; }
+          .invoice-title { text-align: right; }
+          .invoice-title h2 { margin: 0; color: #1e293b; }
+          .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px; }
+          .details-card { background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; }
+          .details-card h3 { margin-top: 0; border-bottom: 1px solid #cbd5e1; padding-bottom: 5px; color: #475569; }
+          .details-card div { display: flex; justify-content: space-between; margin-bottom: 5px; }
+          .details-card span { color: #64748b; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+          th { background: #f1f5f9; color: #475569; font-weight: 600; text-align: left; padding: 10px; border-bottom: 2px solid #cbd5e1; }
+          td { padding: 10px; border-bottom: 1px solid #e2e8f0; }
+          .totals-table { width: 40%; margin-left: auto; margin-right: 0; }
+          .totals-table td { border: none; padding: 5px 10px; }
+          .totals-table tr.grand-total td { font-weight: 700; border-top: 2px solid #cbd5e1; font-size: 16px; color: #3b82f6; }
+          .footer { text-align: center; color: #94a3b8; font-size: 12px; margin-top: 50px; border-top: 1px solid #e2e8f0; padding-top: 20px; }
+          @media print {
+            body { margin: 0; }
+            .invoice-box { border: none; box-shadow: none; padding: 0; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="invoice-box">
+          <div class="invoice-header">
+            <div class="company-details">
+              <h1>ARSHI ENTERPRISES</h1>
+              <p>GPS Tracking & IoT Solutions</p>
+            </div>
+            <div class="invoice-title">
+              <h2>INVOICE</h2>
+              <p><strong>Request ID:</strong> ${renewal.requestId}</p>
+              <p><strong>Date:</strong> ${createdDateFormatted}</p>
+            </div>
+          </div>
+
+          <div class="details-grid">
+            <div class="details-card">
+              <h3>Billed To (Dealer)</h3>
+              <div><span>Name:</span> <strong>${renewal.dealerName}</strong></div>
+              <div><span>Mobile:</span> <strong>${renewal.customerMobile || '-'}</strong></div>
+            </div>
+            <div class="details-card">
+              <h3>Customer Details</h3>
+              <div><span>Name:</span> <strong>${renewal.customerName}</strong></div>
+              <div><span>Vehicle No:</span> <strong>${renewal.vehicleNumber}</strong></div>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Item Description</th>
+                <th>IMEI</th>
+                <th>Model</th>
+                <th>Validity</th>
+                <th>Renewal Date</th>
+                <th>Expiry Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>${renewal.productDescription}</td>
+                <td>${renewal.imei}</td>
+                <td>${renewal.deviceModel}</td>
+                <td>${renewal.validity}</td>
+                <td>${renewalDateFormatted}</td>
+                <td>${expiryDateFormatted}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <table class="totals-table">
+            <tr>
+              <td>Subtotal</td>
+              <td style="text-align: right;">₹${(renewal.billAmount / 1.18).toFixed(2)}</td>
+            </tr>
+            <tr>
+              <td>GST (18%)</td>
+              <td style="text-align: right;">₹${(renewal.billAmount - (renewal.billAmount / 1.18)).toFixed(2)}</td>
+            </tr>
+            <tr class="grand-total">
+              <td>Total Paid (${renewal.paymentMode})</td>
+              <td style="text-align: right;">₹${renewal.billAmount.toFixed(2)}</td>
+            </tr>
+          </table>
+
+          <div class="footer">
+            <p>Thank you for your business!</p>
+            <p>This is a computer-generated invoice and does not require a physical signature.</p>
+          </div>
+        </div>
+        <script>
+          window.onload = function() {
+            window.print();
+          }
+        </script>
+      </body>
+      </html>
+    `;
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
   };
 
   const downloadDeviceReport = () => {
@@ -1025,7 +1309,7 @@ const CustomerDevicePortal = () => {
               <th>Mobile</th>
               <th>Email</th>
               <th>Status</th>
-              <th>Actions</th>
+              {userRole === 'ADMIN' && <th>Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -1041,21 +1325,23 @@ const CustomerDevicePortal = () => {
                 <td>{record.mobileNo || '-'}</td>
                 <td>{record.email || '-'}</td>
                 <td>{renderStatus(record.status)}</td>
-                <td>
-                  <div className="portal-row-actions">
-                    <button type="button" title="Edit" onClick={() => setEditUser(record)}><FaEdit /></button>
-                    {record.status === 'Inactive' ? (
-                      <button type="button" title="Activate" onClick={() => setUserStatus(record, 'Active')}><FaCheck /></button>
-                    ) : (
-                      <button type="button" title={showDealerActions ? 'Suspend' : 'Deactivate'} onClick={() => setUserStatus(record, 'Inactive')}><FaTimes /></button>
-                    )}
-                  </div>
-                </td>
+                {userRole === 'ADMIN' && (
+                  <td>
+                    <div className="portal-row-actions">
+                      <button type="button" title="Edit" onClick={() => setEditUser(record)}><FaEdit /></button>
+                      {record.status === 'Inactive' ? (
+                        <button type="button" title="Activate" onClick={() => setUserStatus(record, 'Active')}><FaCheck /></button>
+                      ) : (
+                        <button type="button" title={showDealerActions ? 'Suspend' : 'Deactivate'} onClick={() => setUserStatus(record, 'Inactive')}><FaTimes /></button>
+                      )}
+                    </div>
+                  </td>
+                )}
               </tr>
             ))}
             {records.length === 0 && (
               <tr>
-                <td colSpan={7} className="portal-empty">No records found.</td>
+                <td colSpan={userRole === 'ADMIN' ? 7 : 6} className="portal-empty">No records found.</td>
               </tr>
             )}
           </tbody>
@@ -1559,90 +1845,535 @@ const CustomerDevicePortal = () => {
 
 
 
+  const renderStatsHeader = () => {
+    if (!renewalStats) return null;
+    return (
+      <div className="portal-report-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', marginBottom: '20px', gap: '15px' }}>
+        {[
+          { label: 'Total Renewal Requests', val: renewalStats.total, color: '#3b82f6' },
+          { label: 'Pending Requests', val: renewalStats.pending, color: '#f59e0b' },
+          { label: 'Approved Requests', val: renewalStats.approved, color: '#10b981' },
+          { label: 'Rejected Requests', val: renewalStats.rejected, color: '#ef4444' },
+          { label: 'Activated Renewals', val: renewalStats.activated, color: '#8b5cf6' },
+          { label: "Today's Revenue", val: `₹${renewalStats.todayRevenue}`, color: '#06b6d4' },
+          { label: 'Monthly Revenue', val: `₹${renewalStats.monthlyRevenue}`, color: '#ec4899' },
+        ].map(card => (
+          <div key={card.label} style={{ background: '#fff', borderLeft: `5px solid ${card.color}`, padding: '15px 20px', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)' }}>
+            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', display: 'block', textTransform: 'uppercase', marginBottom: '5px' }}>{card.label}</span>
+            <strong style={{ fontSize: '22px', color: '#1e293b', fontWeight: '700' }}>{card.val}</strong>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const renderRenewals = () => (
     <div className="portal-stack" key="view-renewals">
+      {renderStatsHeader()}
+
       <section className="portal-panel">
         <div className="portal-panel-header">
           <div>
-            <h2>Create Renewal Request</h2>
-            <span>Validity extension</span>
+            <h2>{editingRenewalId ? 'Edit Renewal Request' : 'Create Renewal Request'}</h2>
+            <span>Manual Entry Form</span>
           </div>
           <FaRedo className="portal-panel-icon" />
         </div>
-        <form className="portal-form" onSubmit={createRenewal}>
-          <div className="portal-form-grid compact">
+        <form className="portal-form" onSubmit={handleSaveRenewal}>
+          <div className="portal-form-grid compact" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '15px' }}>
             <label>
-              <span>Device</span>
-              <select value={renewalForm.deviceId} onChange={(event) => setRenewalForm((current) => ({ ...current, deviceId: event.target.value }))}>
-                <option value="">Select device</option>
-                {devices.map((device) => (
-                  <option value={device._id} key={device._id}>{device.imei} - {getName(device.assignedTo)}</option>
+              <span>Dealer Name *</span>
+              <select 
+                value={renewalForm.dealerId} 
+                onChange={(e) => handleRenewalFormChange('dealerId', e.target.value)}
+              >
+                <option value="">Select Dealer</option>
+                {deviceDealerOptions.map(d => (
+                  <option key={d._id} value={d._id}>{d.displayName || d.companyName || d.username}</option>
                 ))}
               </select>
             </label>
+
             <label>
-              <span>IMEI</span>
-              <input value={renewalForm.imei} onChange={(event) => setRenewalForm((current) => ({ ...current, imei: event.target.value }))} />
+              <span>Customer Name *</span>
+              <input 
+                type="text" 
+                value={renewalForm.customerName} 
+                onChange={(e) => handleRenewalFormChange('customerName', e.target.value)} 
+                required 
+              />
             </label>
+
             <label>
-              <span>Validity</span>
-              <select value={renewalForm.validity} onChange={(event) => setRenewalForm((current) => ({ ...current, validity: event.target.value }))}>
+              <span>Customer Mobile Number *</span>
+              <input 
+                type="number" 
+                value={renewalForm.customerMobile} 
+                onChange={(e) => handleRenewalFormChange('customerMobile', e.target.value)} 
+                required 
+              />
+            </label>
+
+            <label>
+              <span>IMEI Number *</span>
+              <input 
+                type="number" 
+                value={renewalForm.imei} 
+                onChange={(e) => handleRenewalFormChange('imei', e.target.value)} 
+                required 
+              />
+            </label>
+
+            <label>
+              <span>Vehicle Number *</span>
+              <input 
+                type="text" 
+                value={renewalForm.vehicleNumber} 
+                onChange={(e) => handleRenewalFormChange('vehicleNumber', e.target.value)} 
+                required 
+              />
+            </label>
+
+            <label>
+              <span>Device Model *</span>
+              <select 
+                value={renewalForm.deviceModel} 
+                onChange={(e) => handleRenewalFormChange('deviceModel', e.target.value)}
+              >
+                <option value="">Select Model</option>
+                {(userRole === 'ADMIN') && <option value="iTriangle">iTriangle</option>}
+                <option value="Acute">Acute</option>
+                <option value="Markon">Markon</option>
+                <option value="RDM">RDM</option>
+                <option value="BB">BB</option>
+                <option value="TrackNow">TrackNow</option>
+                <option value="Road point">Road point</option>
+              </select>
+            </label>
+
+            <label>
+              <span>Product Description *</span>
+              <select 
+                value={renewalForm.productDescription} 
+                onChange={(e) => handleRenewalFormChange('productDescription', e.target.value)}
+              >
+                <option value="">Select Product</option>
+                <option value="VLTD RENEWAL">VLTD RENEWAL</option>
+                <option value="GPS RENEWAL">GPS RENEWAL</option>
+                <option value="Renewal">Renewal</option>
+              </select>
+            </label>
+
+            <label>
+              <span>Validity *</span>
+              <select 
+                value={renewalForm.validity} 
+                onChange={(e) => handleRenewalFormChange('validity', e.target.value)}
+              >
                 <option value="1 Year">1 Year</option>
                 <option value="2 Years">2 Years</option>
               </select>
             </label>
+
             <label>
+              <span>Renewal Date *</span>
+              <input 
+                type="date" 
+                value={renewalForm.renewalDate} 
+                onChange={(e) => handleRenewalFormChange('renewalDate', e.target.value)} 
+                required 
+              />
+            </label>
+
+            <label>
+              <span>New Expiry Date (calculated)</span>
+              <input 
+                type="text" 
+                value={renewalForm.newExpiryDate} 
+                readOnly 
+                style={{ background: '#f1f5f9', cursor: 'not-allowed' }}
+              />
+            </label>
+
+            <label>
+              <span>Bill Amount *</span>
+              <input 
+                type="number" 
+                value={renewalForm.billAmount} 
+                onChange={(e) => handleRenewalFormChange('billAmount', e.target.value)} 
+                required 
+              />
+            </label>
+
+            <label>
+              <span>Payment Mode *</span>
+              <select 
+                value={renewalForm.paymentMode} 
+                onChange={(e) => handleRenewalFormChange('paymentMode', e.target.value)}
+              >
+                <option value="Cash">Cash</option>
+                <option value="UPI">UPI</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="Cheque">Cheque</option>
+              </select>
+            </label>
+
+            <label style={{ gridColumn: 'span 2' }}>
               <span>Remarks</span>
-              <input value={renewalForm.remarks} onChange={(event) => setRenewalForm((current) => ({ ...current, remarks: event.target.value }))} />
+              <textarea 
+                value={renewalForm.remarks} 
+                onChange={(e) => handleRenewalFormChange('remarks', e.target.value)} 
+                style={{ width: '100%', minHeight: '60px', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '13px' }}
+              />
             </label>
           </div>
-          <div className="portal-actions">
-            <button className="portal-primary" type="submit"><FaRedo /> Create</button>
+          <div className="portal-actions" style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+            <button className="portal-primary" type="submit">
+              <FaRedo /> {editingRenewalId ? 'SAVE CHANGES' : 'SAVE RENEWAL REQUEST'}
+            </button>
+            {editingRenewalId && (
+              <button 
+                type="button" 
+                onClick={() => {
+                  setEditingRenewalId(null);
+                  setRenewalForm({
+                    dealerId: '',
+                    customerName: '',
+                    customerMobile: '',
+                    imei: '',
+                    vehicleNumber: '',
+                    deviceModel: '',
+                    productDescription: '',
+                    validity: '1 Year',
+                    renewalDate: new Date().toISOString().split('T')[0],
+                    newExpiryDate: calculateNewExpiryDate(new Date().toISOString().split('T')[0], '1 Year'),
+                    billAmount: '',
+                    paymentMode: 'Cash',
+                    remarks: '',
+                  });
+                }}
+                style={{ background: '#64748b', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}
+              >
+                Cancel Edit
+              </button>
+            )}
           </div>
         </form>
+      </section>
+
+      <section className="portal-panel" style={{ borderTop: '4px solid #3b82f6', background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.02)', borderRadius: '12px', marginBottom: '20px' }}>
+        <div className="portal-panel-header" style={{ background: 'transparent', borderBottom: '1px solid #e2e8f0', padding: '18px 24px' }}>
+          <div>
+            <h2 style={{ fontSize: '16px', fontWeight: '700', color: '#0f172a', margin: '0 0 4px' }}>Filters & Search</h2>
+            <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '500' }}>Refine your renewal list dynamically</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {Object.values(renewalFilters).some(v => v !== '') && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#ecfdf5', color: '#059669', fontSize: '11px', fontWeight: '600', padding: '4px 10px', borderRadius: '9999px', border: '1px solid #a7f3d0' }}>
+                <span style={{ display: 'inline-block', width: '6px', height: '6px', background: '#10b981', borderRadius: '50%', animation: 'pulse 1.5s infinite' }}></span>
+                Filters Active
+              </span>
+            )}
+            <FaSearch style={{ width: '18px', height: '18px', color: '#3b82f6' }} />
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', padding: '24px' }}>
+          {[
+            {
+              label: 'Dealer',
+              element: (
+                <select 
+                  value={renewalFilters.dealerId}
+                  onChange={(e) => setRenewalFilters(current => ({ ...current, dealerId: e.target.value }))}
+                  className="fancy-filter-input"
+                >
+                  <option value="">All Dealers</option>
+                  {deviceDealerOptions.map(d => (
+                    <option key={d._id} value={d._id}>{d.displayName || d.companyName || d.username}</option>
+                  ))}
+                </select>
+              )
+            },
+            {
+              label: 'Status',
+              element: (
+                <select 
+                  value={renewalFilters.status}
+                  onChange={(e) => setRenewalFilters(current => ({ ...current, status: e.target.value }))}
+                  className="fancy-filter-input"
+                >
+                  <option value="">All Statuses</option>
+                  <option value="Requested">Requested</option>
+                  <option value="Under Review">Under Review</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Activated">Activated</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
+              )
+            },
+            {
+              label: 'Customer Name',
+              element: (
+                <input 
+                  type="text" 
+                  value={renewalFilters.customerName}
+                  onChange={(e) => setRenewalFilters(current => ({ ...current, customerName: e.target.value }))}
+                  placeholder="Search customer..."
+                  className="fancy-filter-input"
+                />
+              )
+            },
+            {
+              label: 'IMEI',
+              element: (
+                <input 
+                  type="text" 
+                  value={renewalFilters.imei}
+                  onChange={(e) => setRenewalFilters(current => ({ ...current, imei: e.target.value }))}
+                  placeholder="Search IMEI..."
+                  className="fancy-filter-input"
+                />
+              )
+            },
+            {
+              label: 'Vehicle Number',
+              element: (
+                <input 
+                  type="text" 
+                  value={renewalFilters.vehicleNumber}
+                  onChange={(e) => setRenewalFilters(current => ({ ...current, vehicleNumber: e.target.value }))}
+                  placeholder="Search vehicle..."
+                  className="fancy-filter-input"
+                />
+              )
+            },
+            {
+              label: 'From Date',
+              element: (
+                <input 
+                  type="date" 
+                  value={renewalFilters.fromDate}
+                  onChange={(e) => setRenewalFilters(current => ({ ...current, fromDate: e.target.value }))}
+                  className="fancy-filter-input"
+                />
+              )
+            },
+            {
+              label: 'To Date',
+              element: (
+                <input 
+                  type="date" 
+                  value={renewalFilters.toDate}
+                  onChange={(e) => setRenewalFilters(current => ({ ...current, toDate: e.target.value }))}
+                  className="fancy-filter-input"
+                />
+              )
+            }
+          ].map(field => (
+            <div key={field.label} style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#475569', letterSpacing: '0.05em', marginBottom: '8px' }}>{field.label}</span>
+              {field.element}
+            </div>
+          ))}
+        </div>
+        <div style={{ padding: '0 24px 24px 24px', display: 'flex', justifyContent: 'flex-start' }}>
+          <button 
+            type="button" 
+            onClick={() => setRenewalFilters({
+              dealerId: '',
+              status: '',
+              customerName: '',
+              imei: '',
+              vehicleNumber: '',
+              fromDate: '',
+              toDate: '',
+            })}
+            style={{ 
+              background: '#ffffff', 
+              border: '1px solid #cbd5e1', 
+              color: '#475569', 
+              padding: '10px 20px', 
+              fontWeight: '600', 
+              borderRadius: '8px', 
+              fontSize: '13px', 
+              display: 'inline-flex', 
+              alignItems: 'center', 
+              gap: '8px', 
+              transition: 'all 0.2s ease', 
+              cursor: 'pointer',
+              boxShadow: '0 1px 2px 0 rgba(0,0,0,0.05)'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.background = '#f8fafc';
+              e.currentTarget.style.color = '#0f172a';
+              e.currentTarget.style.borderColor = '#94a3b8';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.background = '#ffffff';
+              e.currentTarget.style.color = '#475569';
+              e.currentTarget.style.borderColor = '#cbd5e1';
+            }}
+          >
+            <FaTimes /> Reset Filters
+          </button>
+        </div>
       </section>
 
       <section className="portal-panel">
         <div className="portal-panel-header">
           <div>
-            <h2>Renewal History</h2>
-            <span>{renewals.length} records</span>
+            <h2>Renewal Requests</h2>
+            <span>{renewals.length} records found</span>
           </div>
           <FaHistory className="portal-panel-icon" />
         </div>
-        <div className="portal-table-wrap">
-          <table className="portal-table">
+        <div className="portal-table-wrap" style={{ overflowX: 'auto' }}>
+          <table className="portal-table" style={{ width: '100%', minWidth: '1600px' }}>
             <thead>
               <tr>
                 <th>Request ID</th>
-                <th>Customer</th>
+                <th>Dealer</th>
+                <th>Customer Name</th>
                 <th>IMEI</th>
+                <th>Vehicle Number</th>
+                <th>Model</th>
+                <th>Product</th>
                 <th>Validity</th>
-                <th>Current Expiry</th>
-                <th>Requested Expiry</th>
+                <th>Renewal Date</th>
+                <th>New Expiry Date</th>
+                <th>Bill Amount</th>
+                <th>Payment Mode</th>
                 <th>Status</th>
+                <th>Created By</th>
+                <th>Created Date</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {renewals.map((renewal) => (
+              {renewals.slice((renewalPage - 1) * renewalLimit, renewalPage * renewalLimit).map((renewal) => (
                 <tr key={renewal._id}>
-                  <td className="strong">{renewal.requestId}</td>
-                  <td>{renewal.customerName || getName(renewal.customerId)}</td>
+                  <td className="strong" style={{ color: '#3b82f6' }}>{renewal.requestId}</td>
+                  <td>{renewal.dealerName}</td>
+                  <td>{renewal.customerName}</td>
                   <td>{renewal.imei}</td>
+                  <td>{renewal.vehicleNumber}</td>
+                  <td>{renewal.deviceModel}</td>
+                  <td>{renewal.productDescription}</td>
                   <td>{renewal.validity}</td>
-                  <td>{formatDate(renewal.currentExpiryDate)}</td>
-                  <td>{formatDate(renewal.requestedExpiryDate)}</td>
-                  <td>{renderStatus(renewal.status)}</td>
+                  <td>{formatDate(renewal.renewalDate)}</td>
+                  <td>{formatDate(renewal.newExpiryDate)}</td>
+                  <td className="strong">₹{renewal.billAmount}</td>
+                  <td>{renewal.paymentMode}</td>
+                  <td>
+                    {userRole === 'ADMIN' ? (
+                      <select 
+                        value={renewal.status} 
+                        onChange={(e) => handleStatusChange(renewal._id, e.target.value)}
+                        style={{ padding: '4px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px', fontWeight: '600' }}
+                      >
+                        <option value="Requested">Requested</option>
+                        <option value="Under Review">Under Review</option>
+                        <option value="Approved">Approved</option>
+                        <option value="Activated">Activated</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Rejected">Rejected</option>
+                      </select>
+                    ) : (
+                      renderStatus(renewal.status)
+                    )}
+                  </td>
+                  <td>{renewal.userId?.displayName || renewal.userId?.username || 'System'}</td>
+                  <td>{formatDate(renewal.createdAt)}</td>
+                  <td>
+                    <div style={{ display: 'flex', gap: '5px' }}>
+                      <button 
+                        type="button" 
+                        title="View Details" 
+                        onClick={() => setViewingRenewal(renewal)}
+                        style={{ padding: '6px 8px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}
+                      >
+                        View
+                      </button>
+                      {userRole === 'ADMIN' && (
+                        <>
+                          <button 
+                            type="button" 
+                            title="Edit" 
+                            onClick={() => handleEditRenewalClick(renewal)}
+                            style={{ padding: '6px 8px', background: '#f59e0b', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}
+                          >
+                            Edit
+                          </button>
+                          <button 
+                            type="button" 
+                            title="Delete" 
+                            onClick={() => handleDeleteRenewal(renewal._id)}
+                            style={{ padding: '6px 8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
+                      <button 
+                        type="button" 
+                        title="Print Invoice" 
+                        onClick={() => handlePrintInvoice(renewal)}
+                        style={{ padding: '6px 8px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}
+                      >
+                        Print Invoice
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
               {renewals.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="portal-empty">No renewal records found.</td>
+                  <td colSpan={16} className="portal-empty">No renewal records found.</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {renewals.length > 0 && (
+          <div style={{ padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #cbd5e1' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>Show</span>
+              <select 
+                value={renewalLimit} 
+                onChange={(e) => { setRenewalLimit(Number(e.target.value)); setRenewalPage(1); }}
+                style={{ padding: '4px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
+              <span>entries</span>
+            </div>
+            <div style={{ display: 'flex', gap: '5px' }}>
+              <button 
+                type="button" 
+                disabled={renewalPage === 1}
+                onClick={() => setRenewalPage(p => p - 1)}
+                style={{ padding: '6px 12px', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: renewalPage === 1 ? 'not-allowed' : 'pointer' }}
+              >
+                Previous
+              </button>
+              <span style={{ padding: '6px 12px' }}>Page {renewalPage} of {Math.ceil(renewals.length / renewalLimit)}</span>
+              <button 
+                type="button" 
+                disabled={renewalPage >= Math.ceil(renewals.length / renewalLimit)}
+                onClick={() => setRenewalPage(p => p + 1)}
+                style={{ padding: '6px 12px', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: renewalPage >= Math.ceil(renewals.length / renewalLimit) ? 'not-allowed' : 'pointer' }}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </section>
     </div>
   );
@@ -1847,6 +2578,48 @@ const CustomerDevicePortal = () => {
         onClose={() => setIsRevenueModalOpen(false)}
         initialTab={revenueModalTab}
       />
+
+      {viewingRenewal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0, 0, 0, 0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', padding: '24px', borderRadius: '12px', width: '90%', maxWidth: '500px', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #cbd5e1', paddingBottom: '10px', marginBottom: '15px' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>Renewal Request Details</h3>
+              <button 
+                type="button" 
+                onClick={() => setViewingRenewal(null)} 
+                style={{ background: 'none', border: 'none', fontSize: '24px', lineHeight: '1', cursor: 'pointer', color: '#64748b' }}
+              >
+                &times;
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '400px', overflowY: 'auto' }}>
+              {[
+                ['Request ID', viewingRenewal.requestId],
+                ['Dealer Name', viewingRenewal.dealerName],
+                ['Customer Name', viewingRenewal.customerName],
+                ['Customer Mobile', viewingRenewal.customerMobile],
+                ['IMEI Number', viewingRenewal.imei],
+                ['Vehicle Number', viewingRenewal.vehicleNumber],
+                ['Device Model', viewingRenewal.deviceModel],
+                ['Product Description', viewingRenewal.productDescription],
+                ['Validity', viewingRenewal.validity],
+                ['Renewal Date', formatDate(viewingRenewal.renewalDate)],
+                ['New Expiry Date', formatDate(viewingRenewal.newExpiryDate)],
+                ['Bill Amount', `₹${viewingRenewal.billAmount}`],
+                ['Payment Mode', viewingRenewal.paymentMode],
+                ['Status', viewingRenewal.status],
+                ['Remarks', viewingRenewal.remarks || '-'],
+                ['Created Date', formatDate(viewingRenewal.createdAt)],
+              ].map(([label, val]) => (
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '5px' }}>
+                  <span style={{ color: '#64748b', fontSize: '13px' }}>{label}:</span>
+                  <strong style={{ color: '#1e293b', fontSize: '13px' }}>{val}</strong>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

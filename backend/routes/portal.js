@@ -438,8 +438,8 @@ router.put('/users/:id', protect, async (req, res) => {
   try {
     const scope = await getScope(req.user);
 
-    if (!operationsRoles.includes(scope.role)) {
-      return res.status(403).json({ message: 'Forbidden: User management access is not permitted for this role.' });
+    if (scope.role !== 'ADMIN') {
+      return res.status(403).json({ message: 'Forbidden: Only Admins are allowed to edit users.' });
     }
 
     const user = await ensureVisibleUser(req.params.id, scope);
@@ -518,8 +518,8 @@ router.post('/users/:id/reset-password', protect, async (req, res) => {
   try {
     const scope = await getScope(req.user);
 
-    if (!operationsRoles.includes(scope.role)) {
-      return res.status(403).json({ message: 'Forbidden: User management access is not permitted for this role.' });
+    if (scope.role !== 'ADMIN') {
+      return res.status(403).json({ message: 'Forbidden: Only Admins are allowed to reset user passwords.' });
     }
 
     const user = await ensureVisibleUser(req.params.id, scope);
@@ -880,23 +880,48 @@ router.get('/customers', protect, async (req, res) => {
 
 router.get('/renewals', protect, async (req, res) => {
   try {
-    const { search = '', status = '' } = req.query;
+    const {
+      dealerId,
+      status,
+      customerName,
+      imei,
+      vehicleNumber,
+      fromDate,
+      toDate,
+    } = req.query;
+
     const scope = await getScope(req.user);
     const query = buildRequestScopeQuery(scope);
 
+    if (dealerId) {
+      query.dealerId = dealerId;
+    }
     if (status) {
       query.status = status;
     }
-
-    const searchQuery = buildSearch(search, ['imei', 'customerName', 'dealerName', 'requestId']);
-    if (searchQuery) {
-      query.$and = query.$and || [];
-      query.$and.push(searchQuery);
+    if (customerName) {
+      query.customerName = new RegExp(customerName.trim(), 'i');
+    }
+    if (imei) {
+      query.imei = new RegExp(imei.trim(), 'i');
+    }
+    if (vehicleNumber) {
+      query.vehicleNumber = new RegExp(vehicleNumber.trim(), 'i');
+    }
+    if (fromDate || toDate) {
+      query.renewalDate = {};
+      if (fromDate) {
+        query.renewalDate.$gte = new Date(fromDate);
+      }
+      if (toDate) {
+        const end = new Date(toDate);
+        end.setHours(23, 59, 59, 999);
+        query.renewalDate.$lte = end;
+      }
     }
 
     const renewals = await RenewalRequest.find(query)
-      .populate('customerId', 'displayName username mobileNo email')
-      .populate('deviceId', 'imei iccid serialNo msisdn1 msisdn2 expiryDate')
+      .populate('userId', 'displayName username userType')
       .sort({ createdAt: -1 });
 
     res.json(renewals);
@@ -906,41 +931,124 @@ router.get('/renewals', protect, async (req, res) => {
   }
 });
 
+router.get('/renewals/stats', protect, async (req, res) => {
+  try {
+    const scope = await getScope(req.user);
+    const query = buildRequestScopeQuery(scope);
+
+    const renewals = await RenewalRequest.find(query);
+
+    const stats = {
+      total: renewals.length,
+      pending: renewals.filter(r => ['Requested', 'Under Review'].includes(r.status)).length,
+      approved: renewals.filter(r => r.status === 'Approved').length,
+      rejected: renewals.filter(r => r.status === 'Rejected').length,
+      activated: renewals.filter(r => r.status === 'Activated').length,
+      todayRevenue: 0,
+      monthlyRevenue: 0,
+    };
+
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    renewals.forEach(r => {
+      if (r.status !== 'Rejected' && r.billAmount) {
+        const rDate = new Date(r.renewalDate);
+        if (rDate >= todayStart) {
+          stats.todayRevenue += r.billAmount;
+        }
+        if (rDate >= monthStart) {
+          stats.monthlyRevenue += r.billAmount;
+        }
+      }
+    });
+
+    res.json(stats);
+  } catch (error) {
+    console.error('Portal renewals stats error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 router.post('/renewals', protect, async (req, res) => {
   try {
-    const { imei, deviceId, customerId, validity = '1 Year', remarks = '' } = req.body;
-    const scope = await getScope(req.user);
-    const deviceQuery = deviceId ? { _id: deviceId } : { imei };
-    const device = await ensureVisibleDevice(deviceQuery, scope);
+    const {
+      dealerId,
+      customerName,
+      customerMobile,
+      imei,
+      vehicleNumber,
+      deviceModel,
+      productDescription,
+      validity = '1 Year',
+      renewalDate,
+      billAmount,
+      paymentMode,
+      remarks = ''
+    } = req.body;
 
-    if (!device) {
-      return res.status(404).json({ message: 'Device not found.' });
+    if (!dealerId || !customerName || !customerMobile || !imei || !vehicleNumber || !deviceModel || !productDescription || !renewalDate || !billAmount || !paymentMode) {
+      return res.status(400).json({ message: 'Please fill in all required fields.' });
     }
 
-    const customer = customerId
-      ? await ensureVisibleUser(customerId, scope)
-      : device.assignedTo || null;
+    if (!/^\d{15}$/.test(imei)) {
+      return res.status(400).json({ message: 'IMEI must contain exactly 15 digits.' });
+    }
+
+    if (Number(billAmount) <= 0) {
+      return res.status(400).json({ message: 'Bill Amount cannot be zero or negative.' });
+    }
+
+    const dealer = await User.findById(dealerId);
+    if (!dealer) {
+      return res.status(400).json({ message: 'Selected dealer not found.' });
+    }
+
+    // Generate unique sequential Request ID
+    const currentYear = new Date().getFullYear();
+    const prefix = `REN-${currentYear}-`;
+    const latestRequest = await RenewalRequest.findOne({
+      requestId: new RegExp(`^${prefix}`)
+    }).sort({ requestId: -1 });
+
+    let sequence = 1;
+    if (latestRequest) {
+      const parts = latestRequest.requestId.split('-');
+      const lastSeq = parseInt(parts[2], 10);
+      if (!isNaN(lastSeq)) {
+        sequence = lastSeq + 1;
+      }
+    }
+    const paddedSequence = String(sequence).padStart(6, '0');
+    const requestId = `${prefix}${paddedSequence}`;
+
     const years = validity === '2 Years' ? 2 : 1;
-    const currentExpiryDate = device.expiryDate || null;
-    const requestedExpiryDate = addYears(currentExpiryDate || new Date(), years);
+    const baseDate = new Date(renewalDate);
+    const newExpiryDate = addYears(baseDate, years);
 
     const renewal = await RenewalRequest.create({
-      requestId: generateRequestId('REN'),
+      requestId,
       userId: req.user._id,
-      customerId: customer?._id || null,
-      deviceId: device._id,
-      imei: device.imei,
-      customerName: customer ? labelForUser(customer) : '',
-      dealerName: device.dealerName || '',
+      dealerId,
+      dealerName: labelForUser(dealer),
+      customerName,
+      customerMobile,
+      imei,
+      vehicleNumber,
+      deviceModel,
+      productDescription,
       validity,
-      currentExpiryDate,
-      requestedExpiryDate,
+      renewalDate: baseDate,
+      newExpiryDate,
+      billAmount: Number(billAmount),
+      paymentMode,
       remarks,
       status: 'Requested',
     });
 
     res.status(201).json({
-      message: 'Renewal request created successfully.',
+      message: 'Renewal Request Created Successfully.',
       renewal,
     });
   } catch (error) {
@@ -962,13 +1070,77 @@ router.put('/renewals/:id', protect, async (req, res) => {
       return res.status(404).json({ message: 'Renewal request not found.' });
     }
 
-    if (req.body.status) renewal.status = req.body.status;
-    if (req.body.remarks !== undefined) renewal.remarks = req.body.remarks;
+    const fields = [
+      'dealerId',
+      'customerName',
+      'customerMobile',
+      'imei',
+      'vehicleNumber',
+      'deviceModel',
+      'productDescription',
+      'validity',
+      'renewalDate',
+      'billAmount',
+      'paymentMode',
+      'remarks',
+      'status',
+    ];
+
+    if (req.body.imei && !/^\d{15}$/.test(req.body.imei)) {
+      return res.status(400).json({ message: 'IMEI must contain exactly 15 digits.' });
+    }
+
+    if (req.body.billAmount !== undefined && Number(req.body.billAmount) <= 0) {
+      return res.status(400).json({ message: 'Bill Amount cannot be zero or negative.' });
+    }
+
+    if (req.body.dealerId && req.body.dealerId !== String(renewal.dealerId)) {
+      const dealer = await User.findById(req.body.dealerId);
+      if (!dealer) {
+        return res.status(400).json({ message: 'Selected dealer not found.' });
+      }
+      renewal.dealerId = dealer._id;
+      renewal.dealerName = labelForUser(dealer);
+    }
+
+    fields.forEach((field) => {
+      if (field === 'dealerId') return; // Handled above
+      if (req.body[field] !== undefined) {
+        renewal[field] = req.body[field];
+      }
+    });
+
+    if (req.body.validity || req.body.renewalDate) {
+      const baseDate = new Date(renewal.renewalDate);
+      const years = renewal.validity === '2 Years' ? 2 : 1;
+      renewal.newExpiryDate = addYears(baseDate, years);
+    }
 
     await renewal.save();
     res.json(renewal);
   } catch (error) {
     console.error('Portal update renewal error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.delete('/renewals/:id', protect, async (req, res) => {
+  try {
+    const scope = await getScope(req.user);
+    const query = {
+      _id: req.params.id,
+      ...buildRequestScopeQuery(scope),
+    };
+    const renewal = await RenewalRequest.findOne(query);
+
+    if (!renewal) {
+      return res.status(404).json({ message: 'Renewal request not found.' });
+    }
+
+    await RenewalRequest.findByIdAndDelete(renewal._id);
+    res.json({ message: 'Renewal Request Deleted Successfully.' });
+  } catch (error) {
+    console.error('Portal delete renewal error:', error.message);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -1012,7 +1184,7 @@ router.get('/reports', protect, async (req, res) => {
       },
       renewalReports: {
         totalRenewals: renewals.length,
-        pendingRenewals: renewals.filter((item) => ['Requested', 'Processing'].includes(item.status)).length,
+        pendingRenewals: renewals.filter((item) => ['Requested', 'Under Review', 'Approved', 'Activated'].includes(item.status)).length,
         completedRenewals: renewals.filter((item) => item.status === 'Completed').length,
         renewalDueDevices: devices.filter((item) => item.expiryDate && item.expiryDate >= now && item.expiryDate <= dueDate).length,
       },
