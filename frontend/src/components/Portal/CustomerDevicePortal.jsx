@@ -217,6 +217,7 @@ const CustomerDevicePortal = () => {
     imei: '',
     vehicleNumber: '',
     deviceModel: '',
+    activationType: 'NIC',
     productDescription: '',
     validity: '1 Year',
     renewalDate: new Date().toISOString().split('T')[0],
@@ -660,6 +661,7 @@ const CustomerDevicePortal = () => {
     if (!/^\d{15}$/.test(renewalForm.imei)) { alert('IMEI must contain exactly 15 digits.'); return; }
     if (!renewalForm.vehicleNumber) { alert('Vehicle Number is required'); return; }
     if (!renewalForm.deviceModel) { alert('Device Model is required'); return; }
+    if (!renewalForm.activationType) { alert('Activation Type is required'); return; }
     if (!renewalForm.productDescription) { alert('Product Description is required'); return; }
     if (!renewalForm.renewalDate) { alert('Renewal Date is required'); return; }
     if (!renewalForm.billAmount) { alert('Bill Amount is required'); return; }
@@ -682,6 +684,7 @@ const CustomerDevicePortal = () => {
         imei: '',
         vehicleNumber: '',
         deviceModel: '',
+        activationType: 'NIC',
         productDescription: '',
         validity: '1 Year',
         renewalDate: new Date().toISOString().split('T')[0],
@@ -706,6 +709,7 @@ const CustomerDevicePortal = () => {
       imei: renewal.imei || '',
       vehicleNumber: renewal.vehicleNumber || '',
       deviceModel: renewal.deviceModel || '',
+      activationType: renewal.activationType || 'NIC',
       productDescription: renewal.productDescription || '',
       validity: renewal.validity || '1 Year',
       renewalDate: renewal.renewalDate ? new Date(renewal.renewalDate).toISOString().split('T')[0] : '',
@@ -2099,6 +2103,18 @@ const CustomerDevicePortal = () => {
             </label>
 
             <label>
+              <span>Activation Type *</span>
+              <select 
+                value={renewalForm.activationType} 
+                onChange={(e) => handleRenewalFormChange('activationType', e.target.value)}
+                required
+              >
+                <option value="NIC">NIC</option>
+                <option value="MINING">MINING</option>
+              </select>
+            </label>
+
+            <label>
               <span>Product Description *</span>
               <select 
                 value={renewalForm.productDescription} 
@@ -2372,6 +2388,7 @@ const CustomerDevicePortal = () => {
                 <th>IMEI</th>
                 <th>Vehicle Number</th>
                 <th>Model</th>
+                <th>Activation Type</th>
                 <th>Product</th>
                 <th>Validity</th>
                 <th>Renewal Date</th>
@@ -2393,6 +2410,7 @@ const CustomerDevicePortal = () => {
                   <td>{renewal.imei}</td>
                   <td>{renewal.vehicleNumber}</td>
                   <td>{renewal.deviceModel}</td>
+                  <td>{renewal.activationType || '-'}</td>
                   <td>{renewal.productDescription}</td>
                   <td>{renewal.validity}</td>
                   <td>{formatDate(renewal.renewalDate)}</td>
@@ -2765,6 +2783,7 @@ const CustomerDevicePortal = () => {
                 ['IMEI Number', viewingRenewal.imei],
                 ['Vehicle Number', viewingRenewal.vehicleNumber],
                 ['Device Model', viewingRenewal.deviceModel],
+                ['Activation Type', viewingRenewal.activationType || '-'],
                 ['Product Description', viewingRenewal.productDescription],
                 ['Validity', viewingRenewal.validity],
                 ['Renewal Date', formatDate(viewingRenewal.renewalDate)],

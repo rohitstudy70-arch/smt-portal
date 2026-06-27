@@ -40,6 +40,11 @@ const renewalRequestSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  activationType: {
+    type: String,
+    enum: ['NIC', 'MINING', ''],
+    default: '',
+  },
   productDescription: {
     type: String,
     required: true,
@@ -93,6 +98,14 @@ const renewalRequestSchema = new mongoose.Schema({
 
 renewalRequestSchema.pre('save', function (next) {
   this.updatedAt = new Date();
+  this.remainingDue = (this.billAmount || 0) - (this.receivedAmount || 0);
+  if (this.remainingDue <= 0) {
+    this.paymentStatus = 'Paid';
+  } else if ((this.receivedAmount || 0) > 0) {
+    this.paymentStatus = 'Partially Paid';
+  } else {
+    this.paymentStatus = 'Pending';
+  }
   next();
 });
 

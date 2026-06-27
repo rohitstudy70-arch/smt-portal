@@ -1013,6 +1013,7 @@ router.post('/renewals', protect, async (req, res) => {
       imei,
       vehicleNumber,
       deviceModel,
+      activationType = '',
       productDescription,
       validity = '1 Year',
       renewalDate,
@@ -1021,8 +1022,12 @@ router.post('/renewals', protect, async (req, res) => {
       remarks = ''
     } = req.body;
 
-    if (!dealerId || !customerName || !customerMobile || !imei || !vehicleNumber || !deviceModel || !productDescription || !renewalDate || !billAmount) {
+    if (!dealerId || !customerName || !customerMobile || !imei || !vehicleNumber || !deviceModel || !activationType || !productDescription || !renewalDate || !billAmount) {
       return res.status(400).json({ message: 'Please fill in all required fields.' });
+    }
+
+    if (!['NIC', 'MINING'].includes(activationType)) {
+      return res.status(400).json({ message: 'Activation Type must be NIC or MINING.' });
     }
 
     if (!/^\d{15}$/.test(imei)) {
@@ -1070,6 +1075,7 @@ router.post('/renewals', protect, async (req, res) => {
       imei,
       vehicleNumber,
       deviceModel,
+      activationType,
       productDescription,
       validity,
       renewalDate: baseDate,
@@ -1110,6 +1116,7 @@ router.put('/renewals/:id', protect, async (req, res) => {
       'imei',
       'vehicleNumber',
       'deviceModel',
+      'activationType',
       'productDescription',
       'validity',
       'renewalDate',
