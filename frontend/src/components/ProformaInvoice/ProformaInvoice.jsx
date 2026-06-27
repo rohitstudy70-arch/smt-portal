@@ -140,12 +140,13 @@ const ProformaInvoice = () => {
           <table className="proforma-table">
             <thead>
               <tr>
-                <th style={{ width: '42px', textAlign: 'center' }}>SL</th>
+                <th style={{ width: '42px', textAlign: 'center' }}>Sr. No</th>
                 <th style={{ textAlign: 'left' }}>Description</th>
-                <th style={{ width: '52px', textAlign: 'right' }}>QTY</th>
-                <th style={{ width: '96px', textAlign: 'right' }}>Unit Price</th>
-                <th style={{ width: '54px', textAlign: 'right' }}>GST</th>
-                <th style={{ width: '104px', textAlign: 'right' }}>Amount (₹)</th>
+                <th style={{ width: '52px', textAlign: 'right' }}>Qty</th>
+                <th style={{ width: '130px', textAlign: 'right' }}>Price Including Tax</th>
+                <th style={{ width: '110px', textAlign: 'right' }}>Rate Per Unit</th>
+                <th style={{ width: '90px', textAlign: 'right' }}>GST 18%</th>
+                <th style={{ width: '110px', textAlign: 'right' }}>Total</th>
               </tr>
             </thead>
             <tbody>
@@ -154,13 +155,15 @@ const ProformaInvoice = () => {
                   <td style={{ textAlign: 'center' }}>{item.index}</td>
                   <td className="proforma-desc">{item.description}</td>
                   <td className="proforma-num">{item.qty}</td>
+                  <td className="proforma-num">{formatCurrency(item.priceWithGst)}</td>
                   <td className="proforma-num">{formatCurrency(item.unitPrice)}</td>
-                  <td className="proforma-num">{formatRate(item.displayGstRate)}%</td>
-                  <td className="proforma-num">{formatCurrency(item.taxableValue)}</td>
+                  <td className="proforma-num">{formatCurrency(item.gstAmount)}</td>
+                  <td className="proforma-num">{formatCurrency(item.total)}</td>
                 </tr>
               ))}
               {Array.from({ length: invoiceData.emptyRows }).map((_, index) => (
                 <tr className="proforma-empty-row" key={`empty-${index}`}>
+                  <td>-</td>
                   <td>-</td>
                   <td>-</td>
                   <td>-</td>
@@ -172,7 +175,7 @@ const ProformaInvoice = () => {
             </tbody>
             <tfoot>
               <tr className="proforma-sub-row">
-                <td colSpan="5" style={{ textAlign: 'right', paddingRight: '16px' }}>Sub Total</td>
+                <td colSpan="6" style={{ textAlign: 'right', paddingRight: '16px' }}>Sub Total</td>
                 <td className="proforma-num">{formatCurrency(invoiceData.totals.subtotal)}</td>
               </tr>
             </tfoot>
@@ -187,8 +190,11 @@ const ProformaInvoice = () => {
 
             <div className="proforma-section-title">Terms &amp; Conditions</div>
             <ul className="proforma-tc-list">
-              {invoiceData.terms.map((term, index) => (
-                <li key={term} data-n={`${index + 1}.`}>{term}</li>
+              {invoiceData.terms.map((term) => (
+                <li key={term} className="proforma-tc-item">
+                  <svg className="proforma-tc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span className="proforma-tc-text">{term}</span>
+                </li>
               ))}
             </ul>
 
@@ -236,8 +242,11 @@ const ProformaInvoice = () => {
             <div style={{ marginTop: '20px' }}>
               <div className="proforma-section-title">Features &amp; Benefits (FaB)</div>
               <ul className="proforma-tc-list" style={{ marginBottom: 0 }}>
-                {invoiceData.fabList.map((fab, index) => (
-                  <li key={fab} data-n={`${index + 1}.`}>{fab}</li>
+                {invoiceData.fabList.map((fab) => (
+                  <li key={fab} className="proforma-tc-item">
+                    <svg className="proforma-tc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    <span className="proforma-tc-text">{fab}</span>
+                  </li>
                 ))}
               </ul>
             </div>

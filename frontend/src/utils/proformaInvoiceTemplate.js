@@ -187,27 +187,28 @@ export const buildProformaInvoiceData = (invoice = {}) => {
   let igst = 0;
 
   const items = sourceItems.map((item, index) => {
-    const unitPrice = roundCurrency(item.unitPrice);
     const qty = parseQty(item.qty);
-    const gstRate = getItemGstRate(item);
+    const priceWithGst = roundCurrency(item.priceWithGst || (item.unitPrice * (1 + (getItemGstRate(item) / 100))));
+    const unitPrice = roundCurrency(priceWithGst / 1.18);
+    const gstAmount = roundCurrency(priceWithGst - unitPrice);
+    const total = roundCurrency(unitPrice * qty);
+
     let cgstRate = 0;
     let sgstRate = 0;
     let igstRate = 0;
 
     if (isIntraState) {
-      cgstRate = toNumber(item.cgst) || (toNumber(item.igst) / 2) || (gstRate / 2);
-      sgstRate = toNumber(item.sgst) || (toNumber(item.igst) / 2) || (gstRate / 2);
+      cgstRate = 9;
+      sgstRate = 9;
     } else {
-      igstRate = toNumber(item.igst) || (toNumber(item.cgst) + toNumber(item.sgst)) || gstRate;
+      igstRate = 18;
     }
 
-    const taxableValue = roundCurrency(unitPrice * qty);
-    const cgstAmount = roundCurrency((taxableValue * cgstRate) / 100);
-    const sgstAmount = roundCurrency((taxableValue * sgstRate) / 100);
-    const igstAmount = roundCurrency((taxableValue * igstRate) / 100);
-    const displayGstRate = isIntraState ? roundCurrency(cgstRate + sgstRate) : roundCurrency(igstRate);
+    const cgstAmount = roundCurrency((total * cgstRate) / 100);
+    const sgstAmount = roundCurrency((total * sgstRate) / 100);
+    const igstAmount = roundCurrency((total * igstRate) / 100);
 
-    subtotal = roundCurrency(subtotal + taxableValue);
+    subtotal = roundCurrency(subtotal + total);
     cgst = roundCurrency(cgst + cgstAmount);
     sgst = roundCurrency(sgst + sgstAmount);
     igst = roundCurrency(igst + igstAmount);
@@ -216,9 +217,10 @@ export const buildProformaInvoiceData = (invoice = {}) => {
       index: index + 1,
       description: item.description || '',
       qty,
+      priceWithGst,
       unitPrice,
-      taxableValue,
-      displayGstRate,
+      gstAmount,
+      total,
     };
   });
 
@@ -270,11 +272,16 @@ const renderActionBar = () => `
 `;
 
 const renderTermsHtml = (terms) => terms
-  .map((term, index) => `<li data-n="${index + 1}.">${escapeHtml(term)}</li>`)
+  .map((term) => `
+    <li class="tc-item">
+      <svg class="tc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+      <span class="tc-text">${escapeHtml(term)}</span>
+    </li>
+  `)
   .join('');
 
 const renderEmptyRowsHtml = (count) => Array.from({ length: count })
-  .map(() => '<tr class="empty-row"><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>')
+  .map(() => '<tr class="empty-row"><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>')
   .join('');
 
 export const renderProformaInvoiceHtml = (invoice, { logo, includeActions = true, autoPrint = false } = {}) => {
@@ -285,9 +292,10 @@ export const renderProformaInvoiceHtml = (invoice, { logo, includeActions = true
           <td style="text-align:center">${item.index}</td>
           <td class="desc">${formatMultilineHtml(item.description)}</td>
           <td class="num">${item.qty}</td>
+          <td class="num">${formatCurrency(item.priceWithGst)}</td>
           <td class="num">${formatCurrency(item.unitPrice)}</td>
-          <td class="num">${formatRate(item.displayGstRate)}%</td>
-          <td class="num">${formatCurrency(item.taxableValue)}</td>
+          <td class="num">${formatCurrency(item.gstAmount)}</td>
+          <td class="num">${formatCurrency(item.total)}</td>
         </tr>
   `).join('');
 
@@ -353,9 +361,10 @@ export const renderProformaInvoiceHtml = (invoice, { logo, includeActions = true
   .amount-words strong{color:var(--teal-dark)}
   .section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--teal);margin-bottom:10px;display:flex;align-items:center;gap:6px}
   .section-title::before{content:'';display:inline-block;width:3px;height:11px;background:var(--accent);border-radius:2px}
-  .tc-list{list-style:none;padding:0;margin-bottom:18px}
-  .tc-list li{font-size:11.5px;color:#2a4a52;line-height:1.65;padding:3px 0 3px 20px;position:relative}
-  .tc-list li::before{content:attr(data-n);position:absolute;left:0;font-weight:700;color:var(--teal);font-size:11px}
+  .tc-list{list-style:none;padding:0;margin-bottom:18px;display:flex;flex-direction:column;gap:6px}
+  .tc-item{display:flex;align-items:start;gap:8px}
+  .tc-icon{width:12px;height:12px;color:var(--teal);margin-top:2px;flex-shrink:0}
+  .tc-text{font-size:11.5px;color:#2a4a52;line-height:1.5;flex:1}
   .bank-row{font-size:12px;color:var(--muted);padding:4px 0;display:flex;gap:8px;align-items:center}
   .bank-row span:first-child{font-weight:600;color:var(--text);min-width:115px}
   .bank-row span:last-child{font-weight:700;color:var(--text)}
@@ -398,8 +407,10 @@ export const renderProformaInvoiceHtml = (invoice, { logo, includeActions = true
     .bottom{margin-top:6px;padding:0 16px 8px}
     .amount-words{font-size:11px;margin-bottom:8px}
     .section-title{font-size:10px;margin-bottom:6px}
-    .tc-list{margin-bottom:6px}
-    .tc-list li{padding:1px 0 1px 12px;font-size:9px;line-height:1.25}
+    .tc-list{margin-bottom:6px;gap:3px}
+    .tc-item{gap:5px}
+    .tc-icon{width:9px;height:9px;margin-top:1px}
+    .tc-text{font-size:9px;line-height:1.2}
     .bank-row{padding:1px 0;font-size:9.5px}
     .bank-row span:first-child{min-width:90px}
     .tax-block{padding-left:12px;padding-top:0}
@@ -474,12 +485,13 @@ ${includeActions ? renderActionBar() : ''}
     <table>
       <thead>
         <tr>
-          <th style="width:42px;text-align:center">SL</th>
+          <th style="width:42px;text-align:center">Sr. No</th>
           <th style="text-align:left">Description</th>
-          <th style="width:52px;text-align:right">QTY</th>
-          <th style="width:96px;text-align:right">Unit Price</th>
-          <th style="width:54px;text-align:right">GST</th>
-          <th style="width:104px;text-align:right">Amount (₹)</th>
+          <th style="width:52px;text-align:right">Qty</th>
+          <th style="width:130px;text-align:right">Price Including Tax</th>
+          <th style="width:110px;text-align:right">Rate Per Unit</th>
+          <th style="width:90px;text-align:right">GST 18%</th>
+          <th style="width:110px;text-align:right">Total</th>
         </tr>
       </thead>
       <tbody>
@@ -487,7 +499,7 @@ ${itemsHtml}${renderEmptyRowsHtml(data.emptyRows)}
       </tbody>
       <tfoot>
         <tr class="sub-row">
-          <td colspan="5" style="text-align:right;padding-right:16px;font-size:12px;letter-spacing:0.5px">Sub Total</td>
+          <td colspan="6" style="text-align:right;padding-right:16px;font-size:12px;letter-spacing:0.5px">Sub Total</td>
           <td class="num">${formatCurrency(data.totals.subtotal)}</td>
         </tr>
       </tfoot>
@@ -525,7 +537,12 @@ ${itemsHtml}${renderEmptyRowsHtml(data.emptyRows)}
       <div class="fab-container" style="margin-top:20px">
         <div class="section-title">Features &amp; Benefits (FaB)</div>
         <ul class="tc-list" style="margin-bottom:0">
-          ${data.fabList.map((fab, index) => `<li data-n="${index + 1}.">${escapeHtml(fab)}</li>`).join('')}
+          ${data.fabList.map((fab) => `
+            <li class="tc-item">
+              <svg class="tc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              <span class="tc-text">${escapeHtml(fab)}</span>
+            </li>
+          `).join('')}
         </ul>
       </div>
     </div>

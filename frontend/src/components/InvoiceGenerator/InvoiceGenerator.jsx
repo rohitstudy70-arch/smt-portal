@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { FaSpinner, FaFileInvoiceDollar } from 'react-icons/fa';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
@@ -19,24 +19,15 @@ const INDIAN_STATES = [
 
 const DEFAULT_INVOICE_ITEMS = [
   {
-    description: 'iTriangle (Bharat101 Plus) Ais140 2G\nVLTD Device with including Dual profile E-sim & Software + 01 Panic Switch',
+    description: 'VLTD',
     validity: '12 Month',
-    unitPrice: 4300,
-    gstRate: 18,
+    priceWithGst: 4300,
     qty: 1
   },
   {
-    description: 'iTriangle (Bharat101 Plus) Ais140 _2G',
-    validity: '24 Month',
-    unitPrice: 5600,
-    gstRate: 18,
-    qty: 1
-  },
-  {
-    description: 'Installation',
-    validity: 'One Time',
-    unitPrice: 400,
-    gstRate: 18,
+    description: 'GPS',
+    validity: '12 Month',
+    priceWithGst: 1500,
     qty: 1
   }
 ];
@@ -73,6 +64,7 @@ const getItemGstRate = (item, fallback = 18) => {
 const InvoiceGenerator = () => {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -124,38 +116,41 @@ const InvoiceGenerator = () => {
 
   // Helper to calculate details for one item
   const calculateItemDetails = (item) => {
-    const unitPrice = toNumber(item.unitPrice);
-    const gstRate = getItemGstRate(item);
+    const priceWithGst = toNumber(item.priceWithGst);
     const qty = parseQty(item.qty);
-    const taxableValue = roundCurrency(unitPrice * qty);
+
+    const unitPrice = roundCurrency(priceWithGst / 1.18);
+    const gstAmount = roundCurrency(priceWithGst - unitPrice);
+    const total = roundCurrency(unitPrice * qty);
 
     let cgstRate = 0, sgstRate = 0, igstRate = 0;
     
     if (isIntraState) {
-      cgstRate = gstRate / 2;
-      sgstRate = gstRate / 2;
+      cgstRate = 9;
+      sgstRate = 9;
     } else {
-      igstRate = gstRate;
+      igstRate = 18;
     }
 
-    const cgstAmt = roundCurrency((taxableValue * cgstRate) / 100);
-    const sgstAmt = roundCurrency((taxableValue * sgstRate) / 100);
-    const igstAmt = roundCurrency((taxableValue * igstRate) / 100);
+    const cgstAmt = roundCurrency((total * cgstRate) / 100);
+    const sgstAmt = roundCurrency((total * sgstRate) / 100);
+    const igstAmt = roundCurrency((total * igstRate) / 100);
     
-    const grossAmt = roundCurrency(taxableValue + cgstAmt + sgstAmt + igstAmt);
-    const priceWithGst = qty > 0 ? roundCurrency(grossAmt / qty) : roundCurrency(unitPrice + cgstAmt + sgstAmt + igstAmt);
+    const grossAmt = roundCurrency(total + cgstAmt + sgstAmt + igstAmt);
 
     return {
       ...item,
-      gstRate,
+      gstRate: 18,
       cgstRate,
       sgstRate,
       igstRate,
       cgstAmt,
       sgstAmt,
       igstAmt,
-      taxableValue,
+      taxableValue: total,
       priceWithGst,
+      unitPrice,
+      gstAmount,
       grossAmt
     };
   };
@@ -170,9 +165,8 @@ const InvoiceGenerator = () => {
       ...items,
       {
         description: '',
-        validity: '',
-        unitPrice: 0,
-        gstRate: 18,
+        validity: '12 Month',
+        priceWithGst: 0,
         qty: 1
       }
     ]);
@@ -397,10 +391,14 @@ const InvoiceGenerator = () => {
       setPoiNo('');
       setItems(createDefaultInvoiceItems());
 
+      const createdInvoiceId = response.data?._id;
       setRefreshTrigger(prev => prev + 1);
       setSingleSubmitting(false);
       alert('PI No Generated & Saved Successfully!');
       fetchNextPiNo();
+      if (createdInvoiceId) {
+        navigate(`/invoice/${createdInvoiceId}`);
+      }
     } catch (err) {
       console.error('Error submitting invoice:', err);
       setSingleSubmitting(false);
@@ -651,93 +649,90 @@ const InvoiceGenerator = () => {
             <table className="items-builder-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11.5px' }}>
               <thead>
                 <tr style={{ borderBottom: '2px solid #ddd', background: '#f1f5f9' }}>
-                  <th style={{ width: '45%', padding: '8px', textAlign: 'left', fontWeight: 'bold' }}>Item Description*</th>
-                  <th style={{ width: '15%', padding: '8px', textAlign: 'left', fontWeight: 'bold' }}>Validity*</th>
-                  <th style={{ width: '15%', padding: '8px', textAlign: 'left', fontWeight: 'bold' }}>Unit Price*</th>
-                  <th style={{ width: '10%', padding: '8px', textAlign: 'left', fontWeight: 'bold' }}>GST%*</th>
-                  <th style={{ width: '10%', padding: '8px', textAlign: 'left', fontWeight: 'bold' }}>Qty*</th>
+                  <th style={{ width: '5%', padding: '8px', textAlign: 'center', fontWeight: 'bold' }}>Sr. No</th>
+                  <th style={{ width: '35%', padding: '8px', textAlign: 'left', fontWeight: 'bold' }}>Item Description*</th>
+                  <th style={{ width: '10%', padding: '8px', textAlign: 'right', fontWeight: 'bold' }}>Qty*</th>
+                  <th style={{ width: '15%', padding: '8px', textAlign: 'right', fontWeight: 'bold' }}>Price Including Tax*</th>
+                  <th style={{ width: '15%', padding: '8px', textAlign: 'right', fontWeight: 'bold' }}>Rate Per Unit</th>
+                  <th style={{ width: '10%', padding: '8px', textAlign: 'right', fontWeight: 'bold' }}>GST 18%</th>
+                  <th style={{ width: '10%', padding: '8px', textAlign: 'right', fontWeight: 'bold' }}>Total</th>
                   <th style={{ width: '5%', padding: '8px', textAlign: 'center' }}></th>
                 </tr>
               </thead>
               <tbody>
-                {items.map((item, idx) => (
-                  <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
-                    <td style={{ padding: '6px' }}>
-                      <textarea 
-                        value={item.description}
-                        onChange={(e) => handleItemChange(idx, 'description', e.target.value)}
-                        placeholder="e.g. iTriangle (Bharat101 Plus) Ais140 2G..."
-                        rows="2"
-                        required
-                        style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', fontSize: '12px', padding: '5px', border: '1px solid #ccc', borderRadius: '3px' }}
-                      />
-                    </td>
-                    <td style={{ padding: '6px' }}>
-                      <input 
-                        type="text" 
-                        value={item.validity}
-                        onChange={(e) => handleItemChange(idx, 'validity', e.target.value)}
-                        placeholder="e.g. 12 Month"
-                        required
-                        style={{ width: '100%', boxSizing: 'border-box', fontSize: '12px', padding: '5px', border: '1px solid #ccc', borderRadius: '3px' }}
-                      />
-                    </td>
-                    <td style={{ padding: '6px' }}>
-                      <input 
-                        type="number" 
-                        value={item.unitPrice}
-                        onChange={(e) => handleItemChange(idx, 'unitPrice', parseFloat(e.target.value) || 0)}
-                        placeholder="4300"
-                        required
-                        style={{ width: '100%', boxSizing: 'border-box', fontSize: '12px', padding: '5px', border: '1px solid #ccc', borderRadius: '3px' }}
-                      />
-                    </td>
-                    <td style={{ padding: '6px' }}>
-                      <input 
-                        type="number" 
-                        value={item.gstRate}
-                        onChange={(e) => handleItemChange(idx, 'gstRate', parseFloat(e.target.value) || 0)}
-                        placeholder="18"
-                        required
-                        style={{ width: '100%', boxSizing: 'border-box', fontSize: '12px', padding: '5px', border: '1px solid #ccc', borderRadius: '3px' }}
-                      />
-                    </td>
-                    <td style={{ padding: '6px' }}>
-                      <input 
-                        type="number" 
-                        value={item.qty}
-                        onChange={(e) => handleItemChange(idx, 'qty', parseInt(e.target.value) || 1)}
-                        placeholder="1"
-                        required
-                        style={{ width: '100%', boxSizing: 'border-box', fontSize: '12px', padding: '5px', border: '1px solid #ccc', borderRadius: '3px' }}
-                      />
-                    </td>
-                    <td style={{ padding: '6px', textAlign: 'center' }}>
-                      <button 
-                        type="button" 
-                        className="btn-remove-item"
-                        onClick={() => handleRemoveItem(idx)}
-                        title="Delete Item"
-                        style={{
-                          background: '#ef4444',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '3px',
-                          width: '24px',
-                          height: '24px',
-                          cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontWeight: 'bold',
-                          fontSize: '14px'
-                        }}
-                      >
-                        &times;
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {items.map((item, idx) => {
+                  const detailed = calculateItemDetails(item);
+                  return (
+                    <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
+                      <td style={{ padding: '6px', textAlign: 'center' }}>
+                        {idx + 1}
+                      </td>
+                      <td style={{ padding: '6px' }}>
+                        <textarea 
+                          value={item.description}
+                          onChange={(e) => handleItemChange(idx, 'description', e.target.value)}
+                          placeholder="Enter Description"
+                          rows="2"
+                          required
+                          style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', fontSize: '12px', padding: '5px', border: '1px solid #ccc', borderRadius: '3px' }}
+                        />
+                      </td>
+                      <td style={{ padding: '6px' }}>
+                        <input 
+                          type="number" 
+                          value={item.qty}
+                          onChange={(e) => handleItemChange(idx, 'qty', parseInt(e.target.value) || 1)}
+                          placeholder="1"
+                          required
+                          style={{ width: '100%', boxSizing: 'border-box', fontSize: '12px', padding: '5px', border: '1px solid #ccc', borderRadius: '3px', textAlign: 'right' }}
+                        />
+                      </td>
+                      <td style={{ padding: '6px' }}>
+                        <input 
+                          type="number" 
+                          value={item.priceWithGst}
+                          onChange={(e) => handleItemChange(idx, 'priceWithGst', parseFloat(e.target.value) || 0)}
+                          placeholder="4300"
+                          required
+                          style={{ width: '100%', boxSizing: 'border-box', fontSize: '12px', padding: '5px', border: '1px solid #ccc', borderRadius: '3px', textAlign: 'right' }}
+                        />
+                      </td>
+                      <td style={{ padding: '6px', textAlign: 'right', fontSize: '12px' }}>
+                        {detailed.unitPrice.toFixed(2)}
+                      </td>
+                      <td style={{ padding: '6px', textAlign: 'right', fontSize: '12px' }}>
+                        {detailed.gstAmount.toFixed(2)}
+                      </td>
+                      <td style={{ padding: '6px', textAlign: 'right', fontSize: '12px', fontWeight: 'bold' }}>
+                        {detailed.taxableValue.toFixed(2)}
+                      </td>
+                      <td style={{ padding: '6px', textAlign: 'center' }}>
+                        <button 
+                          type="button" 
+                          className="btn-remove-item"
+                          onClick={() => handleRemoveItem(idx)}
+                          title="Delete Item"
+                          style={{
+                            background: '#ef4444',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '3px',
+                            width: '24px',
+                            height: '24px',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 'bold',
+                            fontSize: '14px'
+                          }}
+                        >
+                          &times;
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
             <button 
@@ -760,9 +755,12 @@ const InvoiceGenerator = () => {
             </button>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '15px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: '#f8fafc', padding: '15px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
             <span style={{ fontWeight: '800', color: 'var(--primary-blue)', fontSize: '13px' }}>
-              Total Invoice Amount: ₹{totalInvoiceValue.toFixed(2)}
+              Sub-Total (Sum of Row Totals): ₹{items.reduce((sum, item) => sum + calculateItemDetails(item).taxableValue, 0).toFixed(2)}
+            </span>
+            <span style={{ fontWeight: '800', color: 'var(--accent-color)', fontSize: '14px' }}>
+              Grand Total (Including Tax): ₹{totalInvoiceValue.toFixed(2)}
             </span>
           </div>
 

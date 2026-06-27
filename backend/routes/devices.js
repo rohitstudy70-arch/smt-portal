@@ -562,6 +562,10 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
     console.log('Create device req.body:', req.body);
     const input = normalizeDeviceInput(req.body);
 
+    if (!input.vendor) {
+      return res.status(400).json({ message: 'Model (vendor) is required.' });
+    }
+
     if (req.portalRole !== PORTAL_ROLES.ADMIN && input.vendor === 'iTriangle') {
       return res.status(400).json({ message: 'Selection of model iTriangle is restricted to admin only.' });
     }
@@ -760,6 +764,10 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
 
     const originalImei = device.imei;
     const input = normalizeDeviceInput(req.body);
+
+    if (!input.vendor) {
+      return res.status(400).json({ message: 'Model (vendor) is required.' });
+    }
 
     if (req.portalRole !== PORTAL_ROLES.ADMIN && input.vendor === 'iTriangle') {
       return res.status(400).json({ message: 'Selection of model iTriangle is restricted to admin only.' });

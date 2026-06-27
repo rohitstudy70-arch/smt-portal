@@ -83,16 +83,20 @@ const generateNextInvoiceNo = async () => {
 const generateNextPiNo = async () => {
   const allInvoices = await Invoice.find({ piNo: /^(AE-\d+|AE_PI_\d+)$/ }).select('piNo');
 
+  let maxNum = 12;
+
   if (allInvoices.length > 0) {
     const nums = allInvoices.map((inv) => {
       const match = inv.piNo.match(/^(?:AE-|AE_PI_)(\d+)$/);
       return match ? parseInt(match[1], 10) : 0;
     });
-    const maxNum = Math.max(...nums);
-    return `AE_PI_${String(maxNum + 1).padStart(3, '0')}`;
+    const dbMax = Math.max(...nums);
+    if (dbMax > maxNum) {
+      maxNum = dbMax;
+    }
   }
 
-  return 'AE_PI_001';
+  return `AE-${maxNum + 1}`;
 };
 
 const toNumber = (value) => {

@@ -47,7 +47,7 @@ const getLocalDateString = (dateObj) => {
   return `${year}-${month}-${day}`;
 };
 
-const createEmptyForm = (dealer, defaultVendor = 'iTriangle') => ({
+const createEmptyForm = (dealer, defaultVendor = '') => ({
   dealerId: dealer?._id || '',
   dealerName: dealer ? getName(dealer) : '',
   subDealerId: '',
@@ -204,9 +204,9 @@ const AddDevice = () => {
         setSubDealers(subDealerList);
 
         if (dealerList.length === 1) {
-          setFormData(createEmptyForm(dealerList[0], role === 'ADMIN' ? 'iTriangle' : 'Acute'));
+          setFormData(createEmptyForm(dealerList[0], ''));
         } else {
-          setFormData(createEmptyForm(null, role === 'ADMIN' ? 'iTriangle' : 'Acute'));
+          setFormData(createEmptyForm(null, ''));
         }
       } catch (error) {
         showToast('error', error.response?.data?.message || 'Failed to load users.');
@@ -269,6 +269,7 @@ const AddDevice = () => {
   const validate = () => {
     const nextErrors = {};
     if (!formData.dealerId && !formData.dealerName) nextErrors.dealerId = 'Dealer is required';
+    if (!formData.vendor) nextErrors.vendor = 'Model is required';
     if (!formData.imei) nextErrors.imei = 'IMEI is required';
     else if (!/^\d{15}$/.test(formData.imei)) nextErrors.imei = 'IMEI must be exactly 15 digits';
     if (!formData.iccid) nextErrors.iccid = 'ICCID is required';
@@ -326,7 +327,7 @@ const AddDevice = () => {
 
   const handleReset = () => {
     const defaultDealer = dealers.length === 1 ? dealers[0] : dealers.find((d) => d._id === formData.dealerId);
-    setFormData(createEmptyForm(defaultDealer || selectedDealer, role === 'ADMIN' ? 'iTriangle' : 'Acute'));
+    setFormData(createEmptyForm(defaultDealer || selectedDealer, ''));
     setErrors({});
     setDealerSearch('');
     setSubDealerSearch('');
@@ -473,9 +474,10 @@ const AddDevice = () => {
               </div>
             )}
 
-            <div className="form-group">
-              <label>Model</label>
+            <div className={`form-group ${errors.vendor ? 'has-error' : ''}`}>
+              <label>Model <span className="required">*</span></label>
               <select name="vendor" value={formData.vendor} onChange={(event) => updateFormField('vendor', event.target.value)}>
+                <option value="">Select Model</option>
                 {role === 'ADMIN' && <option value="iTriangle">iTriangle</option>}
                 <option value="Acute">Acute</option>
                 <option value="Markon">Markon</option>
@@ -484,6 +486,7 @@ const AddDevice = () => {
                 <option value="TrackNow">TrackNow</option>
                 <option value="Road point">Road point</option>
               </select>
+              {errors.vendor && <span className="error-text">{errors.vendor}</span>}
             </div>
 
             <div className={`form-group ${errors.imei ? 'has-error' : ''}`}>
