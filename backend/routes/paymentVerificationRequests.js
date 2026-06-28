@@ -7,6 +7,7 @@ const DuePayment = require('../models/DuePayment');
 const DealerDue = require('../models/DealerDue');
 const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
+const RenewalRequest = require('../models/RenewalRequest');
 const { protect } = require('../middleware/auth');
 const { PORTAL_ROLES, requireRoles } = require('../middleware/hierarchy');
 const { syncDueForUser } = require('../services/dueService');
@@ -181,18 +182,57 @@ router.put('/:id/verify', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => 
       if (request.paymentMode === 'Cash') mappedMode = 'Cash';
       if (request.paymentMode === 'UPI') mappedMode = 'UPI';
 
-      // 3. Create DuePayment
-      const payment = await DuePayment.create({
-        dealerDueId: due._id,
-        userId: request.userId,
-        amount: request.amount,
-        paymentDate: request.paymentDate || new Date(),
-        paymentMode: mappedMode,
-        referenceNumber: request.referenceNumber,
-        remarks: request.remarks ? `Reported: ${request.remarks}` : 'Approved payment verification request',
-        screenshotUrl: request.screenshotUrl,
-        updatedBy: req.user._id,
-      });
+      const verifiedAtDate = request.paymentDate || new Date();
+
+      // Find all unpaid or partially paid renewal requests for the user
+      const unpaidRenewals = await RenewalRequest.find({
+        dealerId: request.userId,
+        status: { $ne: 'Rejected' },
+        paymentStatus: { $ne: 'Paid' },
+      }).sort({ renewalDate: 1 }); // Oldest first
+
+      let remainingAmount = request.amount;
+
+      for (const renewal of unpaidRenewals) {
+        if (remainingAmount <= 0) break;
+
+        const billAmt = Number(renewal.billAmount) || 0;
+        const currentReceived = Number(renewal.receivedAmount) || 0;
+        const currentRemaining = Math.max(billAmt - currentReceived, 0);
+
+        if (currentRemaining <= 0) continue;
+
+        const appliedAmount = Math.min(remainingAmount, currentRemaining);
+        
+        renewal.receivedAmount = currentReceived + appliedAmount;
+        renewal.status = 'Approved';
+        renewal.paymentDate = verifiedAtDate;
+        renewal.transactionId = request.referenceNumber;
+        
+        if (request.remarks) {
+          renewal.remarks = (renewal.remarks ? `${renewal.remarks} | ` : '') + `Verification Ref: ${request.remarks}`;
+        } else {
+          renewal.remarks = (renewal.remarks ? `${renewal.remarks} | ` : '') + `Verification Ref: ${request.referenceNumber}`;
+        }
+        
+        await renewal.save();
+        remainingAmount -= appliedAmount;
+      }
+
+      // 3. Create DuePayment (only if there is remainingAmount left)
+      if (remainingAmount > 0) {
+        await DuePayment.create({
+          dealerDueId: due._id,
+          userId: request.userId,
+          amount: remainingAmount,
+          paymentDate: verifiedAtDate,
+          paymentMode: mappedMode,
+          referenceNumber: request.referenceNumber,
+          remarks: request.remarks ? `Reported: ${request.remarks}` : 'Approved payment verification request',
+          screenshotUrl: request.screenshotUrl,
+          updatedBy: req.user._id,
+        });
+      }
 
       // 4. Sync outstanding dues
       await syncDueForUser(request.userId);

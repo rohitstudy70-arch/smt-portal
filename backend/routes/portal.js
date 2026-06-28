@@ -792,21 +792,6 @@ router.post('/devices/bulk', protect, async (req, res) => {
         continue;
       }
 
-      const duplicate = await Device.findOne({
-        $or: [
-          { imei },
-          { imeiNumber: imei },
-          { iccid },
-          { iccidNumber: iccid },
-          { serialNo },
-          { serialNumber: serialNo },
-        ],
-      });
-      if (duplicate) {
-        skipped.push({ imei, reason: 'Duplicate IMEI, ICCID, or Serial No.' });
-        continue;
-      }
-
       let dealer = null;
       let subDealer = null;
 
@@ -842,6 +827,60 @@ router.post('/devices/bulk', protect, async (req, res) => {
           skipped.push({ imei, reason: 'Selected sub dealer does not belong to the selected dealer.' });
           continue;
         }
+      }
+
+      const duplicate = await Device.findOne({
+        $or: [
+          { imei },
+          { imeiNumber: imei },
+          { iccid },
+          { iccidNumber: iccid },
+          { serialNo },
+          { serialNumber: serialNo },
+        ],
+      });
+      if (duplicate) {
+        if (scope.role === 'DEALER' && subDealer) {
+          const isCurrentlyDealerDevice = 
+            (duplicate.dealerId && duplicate.dealerId.toString() === req.user._id.toString()) ||
+            (duplicate.assignedTo && duplicate.assignedTo.toString() === req.user._id.toString());
+
+          if (isCurrentlyDealerDevice) {
+            const presentDateVal = rawDevice.presentDate ? new Date(rawDevice.presentDate) : new Date();
+            const validityVal = rawDevice.validity === '2 Years' || rawDevice.validity === '2 Year' ? '2 Years' : '1 Year';
+            const expiryDateVal = addYears(presentDateVal, validityVal === '2 Years' ? 2 : 1);
+
+            duplicate.userId = subDealer._id;
+            duplicate.subDealerId = subDealer._id;
+            duplicate.subDealerName = labelForUser(subDealer);
+            duplicate.assignedTo = subDealer._id;
+            duplicate.updatedAt = new Date();
+            if (rawDevice.msisdn1) duplicate.msisdn1 = rawDevice.msisdn1;
+            if (rawDevice.msisdn2) duplicate.msisdn2 = rawDevice.msisdn2;
+            if (rawDevice.itrNo) duplicate.itrNo = String(rawDevice.itrNo).trim();
+            if (rawDevice.vendor) duplicate.vendor = String(rawDevice.vendor).trim();
+            duplicate.validity = validityVal;
+            duplicate.presentDate = presentDateVal;
+            duplicate.expiryDate = expiryDateVal;
+
+            duplicate.assignmentHistory.push({
+              fromUser: req.user._id,
+              toUser: subDealer._id,
+              action: 'Assigned',
+              note: 'Assigned by dealer through bulk device assignment',
+              changedBy: req.user._id,
+            });
+
+            await duplicate.save();
+            await syncDueForUsers([req.user._id, subDealer._id]);
+            
+            created.push(duplicate);
+            continue;
+          }
+        }
+
+        skipped.push({ imei, reason: 'Duplicate IMEI, ICCID, or Serial No.' });
+        continue;
       }
 
       let presentDate = new Date();
@@ -887,6 +926,11 @@ router.post('/devices/bulk', protect, async (req, res) => {
       });
 
       created.push(device);
+    }
+
+    if (created.length > 0) {
+      const dueOwnerIds = created.flatMap(getDueOwnerIdsFromDevice);
+      await syncDueForUsers(dueOwnerIds);
     }
 
     res.status(201).json({
@@ -937,6 +981,12 @@ router.post('/devices/:id/transfer', protect, async (req, res) => {
     });
 
     await device.save();
+
+    const affectedUserIds = [previousAssignee, nextAssignee].filter(Boolean);
+    if (device.dealerId) affectedUserIds.push(device.dealerId);
+    if (device.subDealerId) affectedUserIds.push(device.subDealerId);
+    if (device.userId) affectedUserIds.push(device.userId);
+    await syncDueForUsers(affectedUserIds);
 
     const updatedDevice = await Device.findById(device._id)
       .populate('assignedTo', 'displayName username userType mobileNo email')

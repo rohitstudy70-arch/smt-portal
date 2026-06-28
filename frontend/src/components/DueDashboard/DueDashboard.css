@@ -349,6 +349,17 @@
   border-color: var(--primary-blue-hover);
 }
 
+.due-action-btn.success {
+  background: #22c55e;
+  color: #ffffff;
+  border-color: #22c55e;
+}
+
+.due-action-btn.success:hover {
+  background: #16a34a;
+  border-color: #16a34a;
+}
+
 /* Status Badges */
 .due-status-badge {
   display: inline-block;

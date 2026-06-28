@@ -581,6 +581,49 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
 
     const duplicate = await findDuplicateDevice(input);
     if (duplicate) {
+      if (req.portalRole === PORTAL_ROLES.DEALER && ownership.subDealer) {
+        const isCurrentlyDealerDevice = 
+          (duplicate.dealerId && duplicate.dealerId.toString() === req.user._id.toString()) ||
+          (duplicate.assignedTo && duplicate.assignedTo.toString() === req.user._id.toString());
+
+        if (isCurrentlyDealerDevice) {
+          const subDealer = ownership.subDealer;
+          const presentDate = input.presentDate || new Date();
+          const validity = input.validity === '2 Years' ? '2 Years' : '1 Year';
+          const expiryDate = addYears(presentDate, validity === '2 Years' ? 2 : 1);
+
+          duplicate.userId = subDealer._id;
+          duplicate.subDealerId = subDealer._id;
+          duplicate.subDealerName = labelForUser(subDealer);
+          duplicate.assignedTo = subDealer._id;
+          duplicate.updatedAt = new Date();
+          if (input.msisdn1) duplicate.msisdn1 = input.msisdn1;
+          if (input.msisdn2) duplicate.msisdn2 = input.msisdn2;
+          if (input.itrNo) duplicate.itrNo = input.itrNo;
+          if (input.vendor) duplicate.vendor = input.vendor;
+          duplicate.validity = validity;
+          duplicate.presentDate = presentDate;
+          duplicate.expiryDate = expiryDate;
+          if (input.billAmount) duplicate.billAmount = Number(input.billAmount) || 0;
+
+          duplicate.assignmentHistory.push({
+            fromUser: req.user._id,
+            toUser: subDealer._id,
+            action: 'Assigned',
+            note: 'Assigned by dealer through device management form',
+            changedBy: req.user._id,
+          });
+
+          await duplicate.save();
+          await syncDueForUsers([req.user._id, subDealer._id]);
+
+          return res.json({
+            message: `Device successfully assigned to ${labelForUser(subDealer)}.`,
+            device: duplicate,
+          });
+        }
+      }
+
       if (duplicate.imei === input.imei || duplicate.imeiNumber === input.imei) {
         return res.status(400).json({ message: 'A device with this IMEI already exists.' });
       }

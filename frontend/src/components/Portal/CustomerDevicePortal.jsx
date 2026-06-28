@@ -25,6 +25,7 @@ import {
   FaRupeeSign,
   FaChartLine,
   FaBoxOpen,
+  FaCoins,
 } from 'react-icons/fa';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
@@ -200,6 +201,7 @@ const CustomerDevicePortal = () => {
   const [notice, setNotice] = useState('');
   const [summary, setSummary] = useState(null);
   const [dueSummary, setDueSummary] = useState(null);
+  const [renewalDueSummary, setRenewalDueSummary] = useState(null);
   const [dealers, setDealers] = useState([]);
   const [deviceDealerOptions, setDeviceDealerOptions] = useState([]);
   const [subDealers, setSubDealers] = useState([]);
@@ -440,6 +442,7 @@ const CustomerDevicePortal = () => {
         reportsRes,
         loginLogsRes,
         dueSummaryRes,
+        renewalDueSummaryRes,
       ] = await Promise.all([
         api.get('/portal/summary'),
         canManageUsers ? api.get('/portal/users', { params: { type: 'dealer' } }) : Promise.resolve({ data: [] }),
@@ -451,10 +454,12 @@ const CustomerDevicePortal = () => {
         api.get('/portal/reports'),
         canManageUsers ? api.get('/portal/login-logs').catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
         isOps ? api.get('/due-dashboard/summary').catch(() => ({ data: null })) : Promise.resolve({ data: null }),
+        api.get('/portal/renewals/due-summary').catch(() => ({ data: null })),
       ]);
 
       setSummary(summaryRes.data);
       setDueSummary(dueSummaryRes?.data || null);
+      setRenewalDueSummary(renewalDueSummaryRes?.data || null);
       setDealers(dealersRes.data || []);
       setUsers(usersRes.data || []);
       setCustomers(customersRes.data || []);
@@ -1168,56 +1173,302 @@ const CustomerDevicePortal = () => {
       <div className="portal-stack" key="view-dashboard">
         {renderStats()}
 
-        {isOps && dueSummary ? (
-          <div className="portal-panel" style={{ marginTop: '10px' }} key="due-summary-panel">
-            <div className="portal-panel-header">
-              <div>
-                <h2>Due & Financial Overview</h2>
-                <span>Outstanding dues and collections</span>
-              </div>
-              <FaFileInvoiceDollar className="portal-panel-icon" />
-            </div>
-            <div style={{ padding: '16px' }}>
-              <div className="portal-stats-grid">
-                <div 
-                  className="portal-stat stat-red" 
-                  onClick={() => navigate('/due-dashboard?tab=dues&filter=PendingDues')} 
-                  style={{ cursor: 'pointer' }}
-                >
+        {isAdmin ? (
+          <>
+            {dueSummary && (
+              <div className="portal-panel" style={{ marginTop: '10px' }} key="due-summary-panel">
+                <div className="portal-panel-header">
                   <div>
-                    <span className="portal-stat-value">₹{(dueSummary.totalOutstandingAmount || 0).toLocaleString()}</span>
-                    <span className="portal-stat-label">My Total Outstanding</span>
+                    <h2>Due & Financial Overview</h2>
+                    <span>Outstanding dues and collections</span>
                   </div>
-                  <FaRupeeSign className="portal-stat-icon" />
+                  <FaFileInvoiceDollar className="portal-panel-icon" />
                 </div>
+                <div style={{ padding: '16px' }}>
+                  <div className="portal-stats-grid">
+                    <div 
+                      className="portal-stat stat-red" 
+                      onClick={() => navigate('/due-dashboard?tab=dues&filter=PendingDues')} 
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div>
+                        <span className="portal-stat-value">₹{(dueSummary.totalOutstandingAmount || 0).toLocaleString()}</span>
+                        <span className="portal-stat-label">Total Outstanding Amount</span>
+                      </div>
+                      <FaRupeeSign className="portal-stat-icon" />
+                    </div>
 
-                <div 
-                  className="portal-stat stat-amber" 
-                  onClick={() => navigate('/due-dashboard?tab=dues&filter=PendingDues')} 
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div>
-                    <span className="portal-stat-value">₹{(dueSummary.totalDueAmount || 0).toLocaleString()}</span>
-                    <span className="portal-stat-label">My Current Due (Over 30 Days)</span>
-                  </div>
-                  <FaRupeeSign className="portal-stat-icon" />
-                </div>
+                    <div 
+                      className="portal-stat stat-amber" 
+                      onClick={() => navigate('/due-dashboard?tab=dues&filter=PendingDues')} 
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div>
+                        <span className="portal-stat-value">₹{(dueSummary.totalDueAmount || 0).toLocaleString()}</span>
+                        <span className="portal-stat-label">Total Due Amount (Over 30 Days)</span>
+                      </div>
+                      <FaRupeeSign className="portal-stat-icon" />
+                    </div>
 
-                <div 
-                  className="portal-stat stat-violet" 
-                  onClick={() => { setRevenueModalTab('today'); setIsRevenueModalOpen(true); }}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div>
-                    <span className="portal-stat-value">₹{(dueSummary.todaysRevenue || 0).toLocaleString()}</span>
-                    <span className="portal-stat-label">Today's Revenue</span>
+                    <div 
+                      className="portal-stat stat-green"
+                      onClick={() => navigate('/due-dashboard?tab=verifications&filter=today')}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div>
+                        <span className="portal-stat-value">₹{(dueSummary.todaysCollection || 0).toLocaleString()}</span>
+                        <span className="portal-stat-label">Today's Collection</span>
+                      </div>
+                      <FaRupeeSign className="portal-stat-icon" />
+                    </div>
+
+                    <div 
+                      className="portal-stat stat-blue"
+                      onClick={() => navigate('/due-dashboard?tab=verifications&filter=month')}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div>
+                        <span className="portal-stat-value">₹{(dueSummary.monthlyCollection || 0).toLocaleString()}</span>
+                        <span className="portal-stat-label">Monthly Collection</span>
+                      </div>
+                      <FaCoins className="portal-stat-icon" />
+                    </div>
+
+                    <div 
+                      className="portal-stat stat-violet" 
+                      onClick={() => { setRevenueModalTab('today'); setIsRevenueModalOpen(true); }}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div>
+                        <span className="portal-stat-value">₹{(dueSummary.todaysRevenue || 0).toLocaleString()}</span>
+                        <span className="portal-stat-label">Today's Revenue</span>
+                      </div>
+                      <FaChartLine className="portal-stat-icon" />
+                    </div>
+
+                    <div 
+                      className="portal-stat stat-slate"
+                      onClick={() => { setRevenueModalTab('month'); setIsRevenueModalOpen(true); }}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div>
+                        <span className="portal-stat-value">₹{(dueSummary.monthlyRevenue || 0).toLocaleString()}</span>
+                        <span className="portal-stat-label">Monthly Revenue</span>
+                      </div>
+                      <FaChartLine className="portal-stat-icon" />
+                    </div>
+
+                    <div 
+                      className="portal-stat stat-amber" 
+                      onClick={() => navigate('/due-dashboard?tab=renewals')} 
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div style={{ width: '100%' }}>
+                        <span className="portal-stat-value">{summary?.renewalDueDevices ?? 0}</span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                          <span className="portal-stat-label">Renewal Due Devices</span>
+                        </div>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate('/due-dashboard?tab=renewals');
+                          }}
+                          style={{
+                            marginTop: '8px',
+                            background: 'var(--primary-blue)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            padding: '4px 8px',
+                            fontSize: '11px',
+                            fontWeight: '700',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          View All
+                        </button>
+                      </div>
+                      <FaCalendarAlt className="portal-stat-icon" />
+                    </div>
+
+                    <div 
+                      className="portal-stat stat-violet"
+                      onClick={() => navigate('/due-dashboard?tab=renewals&filter=expiringThisMonth')}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div>
+                        <span className="portal-stat-value">{summary?.expiringThisMonth ?? 0}</span>
+                        <span className="portal-stat-label">Expiring This Month</span>
+                      </div>
+                      <FaHistory className="portal-stat-icon" />
+                    </div>
                   </div>
-                  <FaChartLine className="portal-stat-icon" />
+                </div>
+              </div>
+            )}
+
+            {renewalDueSummary && (
+              <div className="portal-panel" style={{ marginTop: '20px' }} key="renewal-due-summary-panel">
+                <div className="portal-panel-header" style={{ borderTop: '4px solid #8b5cf6' }}>
+                  <div>
+                    <h2>Renewal Due Overview</h2>
+                    <span>Outstanding renewal dues and collection records</span>
+                  </div>
+                  <FaFileInvoiceDollar className="portal-panel-icon" style={{ color: '#8b5cf6' }} />
+                </div>
+                <div style={{ padding: '16px' }}>
+                  <div className="portal-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '15px' }}>
+                    <div 
+                      className="portal-stat stat-red" 
+                      onClick={() => navigate('/renewal-due-management')} 
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div>
+                        <span className="portal-stat-value">₹{(renewalDueSummary.totalDue || 0).toLocaleString()}</span>
+                        <span className="portal-stat-label">Total Renewal Due</span>
+                      </div>
+                      <FaRupeeSign className="portal-stat-icon" />
+                    </div>
+
+                    <div 
+                      className="portal-stat stat-blue" 
+                      onClick={() => navigate('/renewal-due-management')} 
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div>
+                        <span className="portal-stat-value">{(renewalDueSummary.pendingRequestsCount || 0)}</span>
+                        <span className="portal-stat-label">Pending Renewal Requests</span>
+                      </div>
+                      <FaFileInvoiceDollar className="portal-stat-icon" />
+                    </div>
+
+                    <div 
+                      className="portal-stat stat-green" 
+                      onClick={() => navigate('/renewal-due-management')} 
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div>
+                        <span className="portal-stat-value">{(renewalDueSummary.paidRequestsCount || 0)}</span>
+                        <span className="portal-stat-label">Paid Renewal Requests</span>
+                      </div>
+                      <FaFileInvoiceDollar className="portal-stat-icon" />
+                    </div>
+
+                    <div 
+                      className="portal-stat stat-violet" 
+                      onClick={() => navigate('/renewal-due-management')} 
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div>
+                        <span className="portal-stat-value">{(renewalDueSummary.overdueRequestsCount || 0)}</span>
+                        <span className="portal-stat-label">Overdue Requests</span>
+                      </div>
+                      <FaFileInvoiceDollar className="portal-stat-icon" />
+                    </div>
+
+                    <div 
+                      className="portal-stat stat-amber" 
+                      onClick={() => navigate('/renewal-due-management')} 
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div>
+                        <span className="portal-stat-value">₹{(renewalDueSummary.pendingDue || 0).toLocaleString()}</span>
+                        <span className="portal-stat-label">Pending Renewal Amount</span>
+                      </div>
+                      <FaRupeeSign className="portal-stat-icon" />
+                    </div>
+
+                    <div 
+                      className="portal-stat stat-green" 
+                      onClick={() => navigate('/renewal-due-management')} 
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div>
+                        <span className="portal-stat-value">₹{(renewalDueSummary.paidAmount || 0).toLocaleString()}</span>
+                        <span className="portal-stat-label">Paid Renewal Amount</span>
+                      </div>
+                      <FaRupeeSign className="portal-stat-icon" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          isOps && dueSummary ? (
+            <div className="portal-panel" style={{ marginTop: '10px' }} key="due-summary-panel">
+              <div className="portal-panel-header">
+                <div>
+                  <h2>Due & Financial Overview</h2>
+                  <span>Outstanding dues and collections</span>
+                </div>
+                <FaFileInvoiceDollar className="portal-panel-icon" />
+              </div>
+              <div style={{ padding: '16px' }}>
+                <div className="portal-stats-grid">
+                  <div 
+                    className="portal-stat stat-red" 
+                    onClick={() => navigate('/due-dashboard?tab=dues&filter=PendingDues')} 
+                    style={{ cursor: 'pointer', position: 'relative' }}
+                  >
+                    <div>
+                      <span className="portal-stat-value">₹{(dueSummary.totalOutstandingAmount || 0).toLocaleString()}</span>
+                      <span className="portal-stat-label">My Total Outstanding</span>
+                      {dueSummary.totalOutstandingAmount > 0 && (
+                        <button
+                          type="button"
+                          className="portal-primary"
+                          style={{
+                            marginTop: '8px',
+                            padding: '4px 10px',
+                            fontSize: '11px',
+                            background: '#22c55e',
+                            border: 'none',
+                            color: '#ffffff',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontWeight: '600'
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate('/due-dashboard?action=pay-outstanding');
+                          }}
+                        >
+                          Pay Now
+                        </button>
+                      )}
+                    </div>
+                    <FaRupeeSign className="portal-stat-icon" />
+                  </div>
+
+                  <div 
+                    className="portal-stat stat-amber" 
+                    onClick={() => navigate('/due-dashboard?tab=dues&filter=PendingDues')} 
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <div>
+                      <span className="portal-stat-value">₹{(dueSummary.totalDueAmount || 0).toLocaleString()}</span>
+                      <span className="portal-stat-label">My Current Due (Over 30 Days)</span>
+                    </div>
+                    <FaRupeeSign className="portal-stat-icon" />
+                  </div>
+
+                  <div 
+                    className="portal-stat stat-violet" 
+                    onClick={() => { setRevenueModalTab('today'); setIsRevenueModalOpen(true); }}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <div>
+                      <span className="portal-stat-value">₹{(dueSummary.todaysRevenue || 0).toLocaleString()}</span>
+                      <span className="portal-stat-label">Today's Revenue</span>
+                    </div>
+                    <FaChartLine className="portal-stat-icon" />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ) : null}
+          ) : null
+        )}
 
         {(role === 'ADMIN' || role === 'SUB_DEALER') ? (
           <div className="portal-dashboard-actions" key="add-device-actions">

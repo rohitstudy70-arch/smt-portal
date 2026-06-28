@@ -11,6 +11,7 @@ const {
   requireRoles,
   isIdInScope,
 } = require('../middleware/hierarchy');
+const { syncDueForUsers, getDueOwnerIdsFromDevice } = require('../services/dueService');
 
 const router = express.Router();
 
@@ -296,6 +297,7 @@ router.post('/', requireRoles(...operationsRoles), async (req, res) => {
         });
         await device.save();
         console.log(`Automatically assigned device ${imei} and set status to inactive/processing`);
+        await syncDueForUsers(getDueOwnerIdsFromDevice(device));
       }
     } catch (assignError) {
       console.error('Error during automatic device assignment:', assignError.message);
@@ -364,6 +366,7 @@ router.put('/:id/approve', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) =>
       device.expiryDate = expiry;
 
       await device.save();
+      await syncDueForUsers(getDueOwnerIdsFromDevice(device));
     }
 
     res.json({ message: 'Activation request approved and device activated successfully.', request });
@@ -396,6 +399,7 @@ router.put('/:id/reject', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => 
       device.activationRequestStatus = 'rejected';
       device.deviceStatus = 'inactive';
       await device.save();
+      await syncDueForUsers(getDueOwnerIdsFromDevice(device));
     }
 
     res.json({ message: 'Activation request rejected.', request });
@@ -474,6 +478,7 @@ router.post('/direct-activate', requireRoles(PORTAL_ROLES.ADMIN), async (req, re
     device.expiryDate = expiry;
 
     await device.save();
+    await syncDueForUsers(getDueOwnerIdsFromDevice(device));
 
     res.json({ message: 'Device activated successfully.', device, request });
   } catch (error) {

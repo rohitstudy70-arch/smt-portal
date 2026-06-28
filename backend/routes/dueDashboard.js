@@ -453,11 +453,11 @@ router.get('/summary', async (req, res) => {
       const todaysRenewalRevenue = todaysRenewalPayments[0]?.total || 0;
       const todaysTotalRevenue = todaysDevicePayments + todaysRenewalRevenue;
 
-      // My Total Outstanding = Total Dues + Total Renewal Dues
-      const myTotalOutstanding = deviceTotalOutstanding + totalRenewalDues;
+      // My Total Outstanding = Total Dues (already combines device + renewal outstanding in dueRecord)
+      const myTotalOutstanding = deviceTotalOutstanding;
 
-      // My Current Due (Over 30 Days) = deviceCurrentDue + overdueRenewalDues
-      const myCurrentDue = deviceCurrentDue + overdueRenewalDues;
+      // My Current Due (Over 30 Days) = deviceCurrentDue (already combines device + renewal overdue in dueRecord)
+      const myCurrentDue = deviceCurrentDue;
 
       return res.json({
         totalOutstandingAmount: myTotalOutstanding,

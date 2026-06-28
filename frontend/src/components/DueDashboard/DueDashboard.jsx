@@ -275,6 +275,18 @@ const DueDashboard = () => {
     }
   }, [location.search, navigate]);
 
+  // Handle action parameter from URL
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const actionVal = searchParams.get('action');
+    if (actionVal === 'pay-outstanding' && summary) {
+      const selfDue = duesList.find(d => d.userId?._id?.toString() === user?._id?.toString() || d.userId?.toString() === user?._id?.toString());
+      openReportPaymentModal(selfDue || { totalOutstanding: summary.totalOutstandingAmount });
+      const tabVal = searchParams.get('tab') || 'dues';
+      navigate(`/due-dashboard?tab=${tabVal}`, { replace: true });
+    }
+  }, [location.search, summary, duesList, user, navigate]);
+
   // Initialize data based on active tab and role
   useEffect(() => {
     fetchSummary();
@@ -359,9 +371,10 @@ const DueDashboard = () => {
   };
 
   // Dealer Report Payment Handlers
-  const openReportPaymentModal = () => {
+  const openReportPaymentModal = (specificDue) => {
+    const targetDue = specificDue || detailsData?.due;
     setReportForm({
-      amount: detailsData?.due?.totalOutstanding ? String(detailsData.due.totalOutstanding) : '',
+      amount: targetDue?.totalOutstanding ? String(targetDue.totalOutstanding) : '',
       paymentMode: 'UPI',
       referenceNumber: '',
       remarks: '',
@@ -645,6 +658,20 @@ const DueDashboard = () => {
             <div className="card-info">
               <span className="card-value">₹{(summary.totalOutstandingAmount || 0).toLocaleString()}</span>
               <span className="card-label">{isListView ? 'Total Outstanding Amount' : 'My Total Outstanding'}</span>
+              {!isAdmin && userRole === 'DEALER' && summary.totalOutstandingAmount > 0 && (
+                <button
+                  type="button"
+                  className="due-action-btn success"
+                  style={{ marginTop: '8px', padding: '4px 10px', fontSize: '11px', alignSelf: 'flex-start' }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const selfDue = duesList.find(d => d.userId?._id?.toString() === user?._id?.toString() || d.userId?.toString() === user?._id?.toString());
+                    openReportPaymentModal(selfDue || { totalOutstanding: summary.totalOutstandingAmount });
+                  }}
+                >
+                  Pay Outstanding
+                </button>
+              )}
             </div>
             <FaRupeeSign className="card-icon" />
           </div>
@@ -830,6 +857,23 @@ const DueDashboard = () => {
                               >
                                 Receive Payment
                               </button>
+                            )}
+                            {!isAdmin && userRole === 'DEALER' && due.totalOutstanding > 0 && (
+                              (due.userId?._id?.toString() === user?._id?.toString() || due.userId?.toString() === user?._id?.toString()) ? (
+                                <button
+                                  className="due-action-btn success"
+                                  onClick={() => openReportPaymentModal(due)}
+                                >
+                                  Report Payment
+                                </button>
+                              ) : (
+                                <button
+                                  className="due-action-btn primary"
+                                  onClick={() => openPaymentModal(due)}
+                                >
+                                  Receive Payment
+                                </button>
+                              )
                             )}
                           </td>
                         </tr>

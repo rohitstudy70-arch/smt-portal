@@ -12,6 +12,9 @@ import {
   FaUsers,
   FaCalendarAlt,
   FaMoneyBillWave,
+  FaPlusCircle,
+  FaBoxOpen,
+  FaCertificate,
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import './Sidebar.css';
@@ -181,11 +184,31 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           </li>
         )}
 
-        {role === 'DEALER' && (
+        {canShow(['ADMIN', 'DEALER', 'SUB_DEALER']) && (
           <li className={`sidebar-menu-item ${location.pathname === '/add-device' ? 'active' : ''}`}>
             <NavLink to="/add-device">
-              <FaMobileAlt className="menu-icon" />
-              <span className="menu-text">Assign Devices</span>
+              {role === 'DEALER' ? (
+                <>
+                  <FaMobileAlt className="menu-icon" />
+                  <span className="menu-text">Assign Devices</span>
+                </>
+              ) : (
+                <>
+                  <FaPlusCircle className="menu-icon" />
+                  <span className="menu-text">Add Device</span>
+                </>
+              )}
+            </NavLink>
+          </li>
+        )}
+
+
+
+        {canShow(['ADMIN', 'DEALER']) && (
+          <li className={`sidebar-menu-item ${location.pathname === '/certificates' ? 'active' : ''}`}>
+            <NavLink to="/certificates">
+              <FaCertificate className="menu-icon" />
+              <span className="menu-text">Certificates</span>
             </NavLink>
           </li>
         )}
