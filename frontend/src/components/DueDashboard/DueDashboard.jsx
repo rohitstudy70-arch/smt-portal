@@ -1220,6 +1220,7 @@ const DueDashboard = () => {
                       <th>Remaining Days</th>
                       <th>Renewal Amount</th>
                       <th>Status</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1238,11 +1239,46 @@ const DueDashboard = () => {
                             {device.status}
                           </span>
                         </td>
+                        <td>
+                          {isAdmin ? (
+                            <button
+                              onClick={() => navigate(`/renewal-due-management?search=${device.imei}`)}
+                              style={{
+                                background: '#3b82f6',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                padding: '4px 8px',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Verify
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => navigate(`/dashboard?view=renewals&imei=${device.imei}`)}
+                              style={{
+                                background: '#10b981',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                padding: '4px 8px',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Pay
+                            </button>
+                          )}
+                        </td>
                       </tr>
                     ))}
                     {renewalsList.length === 0 && (
                       <tr>
-                        <td colSpan={9} className="table-empty">No renewal due devices found.</td>
+                        <td colSpan={10} className="table-empty">No renewal due devices found.</td>
                       </tr>
                     )}
                   </tbody>

@@ -1,10 +1,15 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { FaFileInvoiceDollar, FaSearch, FaTimes, FaCoins, FaDownload, FaPrint, FaEdit } from 'react-icons/fa';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 
 const RenewalDueManagement = () => {
   const { user } = useAuth();
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const initialImei = params.get('search') || '';
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -20,7 +25,7 @@ const RenewalDueManagement = () => {
     fromDate: '',
     toDate: '',
     requestId: '',
-    imei: '',
+    imei: initialImei,
     vehicleNumber: '',
   });
 

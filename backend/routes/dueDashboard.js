@@ -6,6 +6,7 @@ const fs = require('fs');
 const DealerDue = require('../models/DealerDue');
 const Device = require('../models/Device');
 const DuePayment = require('../models/DuePayment');
+const RenewalRequest = require('../models/RenewalRequest');
 const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
 const { protect } = require('../middleware/auth');
@@ -386,6 +387,91 @@ const sendPdf = (res, filename, title, headers, rows) => {
 
 router.get('/summary', async (req, res) => {
   try {
+    const isDealer = req.portalRole === PORTAL_ROLES.DEALER;
+
+    if (isDealer) {
+      const selfId = req.user._id;
+
+      // 1. Sync & get dealer's unpaid device dues.
+      const dueRecord = await syncDueForUser(selfId);
+      const deviceTotalOutstanding = dueRecord ? dueRecord.totalOutstanding || 0 : 0;
+      const deviceCurrentDue = dueRecord ? dueRecord.currentDue || 0 : 0;
+
+      // 2. Renewal dues are unpaid renewal bills. Only overdue renewal dues
+      // are included in the current due card.
+      const renewals = await RenewalRequest.find({
+        dealerId: selfId,
+        status: { $ne: 'Rejected' },
+        paymentStatus: { $ne: 'Cancelled' },
+      }).lean();
+
+      let totalRenewalDues = 0;
+      let overdueRenewalDues = 0;
+
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      renewals.forEach((r) => {
+        const remaining = Number(r.remainingDue) || 0;
+        if (remaining <= 0) return;
+
+        totalRenewalDues += remaining;
+
+        const rDate = new Date(r.renewalDate);
+        if (r.paymentStatus !== 'Paid' && !Number.isNaN(rDate.getTime()) && rDate < thirtyDaysAgo) {
+          overdueRenewalDues += remaining;
+        }
+      });
+
+      // 3. Today's Revenue = Sum of payments received today (Device DuePayment + RenewalRequest receivedAmount)
+      const todayStart = startOfDay();
+      const todayEnd = endOfDay();
+
+      // Today's Device payments
+      const todaysDevicePayments = await sumPayments({
+        userId: selfId,
+        paymentDate: { $gte: todayStart, $lte: todayEnd }
+      });
+
+      // Today's Renewal payments received today (based on paymentDate being today)
+      const todaysRenewalPayments = await RenewalRequest.aggregate([
+        {
+          $match: {
+            dealerId: selfId,
+            status: { $ne: 'Rejected' },
+            paymentStatus: { $ne: 'Cancelled' },
+            paymentDate: { $gte: todayStart, $lte: todayEnd },
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: '$receivedAmount' }
+          }
+        }
+      ]);
+      const todaysRenewalRevenue = todaysRenewalPayments[0]?.total || 0;
+      const todaysTotalRevenue = todaysDevicePayments + todaysRenewalRevenue;
+
+      // My Total Outstanding = Total Dues + Total Renewal Dues
+      const myTotalOutstanding = deviceTotalOutstanding + totalRenewalDues;
+
+      // My Current Due (Over 30 Days) = deviceCurrentDue + overdueRenewalDues
+      const myCurrentDue = deviceCurrentDue + overdueRenewalDues;
+
+      return res.json({
+        totalOutstandingAmount: myTotalOutstanding,
+        totalDueAmount: myCurrentDue,
+        todaysRevenue: todaysTotalRevenue,
+        totalDealers: 0,
+        totalSubDealers: 0,
+        totalPendingDevices: 0,
+        todaysCollection: 0,
+        monthlyCollection: 0,
+        monthlyRevenue: 0
+      });
+    }
+
     const users = await getScopedDueUsers(req);
     const userIds = users.map((user) => user._id);
     const dues = await DealerDue.find({ userId: { $in: userIds } });

@@ -23,7 +23,6 @@ import {
   FaUserTie,
   FaFileInvoiceDollar,
   FaRupeeSign,
-  FaCoins,
   FaChartLine,
   FaBoxOpen,
 } from 'react-icons/fa';
@@ -31,6 +30,7 @@ import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import './CustomerDevicePortal.css';
 import RevenueBreakdownModal from './RevenueBreakdownModal';
+
 
 const emptyUserForm = {
   userType: 'Sub Dealer',
@@ -99,6 +99,9 @@ const statCatalog = {
   activeCustomers: { label: 'Active Customers', icon: FaUsers, tone: 'green' },
   pendingRenewals: { label: 'Pending Renewals', icon: FaRedo, tone: 'violet' },
   totalProducts: { label: 'Total Products', icon: FaBoxOpen, tone: 'blue' },
+  expiringThisMonth: { label: 'Expiring This Month', icon: FaCalendarAlt, tone: 'violet' },
+  totalDues: { label: 'Total Dues', icon: FaRupeeSign, tone: 'red' },
+  totalRenewalDues: { label: 'Total Renewal Dues', icon: FaRupeeSign, tone: 'orange' },
 };
 
 const statKeysByRole = {
@@ -118,7 +121,9 @@ const statKeysByRole = {
     'renewalDueDevices',
     'availableDevices',
     'totalDevices',
-    'totalProducts',
+    'expiringThisMonth',
+    'totalDues',
+    'totalRenewalDues',
   ],
   SUB_DEALER: [
     'availableDevices',
@@ -188,13 +193,13 @@ const CustomerDevicePortal = () => {
   const params = new URLSearchParams(location.search);
   const activeView = params.get('view') || 'dashboard';
   const initialSearch = params.get('search') || '';
+  const initialImei = params.get('imei') || '';
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [summary, setSummary] = useState(null);
   const [dueSummary, setDueSummary] = useState(null);
-  const [renewalDueSummary, setRenewalDueSummary] = useState(null);
   const [dealers, setDealers] = useState([]);
   const [deviceDealerOptions, setDeviceDealerOptions] = useState([]);
   const [subDealers, setSubDealers] = useState([]);
@@ -231,7 +236,7 @@ const CustomerDevicePortal = () => {
     dealerId: '',
     status: '',
     customerName: '',
-    imei: '',
+    imei: initialImei,
     vehicleNumber: '',
     fromDate: '',
     toDate: '',
@@ -434,9 +439,7 @@ const CustomerDevicePortal = () => {
         renewalsRes,
         reportsRes,
         loginLogsRes,
-        deviceDealersRes,
         dueSummaryRes,
-        renewalDueSummaryRes,
       ] = await Promise.all([
         api.get('/portal/summary'),
         canManageUsers ? api.get('/portal/users', { params: { type: 'dealer' } }) : Promise.resolve({ data: [] }),
@@ -447,14 +450,11 @@ const CustomerDevicePortal = () => {
         api.get('/portal/renewals'),
         api.get('/portal/reports'),
         canManageUsers ? api.get('/portal/login-logs').catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
-        canManageUsers ? api.get('/users/dealers').catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
         isOps ? api.get('/due-dashboard/summary').catch(() => ({ data: null })) : Promise.resolve({ data: null }),
-        api.get('/portal/renewals/due-summary').catch(() => ({ data: null })),
       ]);
 
       setSummary(summaryRes.data);
       setDueSummary(dueSummaryRes?.data || null);
-      setRenewalDueSummary(renewalDueSummaryRes?.data || null);
       setDealers(dealersRes.data || []);
       setUsers(usersRes.data || []);
       setCustomers(customersRes.data || []);
@@ -492,6 +492,10 @@ const CustomerDevicePortal = () => {
 
   useEffect(() => {
     loadPortalData();
+    const interval = setInterval(() => {
+      loadPortalData();
+    }, 30000);
+    return () => clearInterval(interval);
   }, [loadPortalData]);
 
   useEffect(() => {
@@ -1115,6 +1119,13 @@ const CustomerDevicePortal = () => {
       case 'totalProducts':
         navigate('/add-product');
         break;
+      case 'totalDues':
+      case 'totalRenewalDues':
+        navigate('/due-dashboard');
+        break;
+      case 'expiringThisMonth':
+        navigate('/due-dashboard?tab=renewals&filter=expiringThisMonth');
+        break;
       default:
         break;
     }
@@ -1127,6 +1138,11 @@ const CustomerDevicePortal = () => {
         {keys.map((key) => {
           const item = statCatalog[key];
           const Icon = item.icon;
+          const isCurrency = ['totalDues', 'totalRenewalDues'].includes(key);
+          const rawValue = summary?.[key] ?? 0;
+          const displayValue = isCurrency 
+            ? `₹${Number(rawValue).toLocaleString('en-IN')}` 
+            : rawValue;
           return (
             <div 
               className={`portal-stat stat-${item.tone}`} 
@@ -1135,7 +1151,7 @@ const CustomerDevicePortal = () => {
               style={{ cursor: 'pointer' }}
             >
               <div>
-                <span className="portal-stat-value">{summary?.[key] ?? 0}</span>
+                <span className="portal-stat-value">{displayValue}</span>
                 <span className="portal-stat-label">{item.label}</span>
               </div>
               <Icon className="portal-stat-icon" />
@@ -1147,7 +1163,7 @@ const CustomerDevicePortal = () => {
   };
 
   const renderDashboard = () => {
-    const isOps = true;
+    const isOps = ['ADMIN', 'DEALER', 'SUB_DEALER'].includes(role);
     return (
       <div className="portal-stack" key="view-dashboard">
         {renderStats()}
@@ -1170,7 +1186,7 @@ const CustomerDevicePortal = () => {
                 >
                   <div>
                     <span className="portal-stat-value">₹{(dueSummary.totalOutstandingAmount || 0).toLocaleString()}</span>
-                    <span className="portal-stat-label">{isAdmin ? 'Total Outstanding Amount' : 'My Total Outstanding'}</span>
+                    <span className="portal-stat-label">My Total Outstanding</span>
                   </div>
                   <FaRupeeSign className="portal-stat-icon" />
                 </div>
@@ -1182,204 +1198,28 @@ const CustomerDevicePortal = () => {
                 >
                   <div>
                     <span className="portal-stat-value">₹{(dueSummary.totalDueAmount || 0).toLocaleString()}</span>
-                    <span className="portal-stat-label">{isAdmin ? 'Total Due Amount (Over 30 Days)' : 'My Current Due (Over 30 Days)'}</span>
+                    <span className="portal-stat-label">My Current Due (Over 30 Days)</span>
                   </div>
                   <FaRupeeSign className="portal-stat-icon" />
-                </div>
-
-                {isAdmin && (
-                  <div 
-                    className="portal-stat stat-green"
-                    onClick={() => navigate('/due-dashboard?tab=verifications&filter=today')}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <div>
-                      <span className="portal-stat-value">₹{(dueSummary.todaysCollection || 0).toLocaleString()}</span>
-                      <span className="portal-stat-label">Today's Collection</span>
-                    </div>
-                    <FaRupeeSign className="portal-stat-icon" />
-                  </div>
-                )}
-
-                {isAdmin && (
-                  <div 
-                    className="portal-stat stat-blue"
-                    onClick={() => navigate('/due-dashboard?tab=verifications&filter=month')}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <div>
-                      <span className="portal-stat-value">₹{(dueSummary.monthlyCollection || 0).toLocaleString()}</span>
-                      <span className="portal-stat-label">Monthly Collection</span>
-                    </div>
-                    <FaCoins className="portal-stat-icon" />
-                  </div>
-                )}
-
-                {isOps && dueSummary && (
-                  <div 
-                    className="portal-stat stat-violet" 
-                    onClick={() => { setRevenueModalTab('today'); setIsRevenueModalOpen(true); }}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <div>
-                      <span className="portal-stat-value">₹{(dueSummary.todaysRevenue || 0).toLocaleString()}</span>
-                      <span className="portal-stat-label">Today's Revenue</span>
-                    </div>
-                    <FaChartLine className="portal-stat-icon" />
-                  </div>
-                )}
-
-                {isAdmin && (
-                  <div 
-                    className="portal-stat stat-slate"
-                    onClick={() => { setRevenueModalTab('month'); setIsRevenueModalOpen(true); }}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <div>
-                      <span className="portal-stat-value">₹{(dueSummary.monthlyRevenue || 0).toLocaleString()}</span>
-                      <span className="portal-stat-label">Monthly Revenue</span>
-                    </div>
-                    <FaChartLine className="portal-stat-icon" />
-                  </div>
-                )}
-
-                <div 
-                  className="portal-stat stat-amber" 
-                  onClick={() => navigate('/due-dashboard?tab=renewals')} 
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div style={{ width: '100%' }}>
-                    <span className="portal-stat-value">{summary?.renewalDueDevices ?? 0}</span>
-                    <div style={{ display: 'flex', justifyContent: 'between', alignItems: 'center', width: '100%' }}>
-                      <span className="portal-stat-label">Renewal Due Devices</span>
-                    </div>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate('/due-dashboard?tab=renewals');
-                      }}
-                      style={{
-                        marginTop: '8px',
-                        background: 'var(--primary-blue)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        padding: '4px 8px',
-                        fontSize: '11px',
-                        fontWeight: '700',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      View All
-                    </button>
-                  </div>
-                  <FaCalendarAlt className="portal-stat-icon" />
-                </div>
-
-                <div 
-                  className="portal-stat stat-violet"
-                  onClick={() => navigate('/due-dashboard?tab=renewals&filter=expiringThisMonth')}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div>
-                    <span className="portal-stat-value">{summary?.renewalDueDevices ?? 0}</span>
-                    <span className="portal-stat-label">Expiring This Month</span>
-                  </div>
-                  <FaHistory className="portal-stat-icon" />
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {renewalDueSummary ? (
-          <div className="portal-panel" style={{ marginTop: '20px' }} key="renewal-due-summary-panel">
-            <div className="portal-panel-header" style={{ borderTop: '4px solid #8b5cf6' }}>
-              <div>
-                <h2>Renewal Due Overview</h2>
-                <span>Outstanding renewal dues and collection records</span>
-              </div>
-              <FaFileInvoiceDollar className="portal-panel-icon" style={{ color: '#8b5cf6' }} />
-            </div>
-            <div style={{ padding: '16px' }}>
-              <div className="portal-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '15px' }}>
-                <div 
-                  className="portal-stat stat-red" 
-                  onClick={() => navigate(userRole === 'ADMIN' ? '/renewal-due-management' : '/dashboard?view=renewals')} 
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div>
-                    <span className="portal-stat-value">₹{(renewalDueSummary.totalDue || 0).toLocaleString()}</span>
-                    <span className="portal-stat-label">Total Renewal Due</span>
-                  </div>
-                  <FaRupeeSign className="portal-stat-icon" />
-                </div>
-
-                <div 
-                  className="portal-stat stat-blue" 
-                  onClick={() => navigate(userRole === 'ADMIN' ? '/renewal-due-management' : '/dashboard?view=renewals')} 
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div>
-                    <span className="portal-stat-value">{(renewalDueSummary.pendingRequestsCount || 0)}</span>
-                    <span className="portal-stat-label">Pending Renewal Requests</span>
-                  </div>
-                  <FaFileInvoiceDollar className="portal-stat-icon" />
-                </div>
-
-                <div 
-                  className="portal-stat stat-green" 
-                  onClick={() => navigate(userRole === 'ADMIN' ? '/renewal-due-management' : '/dashboard?view=renewals')} 
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div>
-                    <span className="portal-stat-value">{(renewalDueSummary.paidRequestsCount || 0)}</span>
-                    <span className="portal-stat-label">Paid Renewal Requests</span>
-                  </div>
-                  <FaFileInvoiceDollar className="portal-stat-icon" />
                 </div>
 
                 <div 
                   className="portal-stat stat-violet" 
-                  onClick={() => navigate(userRole === 'ADMIN' ? '/renewal-due-management' : '/dashboard?view=renewals')} 
+                  onClick={() => { setRevenueModalTab('today'); setIsRevenueModalOpen(true); }}
                   style={{ cursor: 'pointer' }}
                 >
                   <div>
-                    <span className="portal-stat-value">{(renewalDueSummary.overdueRequestsCount || 0)}</span>
-                    <span className="portal-stat-label">Overdue Requests</span>
+                    <span className="portal-stat-value">₹{(dueSummary.todaysRevenue || 0).toLocaleString()}</span>
+                    <span className="portal-stat-label">Today's Revenue</span>
                   </div>
-                  <FaFileInvoiceDollar className="portal-stat-icon" />
-                </div>
-
-                <div 
-                  className="portal-stat stat-amber" 
-                  onClick={() => navigate(userRole === 'ADMIN' ? '/renewal-due-management' : '/dashboard?view=renewals')} 
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div>
-                    <span className="portal-stat-value">₹{(renewalDueSummary.pendingDue || 0).toLocaleString()}</span>
-                    <span className="portal-stat-label">Pending Renewal Amount</span>
-                  </div>
-                  <FaRupeeSign className="portal-stat-icon" />
-                </div>
-
-                <div 
-                  className="portal-stat stat-green" 
-                  onClick={() => navigate(userRole === 'ADMIN' ? '/renewal-due-management' : '/dashboard?view=renewals')} 
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div>
-                    <span className="portal-stat-value">₹{(renewalDueSummary.paidAmount || 0).toLocaleString()}</span>
-                    <span className="portal-stat-label">Paid Renewal Amount</span>
-                  </div>
-                  <FaRupeeSign className="portal-stat-icon" />
+                  <FaChartLine className="portal-stat-icon" />
                 </div>
               </div>
             </div>
           </div>
         ) : null}
 
-        {(role === 'ADMIN' || role === 'DEALER' || role === 'SUB_DEALER') ? (
+        {(role === 'ADMIN' || role === 'SUB_DEALER') ? (
           <div className="portal-dashboard-actions" key="add-device-actions">
             <Link className="portal-dashboard-card" to="/add-device">
               <FaPlus className="portal-dashboard-card-icon" />
@@ -1719,29 +1559,31 @@ const CustomerDevicePortal = () => {
     return (
       <form className="portal-form" onSubmit={addDevice}>
         <div className="portal-form-grid device-grid">
-          <label>
-            <span>Dealer Name</span>
-            <select
-              value={deviceForm.dealerId}
-              onChange={(event) => {
-                const dealer = deviceDealerOptions.find((item) => item._id === event.target.value);
-                setDeviceForm((current) => ({
-                  ...current,
-                  dealerId: dealer?._id || '',
-                  dealerName: dealer ? getName(dealer) : '',
-                  subDealerId: '',
-                  subDealerName: '',
-                  assignedTo: '',
-                }));
-              }}
-              required
-            >
-              <option value="">Select dealer</option>
-              {deviceDealerOptions.map((dealer) => (
-                <option value={dealer._id} key={dealer._id}>{getName(dealer)}</option>
-              ))}
-            </select>
-          </label>
+          {role === 'ADMIN' && (
+            <label>
+              <span>Dealer Name</span>
+              <select
+                value={deviceForm.dealerId}
+                onChange={(event) => {
+                  const dealer = deviceDealerOptions.find((item) => item._id === event.target.value);
+                  setDeviceForm((current) => ({
+                    ...current,
+                    dealerId: dealer?._id || '',
+                    dealerName: dealer ? getName(dealer) : '',
+                    subDealerId: '',
+                    subDealerName: '',
+                    assignedTo: '',
+                  }));
+                }}
+                required
+              >
+                <option value="">Select dealer</option>
+                {deviceDealerOptions.map((dealer) => (
+                  <option value={dealer._id} key={dealer._id}>{getName(dealer)}</option>
+                ))}
+              </select>
+            </label>
+          )}
           {(role === 'ADMIN' || role === 'DEALER') && (
             <label>
               <span>Sub Dealer Name</span>
@@ -1820,7 +1662,7 @@ const CustomerDevicePortal = () => {
           </label>
         </div>
         <div className="portal-actions">
-          <button className="portal-primary" type="submit"><FaSave /> Save Device</button>
+          <button className="portal-primary" type="submit"><FaSave /> {role === 'DEALER' ? 'Assign Device' : 'Save Device'}</button>
           <button type="button" onClick={() => setDeviceForm(emptyDeviceForm)}><FaRedo /> Reset</button>
         </div>
       </form>
@@ -2013,8 +1855,8 @@ const CustomerDevicePortal = () => {
         <section className="portal-panel">
           <div className="portal-panel-header">
             <div>
-              <h2>Add Device</h2>
-              <span>SIM and validity details</span>
+              <h2>{role === 'DEALER' ? 'Assign Device to Sub Dealer' : 'Add Device'}</h2>
+              <span>{role === 'DEALER' ? 'Enter device details to assign to sub dealer' : 'SIM and validity details'}</span>
             </div>
             <FaMobileAlt className="portal-panel-icon" />
           </div>
@@ -2029,7 +1871,7 @@ const CustomerDevicePortal = () => {
           <section className="portal-panel">
             <div className="portal-panel-header">
               <div>
-                <h2>Bulk Upload Devices</h2>
+                <h2>{role === 'DEALER' ? 'Bulk Assign Devices' : 'Bulk Upload Devices'}</h2>
                 <span>CSV rows with IMEI, ICCID, Serial No</span>
               </div>
               <FaCloudUploadAlt className="portal-panel-icon" />
@@ -2048,7 +1890,7 @@ const CustomerDevicePortal = () => {
           <section className="portal-panel">
             <div className="portal-panel-header">
               <div>
-                <h2>Transfer Device</h2>
+                <h2>{role === 'DEALER' ? 'Reassign / Transfer Device' : 'Transfer Device'}</h2>
                 <span>Device assignment history</span>
               </div>
               <FaExchangeAlt className="portal-panel-icon" />
@@ -2338,7 +2180,7 @@ const CustomerDevicePortal = () => {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', padding: '24px' }}>
           {[
-            {
+            ...(userRole === 'ADMIN' ? [{
               label: 'Dealer',
               element: (
                 <select 
@@ -2352,7 +2194,7 @@ const CustomerDevicePortal = () => {
                   ))}
                 </select>
               )
-            },
+            }] : []),
             {
               label: 'Status',
               element: (

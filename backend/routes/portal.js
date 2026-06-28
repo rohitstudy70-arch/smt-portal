@@ -10,6 +10,7 @@ const { protect } = require('../middleware/auth');
 const {
   getDueOwnerIdsFromDevice,
   syncDueForScope,
+  syncDueForUser,
   syncDueForUsers,
 } = require('../services/dueService');
 
@@ -295,22 +296,108 @@ router.get('/summary', protect, async (req, res) => {
       Product.countDocuments(productScopeQuery),
     ]);
 
+    let dashboardTotalDevices = totalDevices;
+    let dashboardAssignedDevices = assignedDevices;
+    let dashboardActiveDevices = activeDevices;
+    let dashboardAvailableDevices = availableDevices;
+    let dashboardRenewalDueDevices = renewalDueDevices;
+    let expiringThisMonth = 0;
+    let totalDues = 0;
+    let totalRenewalDues = 0;
+
+    if (scope.role === 'DEALER') {
+      const selfId = req.user._id;
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+      const dealerDeviceQuery = {
+        $or: [
+          { dealerId: selfId },
+          { userId: selfId },
+        ],
+      };
+
+      const unpaidRenewalQuery = {
+        dealerId: selfId,
+        status: { $ne: 'Rejected' },
+        paymentStatus: { $in: ['Pending', 'Partially Paid'] },
+      };
+
+      const [
+        dealerAssignedCount,
+        dealerActivatedCount,
+        dealerExpiringThisMonth,
+        renewalDueDeviceImeis,
+        renewalDueSummary,
+        dueRecord,
+      ] = await Promise.all([
+        Device.countDocuments(dealerDeviceQuery),
+        Device.countDocuments({
+          $and: [
+            dealerDeviceQuery,
+            {
+              $or: [
+                { status: { $in: ['Active', 'Activated'] } },
+                { deviceStatus: 'active' },
+                { activationRequestStatus: 'active' },
+              ],
+            },
+          ],
+        }),
+        Device.countDocuments({
+          $and: [
+            dealerDeviceQuery,
+            { expiryDate: { $gte: monthStart, $lte: monthEnd } },
+          ],
+        }),
+        RenewalRequest.distinct('imei', unpaidRenewalQuery),
+        RenewalRequest.aggregate([
+          {
+            $match: {
+              dealerId: selfId,
+              status: { $ne: 'Rejected' },
+              paymentStatus: { $ne: 'Cancelled' },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              total: { $sum: { $ifNull: ['$remainingDue', 0] } },
+            },
+          },
+        ]),
+        syncDueForUser(selfId),
+      ]);
+
+      dashboardTotalDevices = dealerAssignedCount;
+      dashboardAssignedDevices = dealerAssignedCount;
+      dashboardActiveDevices = dealerActivatedCount;
+      dashboardAvailableDevices = Math.max(dealerAssignedCount - dealerActivatedCount, 0);
+      dashboardRenewalDueDevices = renewalDueDeviceImeis.length;
+      expiringThisMonth = dealerExpiringThisMonth;
+      totalDues = Number(dueRecord?.totalOutstanding) || 0;
+      totalRenewalDues = Number(renewalDueSummary[0]?.total) || 0;
+    }
+
     res.json({
       role: scope.role,
       totalDealers: dealers.length,
       totalSubDealers: subDealers.length,
       totalCustomers: customerKeys.size,
-      totalDevices,
-      activeDevices,
+      totalDevices: dashboardTotalDevices,
+      activeDevices: dashboardActiveDevices,
       expiredDevices,
       devicesAddedToday,
-      renewalDueDevices,
-      assignedDevices,
-      availableDevices,
+      renewalDueDevices: dashboardRenewalDueDevices,
+      assignedDevices: dashboardAssignedDevices,
+      availableDevices: dashboardAvailableDevices,
       activeCustomers: customerRecords.filter((item) => item.status !== 'Inactive').length,
       totalRenewals,
       pendingRenewals,
       totalProducts,
+      expiringThisMonth,
+      totalDues,
+      totalRenewalDues,
     });
   } catch (error) {
     console.error('Portal summary error:', error.message);
@@ -1564,4 +1651,146 @@ router.get('/login-logs', protect, async (req, res) => {
   }
 });
 
+// ─── DEALER DASHBOARD SUMMARY ──────────────────────────────────────────────
+// @route   GET /api/portal/dealer-dashboard-summary
+// @desc    Returns renewal-focused dashboard metrics strictly for the logged-in dealer.
+//          Also usable by ADMIN (scoped to full dataset) but primarily for DEALER.
+// @access  Protected
+router.get('/dealer-dashboard-summary', protect, async (req, res) => {
+  try {
+    const scope = await getScope(req.user);
+    const role = scope.role;
+
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(now);
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const renewalQuery = role === 'DEALER'
+      ? { dealerId: req.user._id }
+      : role === 'SUB_DEALER'
+        ? { userId: req.user._id }
+        : {};
+
+    const deviceQuery = role === 'DEALER'
+      ? { $or: [{ dealerId: req.user._id }, { userId: req.user._id }] }
+      : role === 'SUB_DEALER'
+        ? { $or: [{ subDealerId: req.user._id }, { userId: req.user._id }] }
+        : {};
+
+    const unpaidRenewalQuery = {
+      ...renewalQuery,
+      status: { $ne: 'Rejected' },
+      paymentStatus: { $in: ['Pending', 'Partially Paid'] },
+    };
+
+    const [
+      assignedDevices,
+      activatedDevices,
+      expiringThisMonth,
+      renewalDueDeviceImeis,
+      renewalDueSummary,
+      overdueRenewalSummary,
+      todaysRenewalSummary,
+      dueRecord,
+    ] = await Promise.all([
+      Device.countDocuments(deviceQuery),
+      Device.countDocuments({
+        $and: [
+          deviceQuery,
+          {
+            $or: [
+              { status: { $in: ['Active', 'Activated'] } },
+              { deviceStatus: 'active' },
+              { activationRequestStatus: 'active' },
+            ],
+          },
+        ],
+      }),
+      Device.countDocuments({
+        $and: [
+          deviceQuery,
+          { expiryDate: { $gte: monthStart, $lte: monthEnd } },
+        ],
+      }),
+      RenewalRequest.distinct('imei', unpaidRenewalQuery),
+      RenewalRequest.aggregate([
+        {
+          $match: {
+            ...renewalQuery,
+            status: { $ne: 'Rejected' },
+            paymentStatus: { $ne: 'Cancelled' },
+          },
+        },
+        { $group: { _id: null, total: { $sum: { $ifNull: ['$remainingDue', 0] } } } },
+      ]),
+      RenewalRequest.aggregate([
+        {
+          $match: {
+            ...unpaidRenewalQuery,
+            renewalDate: { $lt: thirtyDaysAgo },
+          },
+        },
+        { $group: { _id: null, total: { $sum: { $ifNull: ['$remainingDue', 0] } } } },
+      ]),
+      RenewalRequest.aggregate([
+        {
+          $match: {
+            ...renewalQuery,
+            status: { $ne: 'Rejected' },
+            paymentStatus: { $ne: 'Cancelled' },
+            paymentDate: { $gte: todayStart, $lte: todayEnd },
+          },
+        },
+        { $group: { _id: null, total: { $sum: { $ifNull: ['$receivedAmount', 0] } } } },
+      ]),
+      ['DEALER', 'SUB_DEALER'].includes(role) ? syncDueForUser(req.user._id) : Promise.resolve(null),
+    ]);
+
+    const totalDues = Number(dueRecord?.totalOutstanding) || 0;
+    const totalRenewalDues = Number(renewalDueSummary[0]?.total) || 0;
+    const todaysDeviceRevenue = ['DEALER', 'SUB_DEALER'].includes(role)
+      ? await DuePayment.aggregate([
+        {
+          $match: {
+            userId: req.user._id,
+            paymentDate: { $gte: todayStart, $lte: todayEnd },
+          },
+        },
+        { $group: { _id: null, total: { $sum: '$amount' } } },
+      ]).then((rows) => rows[0]?.total || 0)
+      : 0;
+
+    const latestRenewals = await RenewalRequest.find(renewalQuery)
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean();
+
+    res.json({
+      role,
+      assignedDevices,
+      totalSubDealers: scope.users.filter((item) => getPortalRole(item) === 'SUB_DEALER').length,
+      renewalDueDevices: renewalDueDeviceImeis.length,
+      availableDevices: Math.max(assignedDevices - activatedDevices, 0),
+      totalDevices: assignedDevices,
+      expiringThisMonth,
+      totalDues,
+      totalRenewalDues,
+      totalRenewalDue: totalRenewalDues,
+      myTotalOutstanding: totalDues + totalRenewalDues,
+      myCurrentDue: (Number(dueRecord?.currentDue) || 0) + (Number(overdueRenewalSummary[0]?.total) || 0),
+      todaysRevenue: todaysDeviceRevenue + (Number(todaysRenewalSummary[0]?.total) || 0),
+      latestRenewals,
+    });
+  } catch (error) {
+    console.error('Dealer dashboard summary error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;
+

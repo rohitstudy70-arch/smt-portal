@@ -1,20 +1,17 @@
 import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  FaCertificate,
   FaChevronRight,
   FaClipboardList,
   FaCog,
   FaFileInvoiceDollar,
   FaKey,
   FaMobileAlt,
-  FaPlusCircle,
   FaTachometerAlt,
   FaUserEdit,
   FaUsers,
   FaCalendarAlt,
   FaMoneyBillWave,
-  FaBoxOpen,
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import './Sidebar.css';
@@ -175,7 +172,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           </li>
         )}
 
-        {canShow(['ADMIN', 'DEALER']) && (
+        {role === 'ADMIN' && (
           <li className={`sidebar-menu-item ${isDeviceViewActive ? 'active' : ''}`}>
             <NavLink to="/dashboard?view=devices">
               <FaMobileAlt className="menu-icon" />
@@ -184,32 +181,15 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           </li>
         )}
 
-        {canShow(['ADMIN', 'DEALER', 'SUB_DEALER']) && (
+        {role === 'DEALER' && (
           <li className={`sidebar-menu-item ${location.pathname === '/add-device' ? 'active' : ''}`}>
             <NavLink to="/add-device">
-              <FaPlusCircle className="menu-icon" />
-              <span className="menu-text">Add Device</span>
+              <FaMobileAlt className="menu-icon" />
+              <span className="menu-text">Assign Devices</span>
             </NavLink>
           </li>
         )}
 
-        {canShow(['ADMIN', 'DEALER']) && (
-          <li className={`sidebar-menu-item ${location.pathname === '/add-product' ? 'active' : ''}`}>
-            <NavLink to="/add-product">
-              <FaBoxOpen className="menu-icon" />
-              <span className="menu-text">{role === 'ADMIN' ? 'Add Product' : 'Products'}</span>
-            </NavLink>
-          </li>
-        )}
-
-        {canShow(['ADMIN', 'DEALER']) && (
-          <li className={`sidebar-menu-item ${location.pathname === '/certificates' ? 'active' : ''}`}>
-            <NavLink to="/certificates">
-              <FaCertificate className="menu-icon" />
-              <span className="menu-text">Certificates</span>
-            </NavLink>
-          </li>
-        )}
       </ul>
     </div>
   );

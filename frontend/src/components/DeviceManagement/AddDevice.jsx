@@ -382,51 +382,53 @@ const AddDevice = () => {
       <div className="add-device-card">
         <div className="add-device-header">
           <FaMobileAlt className="header-icon" />
-          <span>{editingDeviceId ? 'EDIT DEVICE' : 'ADD NEW DEVICE'}</span>
+          <span>{editingDeviceId ? 'EDIT DEVICE' : (role === 'DEALER' ? 'ASSIGN DEVICE TO SUB DEALER' : 'ADD NEW DEVICE')}</span>
         </div>
 
         <form className="add-device-form" onSubmit={handleSubmit}>
           <div className="form-grid">
-            <div className={`form-group ${errors.dealerId ? 'has-error' : ''}`}>
-              <label>Dealer Name <span className="required">*</span></label>
-              <div className="searchable-dropdown" ref={dropdownRef}>
-                <div
-                  className="dropdown-trigger"
-                  onClick={() => dealers.length > 1 && setDealerDropdownOpen(!dealerDropdownOpen)}
-                >
-                  <span className={formData.dealerName ? '' : 'placeholder'}>
-                    {formData.dealerName || 'Select Dealer'}
-                  </span>
-                  <FaChevronDown className={`dropdown-arrow ${dealerDropdownOpen ? 'open' : ''}`} />
-                </div>
-                {dealerDropdownOpen && (
-                  <div className="dropdown-menu">
-                    <div className="dropdown-search">
-                      <FaSearch className="search-icon" />
-                      <input
-                        type="text"
-                        placeholder="Search dealer..."
-                        value={dealerSearch}
-                        onChange={(event) => setDealerSearch(event.target.value)}
-                        autoFocus
-                      />
-                    </div>
-                    <ul className="dropdown-list">
-                      {filteredDealers.length > 0 ? (
-                        filteredDealers.map((dealer) => (
-                          <li key={dealer._id} onClick={() => selectDealer(dealer)}>
-                            {getName(dealer)}
-                          </li>
-                        ))
-                      ) : (
-                        <li className="no-results">No dealers found</li>
-                      )}
-                    </ul>
+            {role === 'ADMIN' && (
+              <div className={`form-group ${errors.dealerId ? 'has-error' : ''}`}>
+                <label>Dealer Name <span className="required">*</span></label>
+                <div className="searchable-dropdown" ref={dropdownRef}>
+                  <div
+                    className="dropdown-trigger"
+                    onClick={() => dealers.length > 1 && setDealerDropdownOpen(!dealerDropdownOpen)}
+                  >
+                    <span className={formData.dealerName ? '' : 'placeholder'}>
+                      {formData.dealerName || 'Select Dealer'}
+                    </span>
+                    <FaChevronDown className={`dropdown-arrow ${dealerDropdownOpen ? 'open' : ''}`} />
                   </div>
-                )}
+                  {dealerDropdownOpen && (
+                    <div className="dropdown-menu">
+                      <div className="dropdown-search">
+                        <FaSearch className="search-icon" />
+                        <input
+                          type="text"
+                          placeholder="Search dealer..."
+                          value={dealerSearch}
+                          onChange={(event) => setDealerSearch(event.target.value)}
+                          autoFocus
+                        />
+                      </div>
+                      <ul className="dropdown-list">
+                        {filteredDealers.length > 0 ? (
+                          filteredDealers.map((dealer) => (
+                            <li key={dealer._id} onClick={() => selectDealer(dealer)}>
+                              {getName(dealer)}
+                            </li>
+                          ))
+                        ) : (
+                          <li className="no-results">No dealers found</li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+                {errors.dealerId && <span className="error-text">{errors.dealerId}</span>}
               </div>
-              {errors.dealerId && <span className="error-text">{errors.dealerId}</span>}
-            </div>
+            )}
 
             {(role === 'ADMIN' || role === 'DEALER') && (
               <div className="form-group">
@@ -614,7 +616,7 @@ const AddDevice = () => {
               </button>
             )}
             <button type="submit" className="btn-save" disabled={submitting}>
-              <FaSave /> {submitting ? 'Saving...' : editingDeviceId ? 'Update Device' : 'Save Device'}
+              <FaSave /> {submitting ? 'Saving...' : editingDeviceId ? 'Update Device' : (role === 'DEALER' ? 'Assign Device' : 'Save Device')}
             </button>
           </div>
         </form>
