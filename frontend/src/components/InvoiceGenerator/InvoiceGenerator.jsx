@@ -21,14 +21,8 @@ const DEFAULT_INVOICE_ITEMS = [
   {
     description: 'VLTD',
     validity: '12 Month',
-    priceWithGst: 4300,
-    qty: 1
-  },
-  {
-    description: 'GPS',
-    validity: '12 Month',
-    priceWithGst: 1500,
-    qty: 1
+    priceWithGst: 2370,
+    qty: 10
   }
 ];
 

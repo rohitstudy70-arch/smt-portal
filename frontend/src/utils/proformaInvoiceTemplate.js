@@ -157,9 +157,9 @@ const getFallbackItems = (invoice = {}) => {
 
   return [{
     description: 'TS-A-Commercial Plan-1 Year-A/B',
-    unitPrice: 4300,
+    priceWithGst: 2370,
     gstRate: 18,
-    qty: 1,
+    qty: 10,
   }];
 };
 
@@ -182,36 +182,26 @@ export const buildProformaInvoiceData = (invoice = {}) => {
   const sourceItems = Array.isArray(invoice.items) && invoice.items.length > 0 ? invoice.items : getFallbackItems(invoice);
 
   let subtotal = 0;
-  let sgst = 0;
-  let cgst = 0;
-  let igst = 0;
+  let taxAmount = 0;
 
   const items = sourceItems.map((item, index) => {
     const qty = parseQty(item.qty);
     const priceWithGst = roundCurrency(item.priceWithGst || (item.unitPrice * (1 + (getItemGstRate(item) / 100))));
+    
+    // Total inclusive of GST for this item
+    const itemTotalWithGst = roundCurrency(priceWithGst * qty);
+    
+    // Base unit price (exclusive of GST)
     const unitPrice = roundCurrency(priceWithGst / 1.18);
-    const gstAmount = roundCurrency(priceWithGst - unitPrice);
-    const total = roundCurrency(unitPrice * qty);
-
-    let cgstRate = 0;
-    let sgstRate = 0;
-    let igstRate = 0;
-
-    if (isIntraState) {
-      cgstRate = 9;
-      sgstRate = 9;
-    } else {
-      igstRate = 18;
-    }
-
-    const cgstAmount = roundCurrency((total * cgstRate) / 100);
-    const sgstAmount = roundCurrency((total * sgstRate) / 100);
-    const igstAmount = roundCurrency((total * igstRate) / 100);
+    
+    // Total base price (exclusive of GST) for this item
+    const total = roundCurrency(itemTotalWithGst / 1.18);
+    
+    // GST amount for this item
+    const gstAmount = roundCurrency(itemTotalWithGst - total);
 
     subtotal = roundCurrency(subtotal + total);
-    cgst = roundCurrency(cgst + cgstAmount);
-    sgst = roundCurrency(sgst + sgstAmount);
-    igst = roundCurrency(igst + igstAmount);
+    taxAmount = roundCurrency(taxAmount + gstAmount);
 
     return {
       index: index + 1,
@@ -219,14 +209,25 @@ export const buildProformaInvoiceData = (invoice = {}) => {
       qty,
       priceWithGst,
       unitPrice,
-      gstAmount,
+      gstAmount: roundCurrency(priceWithGst - unitPrice),
       total,
     };
   });
 
-  const taxAmount = roundCurrency(sgst + cgst + igst);
   const total = roundCurrency(subtotal + taxAmount);
   const piNo = invoice.piNo || invoice.invoiceNo || 'AE_PI_001';
+
+  // Split the total tax amount between CGST/SGST or IGST
+  let cgst = 0;
+  let sgst = 0;
+  let igst = 0;
+
+  if (isIntraState) {
+    cgst = roundCurrency(taxAmount / 2);
+    sgst = roundCurrency(taxAmount - cgst);
+  } else {
+    igst = taxAmount;
+  }
 
   return {
     sender,
