@@ -30,12 +30,12 @@ const TERMS = [
   'Courier if any to be paid by customer.',
   'Standard Force Majeure will apply. (No warranty of burnt damaged goods)',
   "If any service is required during the year, then it's charges @INR500 per unit will be applicable.",
-  'Software & Platform charges will be applicable from 2nd year onwards @INR1550+GST per unit / per year.',
+  'Software & Platform charges will be applicable from 2nd year onwards.',
 ];
 
 const FAB_LIST = [
   'Multiple Mobile Access.',
-  'Real time Track your Vehicle Anywhere via your Mob & Pc.',
+  'Real time Track your Vehicle Anywhere via your Mob & PC.',
   'Direction /Speed & Ignition On/Off Detection.',
   'Ignition Cut off Alarm.',
   'Multiple Geo-Fence setup & alarm.',
@@ -48,7 +48,7 @@ export const toNumber = (value) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-export const roundCurrency = (value) => Math.round((toNumber(value) + Number.EPSILON) * 100) / 100;
+export const roundCurrency = (value) => Math.round(toNumber(value));
 
 export const parseQty = (value) => {
   const parsed = parseInt(value, 10);
@@ -535,7 +535,7 @@ ${itemsHtml}${renderEmptyRowsHtml(data.emptyRows)}
         <div class="total-amount">INR ${formatCurrency(data.totals.total)}</div>
       </div>
       <div class="fab-container" style="margin-top:20px">
-        <div class="section-title">Features &amp; Benefits (FaB)</div>
+        <div class="section-title">Features &amp; Benefits</div>
         <ul class="tc-list" style="margin-bottom:0">
           ${data.fabList.map((fab) => `
             <li class="tc-item">
