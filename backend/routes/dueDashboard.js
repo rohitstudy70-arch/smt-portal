@@ -918,4 +918,95 @@ router.get('/revenue-breakdown', async (req, res) => {
   }
 });
 
+router.post('/renew-device', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
+  try {
+    const { deviceId, validity } = req.body;
+    if (!deviceId) {
+      return res.status(400).json({ message: 'Device ID is required.' });
+    }
+    if (!['1 Year', '2 Years'].includes(validity)) {
+      return res.status(400).json({ message: 'Validity must be 1 Year or 2 Years.' });
+    }
+
+    const device = await Device.findById(deviceId);
+    if (!device) {
+      return res.status(404).json({ message: 'Device not found.' });
+    }
+
+    const currentExpiry = device.expiryDate ? new Date(device.expiryDate) : (device.presentDate ? new Date(device.presentDate) : new Date());
+    
+    const years = validity === '2 Years' ? 2 : 1;
+    const nextExpiry = new Date(currentExpiry);
+    nextExpiry.setFullYear(nextExpiry.getFullYear() + years);
+
+    device.expiryDate = nextExpiry;
+    device.validity = validity;
+    await device.save();
+
+    const currentYear = new Date().getFullYear();
+    const prefix = `REN-${currentYear}-`;
+    const latestRequest = await RenewalRequest.findOne({
+      requestId: new RegExp(`^${prefix}`)
+    }).sort({ requestId: -1 });
+
+    let sequence = 1;
+    if (latestRequest) {
+      const parts = latestRequest.requestId.split('-');
+      const lastSeq = parseInt(parts[2], 10);
+      if (!isNaN(lastSeq)) {
+        sequence = lastSeq + 1;
+      }
+    }
+    const paddedSequence = String(sequence).padStart(6, '0');
+    const requestId = `${prefix}${paddedSequence}`;
+
+    const dealer = await User.findById(device.dealerId);
+    const ActivationRequest = require('../models/ActivationRequest');
+    const activation = await ActivationRequest.findOne({ imei: device.imei }).sort({ dateTime: -1 });
+
+    const customerName = activation?.customerName || 'N/A';
+    const customerMobile = activation?.regMobNo || activation?.regMobNo2 || '0000000000';
+
+    await RenewalRequest.create({
+      requestId,
+      userId: req.user._id,
+      dealerId: device.dealerId || req.user._id,
+      dealerName: dealer ? (dealer.displayName || dealer.companyName || dealer.username) : 'N/A',
+      dealerCode: dealer ? (dealer.username || '') : '',
+      createdBy: req.user._id,
+      customerName,
+      customerMobile,
+      imei: device.imei,
+      vehicleNumber: activation?.vehicleNo || 'N/A',
+      deviceModel: device.vendor || 'iTriangle',
+      activationType: (activation?.activationMode || 'NIC').toUpperCase() === 'MINING' ? 'MINING' : 'NIC',
+      productDescription: device.deviceType === 'GPS' ? 'GPS RENEWAL' : (device.deviceType === 'VLTD' ? 'VLTD RENEWAL' : 'Renewal'),
+      validity,
+      renewalDate: currentExpiry,
+      newExpiryDate: nextExpiry,
+      billAmount: device.renewalAmount || device.billAmount || 0,
+      receivedAmount: device.renewalAmount || device.billAmount || 0,
+      remainingDue: 0,
+      paymentMode: 'Cash',
+      remarks: 'Immediate renewal by admin from due dashboard',
+      status: 'Activated',
+      paymentStatus: 'Paid',
+      paymentDate: new Date()
+    });
+
+    if (device.dealerId) {
+      await syncDueForUser(device.dealerId.toString());
+    }
+
+    res.json({
+      message: 'Device renewed successfully.',
+      expiryDate: nextExpiry.toISOString().split('T')[0]
+    });
+  } catch (error) {
+    console.error('Renew device error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;
+

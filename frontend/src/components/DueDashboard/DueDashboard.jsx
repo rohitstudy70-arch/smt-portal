@@ -114,6 +114,11 @@ const DueDashboard = () => {
   const [selfListTab, setSelfListTab] = useState('payments'); // 'payments' or 'requests'
   const [loadingRequests, setLoadingRequests] = useState(false);
 
+  // Admin Immediate Renewal States
+  const [renewDevice, setRenewDevice] = useState(null);
+  const [renewValidity, setRenewValidity] = useState('1 Year');
+  const [renewing, setRenewing] = useState(false);
+
   // Admin Verification States
   const [adminVerificationRequests, setAdminVerificationRequests] = useState([]);
   const [verificationFilters, setVerificationFilters] = useState({
@@ -369,6 +374,27 @@ const DueDashboard = () => {
       alert(err.response?.data?.message || 'Error occurred while recording payment.');
     } finally {
       setSubmittingPayment(false);
+    }
+  };
+
+  const handleRenewSubmit = async (e) => {
+    e.preventDefault();
+    if (!renewDevice) return;
+    try {
+      setRenewing(true);
+      const res = await api.post('/due-dashboard/renew-device', {
+        deviceId: renewDevice._id,
+        validity: renewValidity
+      });
+      alert(res.data.message || 'Device renewed successfully.');
+      setRenewDevice(null);
+      fetchRenewals();
+      fetchSummary();
+    } catch (err) {
+      console.error('Error renewing device:', err);
+      alert(err.response?.data?.message || 'Failed to renew device.');
+    } finally {
+      setRenewing(false);
     }
   };
 
@@ -1297,21 +1323,41 @@ const DueDashboard = () => {
                         </td>
                         <td>
                           {isAdmin ? (
-                            <button
-                              onClick={() => navigate(`/renewal-due-management?search=${device.imei}`)}
-                              style={{
-                                background: '#3b82f6',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '4px',
-                                padding: '4px 8px',
-                                fontSize: '11px',
-                                fontWeight: '700',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              Verify
-                            </button>
+                            <div style={{ display: 'flex', gap: '5px' }}>
+                              <button
+                                onClick={() => navigate(`/renewal-due-management?search=${device.imei}`)}
+                                style={{
+                                  background: '#3b82f6',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  padding: '4px 8px',
+                                  fontSize: '11px',
+                                  fontWeight: '700',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                Verify
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setRenewDevice(device);
+                                  setRenewValidity('1 Year');
+                                }}
+                                style={{
+                                  background: '#10b981',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  padding: '4px 8px',
+                                  fontSize: '11px',
+                                  fontWeight: '700',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                Renew
+                              </button>
+                            </div>
                           ) : (
                             <button
                               onClick={() => navigate(`/dashboard?view=renewals&imei=${device.imei}`)}
@@ -2017,6 +2063,72 @@ const DueDashboard = () => {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* POPUP MODAL: RENEW DEVICE (ADMIN ONLY) */}
+      {renewDevice && (
+        <div className="due-modal-backdrop">
+          <div className="due-modal" style={{ maxWidth: '450px', background: '#1a1a1a', border: '1px solid #333' }}>
+            <div className="due-modal-header" style={{ borderBottom: '1px solid #333' }}>
+              <h4 style={{ color: '#fff', margin: 0 }}>Renew Device</h4>
+              <button className="due-close-btn" onClick={() => setRenewDevice(null)} style={{ background: 'none', border: 'none', color: '#aaa', cursor: 'pointer' }}>
+                <FaTimes />
+              </button>
+            </div>
+            <form onSubmit={handleRenewSubmit}>
+              <div className="due-modal-body" style={{ color: '#ffffff', padding: '20px' }}>
+                <div className="form-group" style={{ marginBottom: '15px' }}>
+                  <label style={{ color: '#aaa', fontSize: '11px', textTransform: 'uppercase', display: 'block', marginBottom: '6px', fontWeight: 'bold' }}>IMEI Number</label>
+                  <input type="text" value={renewDevice.imei} readOnly className="readonly-input" style={{ width: '100%', padding: '10px', background: '#2a2a2a', border: '1px solid #333', color: '#fff', borderRadius: '4px', outline: 'none' }} />
+                </div>
+                <div className="form-group" style={{ marginBottom: '15px' }}>
+                  <label style={{ color: '#aaa', fontSize: '11px', textTransform: 'uppercase', display: 'block', marginBottom: '6px', fontWeight: 'bold' }}>Device Name / Model</label>
+                  <input type="text" value={renewDevice.deviceName} readOnly className="readonly-input" style={{ width: '100%', padding: '10px', background: '#2a2a2a', border: '1px solid #333', color: '#fff', borderRadius: '4px', outline: 'none' }} />
+                </div>
+                <div className="form-group" style={{ marginBottom: '15px' }}>
+                  <label style={{ color: '#aaa', fontSize: '11px', textTransform: 'uppercase', display: 'block', marginBottom: '6px', fontWeight: 'bold' }}>Customer Name</label>
+                  <input type="text" value={renewDevice.customerName || 'N/A'} readOnly className="readonly-input" style={{ width: '100%', padding: '10px', background: '#2a2a2a', border: '1px solid #333', color: '#fff', borderRadius: '4px', outline: 'none' }} />
+                </div>
+                <div className="form-group" style={{ marginBottom: '15px' }}>
+                  <label style={{ color: '#aaa', fontSize: '11px', textTransform: 'uppercase', display: 'block', marginBottom: '6px', fontWeight: 'bold' }}>Current Expiry Date</label>
+                  <div style={{ fontSize: '14px', color: '#aaa', background: '#111', padding: '10px', borderRadius: '4px', border: '1px solid #222', fontWeight: 'bold' }}>
+                    {formatDate(renewDevice.expiryDate)}
+                  </div>
+                </div>
+                <div className="form-group" style={{ marginBottom: '15px' }}>
+                  <label style={{ color: '#aaa', fontSize: '11px', textTransform: 'uppercase', display: 'block', marginBottom: '6px', fontWeight: 'bold' }}>Select Renewal Validity</label>
+                  <select
+                    value={renewValidity}
+                    onChange={(e) => setRenewValidity(e.target.value)}
+                    style={{ width: '100%', minHeight: '38px', padding: '8px 10px', borderRadius: '4px', border: '1px solid #444', background: '#2a2a2a', color: '#fff', outline: 'none', cursor: 'pointer' }}
+                  >
+                    <option value="1 Year">1 Year</option>
+                    <option value="2 Years">2 Years</option>
+                  </select>
+                </div>
+                <div className="form-group" style={{ marginBottom: '15px' }}>
+                  <label style={{ color: '#aaa', fontSize: '11px', textTransform: 'uppercase', display: 'block', marginBottom: '6px', fontWeight: 'bold' }}>New Expiry Date (calculated)</label>
+                  <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#2ecc71', background: '#113c23', padding: '10px', borderRadius: '4px', border: '1px solid #27ae60' }}>
+                    {(() => {
+                      const cur = renewDevice.expiryDate ? new Date(renewDevice.expiryDate) : (renewDevice.presentDate ? new Date(renewDevice.presentDate) : new Date());
+                      const next = new Date(cur);
+                      next.setFullYear(next.getFullYear() + (renewValidity === '2 Years' ? 2 : 1));
+                      return formatDate(next);
+                    })()}
+                  </div>
+                </div>
+              </div>
+              <div className="due-modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', padding: '15px 20px', borderTop: '1px solid #333' }}>
+                <button type="button" className="due-btn-secondary" onClick={() => setRenewDevice(null)} style={{ background: '#333', color: '#aaa', border: '1px solid #444', borderRadius: '4px', padding: '8px 16px', fontWeight: '600', cursor: 'pointer' }}>
+                  Cancel
+                </button>
+                <button type="submit" disabled={renewing} className="due-action-btn primary" style={{ background: '#2ecc71', color: '#ffffff', border: 'none', borderRadius: '4px', padding: '8px 16px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  {renewing ? 'Renewing...' : 'Confirm Renewal'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
