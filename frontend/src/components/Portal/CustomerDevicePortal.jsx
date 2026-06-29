@@ -850,6 +850,13 @@ const CustomerDevicePortal = () => {
       alert('Transaction ID / Reference Number is required.');
       return;
     }
+    if (bulkPaymentForm.paymentMode === 'UPI') {
+      const cleanedTxId = bulkPaymentForm.transactionId.trim();
+      if (!/^\d{12}$/.test(cleanedTxId)) {
+        alert('For UPI payments, the Transaction ID / Reference number must be exactly 12 numeric digits.');
+        return;
+      }
+    }
     if (bulkPaymentForm.paymentMode !== 'Cash' && !bulkScreenshot) {
       alert('Screenshot proof is required for digital payments.');
       return;
@@ -908,6 +915,17 @@ const CustomerDevicePortal = () => {
     if (Number(renewalPaymentForm.receivedAmount) > remaining) {
       alert(`Payment amount cannot exceed remaining outstanding due (₹${remaining}).`);
       return;
+    }
+    if (!renewalPaymentForm.transactionId || !renewalPaymentForm.transactionId.trim()) {
+      alert('Transaction ID / Reference Number is required.');
+      return;
+    }
+    if (renewalPaymentForm.paymentMode === 'UPI') {
+      const cleanedTxId = renewalPaymentForm.transactionId.trim();
+      if (!/^\d{12}$/.test(cleanedTxId)) {
+        alert('For UPI payments, the Transaction ID / Reference number must be exactly 12 numeric digits.');
+        return;
+      }
     }
     if (renewalPaymentForm.paymentMode !== 'Cash' && !renewalScreenshot) {
       alert('Please upload a payment screenshot/proof.');
@@ -3222,11 +3240,20 @@ const CustomerDevicePortal = () => {
                 <input 
                   type="text" 
                   value={renewalPaymentForm.transactionId} 
-                  onChange={(e) => setRenewalPaymentForm(current => ({ ...current, transactionId: e.target.value }))}
-                  placeholder="Enter UPI reference or TXN ID..."
+                  onChange={(e) => setRenewalPaymentForm(current => ({ 
+                    ...current, 
+                    transactionId: renewalPaymentForm.paymentMode === 'UPI' ? e.target.value.replace(/\D/g, '') : e.target.value 
+                  }))}
+                  placeholder={renewalPaymentForm.paymentMode === 'UPI' ? "Enter 12-digit UPI UTR / Reference No." : "Enter transaction or reference ID..."}
+                  maxLength={renewalPaymentForm.paymentMode === 'UPI' ? 12 : undefined}
                   style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 12px', fontSize: '13px' }}
                   required
                 />
+                {renewalPaymentForm.paymentMode === 'UPI' && (
+                  <span style={{ fontSize: '10px', color: '#dc2626', marginTop: '2px', fontWeight: '600' }}>
+                    UPI reference number (UTR) must be exactly 12 numeric digits.
+                  </span>
+                )}
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -3337,11 +3364,20 @@ const CustomerDevicePortal = () => {
                 <input 
                   type="text" 
                   value={bulkPaymentForm.transactionId} 
-                  onChange={(e) => setBulkPaymentForm(current => ({ ...current, transactionId: e.target.value }))}
-                  placeholder="Enter UPI reference or TXN ID..."
+                  onChange={(e) => setBulkPaymentForm(current => ({ 
+                    ...current, 
+                    transactionId: bulkPaymentForm.paymentMode === 'UPI' ? e.target.value.replace(/\D/g, '') : e.target.value 
+                  }))}
+                  placeholder={bulkPaymentForm.paymentMode === 'UPI' ? "Enter 12-digit UPI UTR / Reference No." : "Enter transaction or reference ID..."}
+                  maxLength={bulkPaymentForm.paymentMode === 'UPI' ? 12 : undefined}
                   style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 12px', fontSize: '13px' }}
                   required
                 />
+                {bulkPaymentForm.paymentMode === 'UPI' && (
+                  <span style={{ fontSize: '10px', color: '#dc2626', marginTop: '2px', fontWeight: '600' }}>
+                    UPI reference number (UTR) must be exactly 12 numeric digits.
+                  </span>
+                )}
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>

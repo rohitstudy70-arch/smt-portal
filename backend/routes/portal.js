@@ -1334,6 +1334,9 @@ router.put('/renewals/:id/report-payment', protect, upload.single('screenshot'),
       return res.status(400).json({ message: 'Valid payment mode is required.' });
     }
 
+    if (paymentMode === 'UPI' && !/^\d{12}$/.test(transactionId.trim())) {
+      return res.status(400).json({ message: 'For UPI payments, the Transaction ID/Reference number must be exactly 12 numeric digits.' });
+    }
     if (!transactionId || !transactionId.trim()) {
       return res.status(400).json({ message: 'Transaction ID / Reference Number is required.' });
     }
@@ -1396,6 +1399,9 @@ router.put('/renewals/report-bulk-payment', protect, upload.single('screenshot')
       return res.status(400).json({ message: 'Valid payment mode is required.' });
     }
 
+    if (paymentMode === 'UPI' && !/^\d{12}$/.test(transactionId.trim())) {
+      return res.status(400).json({ message: 'For UPI payments, the Transaction ID/Reference number must be exactly 12 numeric digits.' });
+    }
     if (!transactionId || !transactionId.trim()) {
       return res.status(400).json({ message: 'Transaction ID / Reference Number is required.' });
     }

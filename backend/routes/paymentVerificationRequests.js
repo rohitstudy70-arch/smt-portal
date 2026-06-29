@@ -71,6 +71,13 @@ router.post('/', upload.single('screenshot'), async (req, res) => {
       return res.status(400).json({ message: 'Reference number is required.' });
     }
 
+    if (paymentMode === 'UPI') {
+      const cleanedRef = referenceNumber.trim();
+      if (!/^\d{12}$/.test(cleanedRef)) {
+        return res.status(400).json({ message: 'For UPI payments, the Reference/UTR number must be exactly 12 numeric digits.' });
+      }
+    }
+
     // Check if the reference number has already been submitted for verification
     const existingRef = await PaymentVerificationRequest.findOne({
       referenceNumber: referenceNumber.trim(),

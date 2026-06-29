@@ -713,6 +713,12 @@ router.post('/dealers/:userId/payments', requireRoles(PORTAL_ROLES.ADMIN), uploa
       return res.status(400).json({ message: 'Valid payment mode is required.' });
     }
 
+    if (paymentMode === 'UPI') {
+      if (!/^\d{12}$/.test(referenceNumber)) {
+        return res.status(400).json({ message: 'For UPI payments, the Reference/UTR number must be exactly 12 numeric digits.' });
+      }
+    }
+
     const due = await syncDueForUser(user._id);
     if (!due || due.totalOutstanding <= 0) {
       return res.status(400).json({ message: 'This account has no pending outstanding balance.' });

@@ -393,6 +393,14 @@ const DueDashboard = () => {
       return;
     }
 
+    if (reportForm.paymentMode === 'UPI') {
+      const cleanedRef = reportForm.referenceNumber.trim();
+      if (!/^\d{12}$/.test(cleanedRef)) {
+        alert('For UPI payments, the Reference/UTR number must be exactly 12 numeric digits.');
+        return;
+      }
+    }
+
     try {
       setSubmittingReportPayment(true);
       const formDataObj = new FormData();
@@ -1886,10 +1894,19 @@ const DueDashboard = () => {
                   <input
                     type="text"
                     required
-                    placeholder="Enter reference number..."
+                    placeholder={reportForm.paymentMode === 'UPI' ? "Enter 12-digit UPI UTR / Reference No." : "Enter reference number..."}
+                    maxLength={reportForm.paymentMode === 'UPI' ? 12 : undefined}
                     value={reportForm.referenceNumber}
-                    onChange={(e) => setReportForm(prev => ({ ...prev, referenceNumber: e.target.value }))}
+                    onChange={(e) => setReportForm(prev => ({ 
+                      ...prev, 
+                      referenceNumber: reportForm.paymentMode === 'UPI' ? e.target.value.replace(/\D/g, '') : e.target.value 
+                    }))}
                   />
+                  {reportForm.paymentMode === 'UPI' && (
+                    <span style={{ fontSize: '10px', color: '#dc2626', marginTop: '4px', display: 'block', fontWeight: '600' }}>
+                      UPI reference number (UTR) must be exactly 12 numeric digits.
+                    </span>
+                  )}
                 </div>
                 <div className="form-group">
                   <label>Payment Screenshot / Receipt {reportForm.paymentMode !== 'Cash' && <span className="required" style={{ color: 'red' }}>*</span>}</label>
