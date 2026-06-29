@@ -1539,7 +1539,7 @@ const CustomerDevicePortal = () => {
         <section className="portal-panel">
           <div className="portal-panel-header">
             <div>
-              <h2>Renewal Due Devices</h2>
+              <h2>Assigned Devices</h2>
               <span>Role: {role.replace('_', ' ')}</span>
             </div>
             <button className="portal-icon-button" type="button" onClick={() => openView('devices')} title="Open devices">
