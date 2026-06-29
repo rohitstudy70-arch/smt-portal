@@ -39,7 +39,91 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   }
 
   if (allowedRoles && !allowedRoles.includes(getRole(user))) {
-    return <Navigate to="/dashboard" replace />;
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        backgroundColor: '#0b0f19',
+        color: '#f8fafc',
+        fontFamily: "'Outfit', 'Inter', system-ui, -apple-system, sans-serif",
+        textAlign: 'center',
+        padding: '2rem',
+        boxSizing: 'border-box',
+      }}>
+        <div style={{
+          background: 'rgba(255, 255, 255, 0.03)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: '16px',
+          padding: '3rem 2rem',
+          maxWidth: '480px',
+          width: '100%',
+          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+        }}>
+          <div style={{
+            width: '64px',
+            height: '64px',
+            borderRadius: '50%',
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            border: '1px solid rgba(239, 68, 68, 0.2)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '1.5rem',
+            boxShadow: '0 0 20px rgba(239, 68, 68, 0.15)',
+          }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+          </div>
+          <h1 style={{
+            fontSize: '2rem',
+            fontWeight: '700',
+            margin: '0 0 0.75rem 0',
+            color: '#f8fafc',
+            letterSpacing: '-0.025em',
+          }}>
+            Access Denied
+          </h1>
+          <p style={{
+            fontSize: '0.95rem',
+            color: '#94a3b8',
+            lineHeight: '1.6',
+            margin: '0 0 2rem 0',
+          }}>
+            You do not have permission to access this page. Please contact your administrator if you believe this is an error.
+          </p>
+          <a href="/dashboard" style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: '#2563eb',
+            color: '#ffffff',
+            textDecoration: 'none',
+            fontWeight: '600',
+            fontSize: '0.95rem',
+            padding: '0.75rem 1.75rem',
+            borderRadius: '8px',
+            transition: 'background-color 0.2s',
+            boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)',
+            border: 'none',
+            cursor: 'pointer',
+          }}
+          onMouseEnter={(e) => { e.target.style.backgroundColor = '#1d4ed8' }}
+          onMouseLeave={(e) => { e.target.style.backgroundColor = '#2563eb' }}
+          >
+            Back to Dashboard
+          </a>
+        </div>
+      </div>
+    );
   }
 
   return children;
@@ -192,7 +276,7 @@ function App() {
         <Route 
           path="/certificates" 
           element={
-            <ProtectedRoute allowedRoles={['ADMIN', 'DEALER']}>
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUB_DEALER']}>
               <Layout>
                 <Certificates />
               </Layout>

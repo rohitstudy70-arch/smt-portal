@@ -114,7 +114,6 @@ const statKeysByRole = {
     'expiredDevices',
     'devicesAddedToday',
     'renewalDueDevices',
-    'totalProducts',
   ],
   DEALER: [
     'assignedDevices',
@@ -212,6 +211,7 @@ const CustomerDevicePortal = () => {
   const [reports, setReports] = useState(null);
   const [loginLogs, setLoginLogs] = useState([]);
   const [search, setSearch] = useState(initialSearch);
+  const [selectedDealerFilter, setSelectedDealerFilter] = useState('');
   const [userForm, setUserForm] = useState(emptyUserForm);
   const [editUser, setEditUser] = useState(null);
   const [deviceForm, setDeviceForm] = useState(emptyDeviceForm);
@@ -300,9 +300,46 @@ const CustomerDevicePortal = () => {
     devices.find((device) => device._id === transferForm.deviceId)
   ), [devices, transferForm.deviceId]);
 
+  const dealersWithCounts = useMemo(() => {
+    const counts = {};
+    
+    dealers.forEach((d) => {
+      if (d && d._id) {
+        counts[d._id] = {
+          id: d._id,
+          name: getName(d) || d.username || 'Unknown Dealer',
+          count: 0
+        };
+      }
+    });
+
+    devices.forEach((device) => {
+      const dealer = device.dealerId;
+      if (dealer) {
+        const id = dealer._id || dealer;
+        const name = getLinkedName(dealer, device.dealerName);
+        if (id) {
+          if (!counts[id]) {
+            counts[id] = { id, name, count: 0 };
+          }
+          counts[id].count += 1;
+        }
+      }
+    });
+
+    return Object.values(counts).sort((a, b) => a.name.localeCompare(b.name));
+  }, [dealers, devices]);
+
   const filteredDevices = useMemo(() => {
     const query = search.trim().toLowerCase();
     let result = devices;
+
+    if (selectedDealerFilter) {
+      result = result.filter((device) => {
+        const dealerId = device.dealerId?._id || device.dealerId;
+        return dealerId === selectedDealerFilter;
+      });
+    }
 
     if (portalFromDate || portalToDate) {
       result = result.filter((device) => {
@@ -335,7 +372,7 @@ const CustomerDevicePortal = () => {
       || getName(device.assignedTo).toLowerCase().includes(query)
       || getLinkedName(device.createdBy).toLowerCase().includes(query)
     ));
-  }, [devices, search, portalFromDate, portalToDate]);
+  }, [devices, search, portalFromDate, portalToDate, selectedDealerFilter]);
 
   const filteredAssignments = useMemo(() => {
     let result = [];
@@ -2005,6 +2042,23 @@ const CustomerDevicePortal = () => {
               style={{ padding: '5px 8px', fontSize: '12px', border: '1.5px solid var(--border-color)', borderRadius: '4px', background: 'var(--bg-card)', color: 'var(--text-dark)', outline: 'none' }}
             />
           </div>
+        )}
+        {deviceTab === 'list' && (
+          <>
+            <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)', marginLeft: '16px' }}>Filter by Dealer:</label>
+            <select 
+              value={selectedDealerFilter} 
+              onChange={(e) => setSelectedDealerFilter(e.target.value)}
+              style={{ padding: '6px 10px', fontSize: '12px', border: '1.5px solid var(--border-color)', borderRadius: '4px', background: 'var(--bg-card)', color: 'var(--text-dark)', outline: 'none' }}
+            >
+              <option value="">All Dealers</option>
+              {dealersWithCounts.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name} ({d.count} {d.count === 1 ? 'Device' : 'Devices'})
+                </option>
+              ))}
+            </select>
+          </>
         )}
         <span style={{ marginLeft: '12px', padding: '4px 12px', background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)', color: '#ffffff', borderRadius: '20px', fontSize: '11px', fontWeight: '800', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
           {deviceTab === 'list' ? `${records.length} Devices` : `${filteredAssignments.length} Assignments`}

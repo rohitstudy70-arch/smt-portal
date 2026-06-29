@@ -453,11 +453,11 @@ router.get('/summary', async (req, res) => {
       const todaysRenewalRevenue = todaysRenewalPayments[0]?.total || 0;
       const todaysTotalRevenue = todaysDevicePayments + todaysRenewalRevenue;
 
-      // My Total Outstanding = Total Dues (already combines device + renewal outstanding in dueRecord)
-      const myTotalOutstanding = deviceTotalOutstanding;
+      // My Total Outstanding = Total Dues (Device Outstanding + Renewal Outstanding)
+      const myTotalOutstanding = deviceTotalOutstanding + totalRenewalDues;
 
-      // My Current Due (Over 30 Days) = deviceCurrentDue (already combines device + renewal overdue in dueRecord)
-      const myCurrentDue = deviceCurrentDue;
+      // My Current Due (Over 30 Days) = deviceCurrentDue + overdueRenewalDues
+      const myCurrentDue = deviceCurrentDue + overdueRenewalDues;
 
       return res.json({
         totalOutstandingAmount: myTotalOutstanding,
@@ -487,9 +487,32 @@ router.get('/summary', async (req, res) => {
       sumDeviceRevenue({ userId: { $in: userIds }, presentDate: { $gte: monthStart, $lte: monthEnd } }),
     ]);
 
+    // Aggregate renewals for Admin scoped users to combine in Admin cards
+    const activeRenewals = await RenewalRequest.find({
+      dealerId: { $in: userIds },
+      status: { $ne: 'Rejected' },
+      paymentStatus: { $ne: 'Cancelled' },
+    }).lean();
+
+    let totalRenewalDues = 0;
+    let overdueRenewalDues = 0;
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    activeRenewals.forEach((r) => {
+      const remaining = Number(r.remainingDue) || 0;
+      if (remaining <= 0) return;
+      totalRenewalDues += remaining;
+
+      const rDate = new Date(r.renewalDate);
+      if (r.paymentStatus !== 'Paid' && !Number.isNaN(rDate.getTime()) && rDate < thirtyDaysAgo) {
+        overdueRenewalDues += remaining;
+      }
+    });
+
     res.json({
-      totalDueAmount: dues.reduce((sum, due) => sum + (due.currentDue || 0), 0),
-      totalOutstandingAmount: dues.reduce((sum, due) => sum + (due.totalOutstanding || 0), 0),
+      totalDueAmount: dues.reduce((sum, due) => sum + (due.currentDue || 0), 0) + overdueRenewalDues,
+      totalOutstandingAmount: dues.reduce((sum, due) => sum + (due.totalOutstanding || 0), 0) + totalRenewalDues,
       totalDealers: users.filter((user) => getPortalRole(user) === PORTAL_ROLES.DEALER).length,
       totalSubDealers: users.filter((user) => getPortalRole(user) === PORTAL_ROLES.SUB_DEALER).length,
       totalPendingDevices: dues.reduce((sum, due) => sum + (due.totalOutstanding > 0 ? due.totalDevicesAssigned || 0 : 0), 0),
@@ -540,8 +563,54 @@ router.get('/dealers', async (req, res) => {
       DealerDue.countDocuments(query),
     ]);
 
+    // Map dues list dynamically to include renewal dues in the response
+    const activeRenewals = await RenewalRequest.find({
+      dealerId: { $in: dues.map(d => d.userId) },
+      status: { $ne: 'Rejected' },
+      paymentStatus: { $ne: 'Cancelled' },
+    }).lean();
+
+    const renewalsByDealer = {};
+    activeRenewals.forEach((r) => {
+      const dId = String(r.dealerId);
+      if (!renewalsByDealer[dId]) {
+        renewalsByDealer[dId] = {
+          totalBill: 0,
+          totalPaid: 0,
+          totalOutstanding: 0,
+          overdue: 0
+        };
+      }
+      const bill = Number(r.billAmount) || 0;
+      const received = Number(r.receivedAmount) || 0;
+      const remaining = Number(r.remainingDue) || 0;
+
+      renewalsByDealer[dId].totalBill += bill;
+      renewalsByDealer[dId].totalPaid += received;
+      renewalsByDealer[dId].totalOutstanding += remaining;
+
+      const rDate = new Date(r.renewalDate);
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      if (r.paymentStatus !== 'Paid' && !Number.isNaN(rDate.getTime()) && rDate < thirtyDaysAgo) {
+        renewalsByDealer[dId].overdue += remaining;
+      }
+    });
+
+    const modifiedDues = dues.map((d) => {
+      const dObj = d.toObject();
+      const dId = String(d.userId?._id || d.userId);
+      const rSummary = renewalsByDealer[dId] || { totalBill: 0, totalPaid: 0, totalOutstanding: 0, overdue: 0 };
+
+      dObj.totalBillAmount = (dObj.totalBillAmount || 0) + rSummary.totalBill;
+      dObj.totalPaidAmount = (dObj.totalPaidAmount || 0) + rSummary.totalPaid;
+      dObj.totalOutstanding = (dObj.totalOutstanding || 0) + rSummary.totalOutstanding;
+      dObj.currentDue = (dObj.currentDue || 0) + rSummary.overdue;
+
+      return dObj;
+    });
+
     res.json({
-      dues,
+      dues: modifiedDues,
       total,
       pages: Math.ceil(total / parsedLimit) || 1,
       currentPage: parsedPage,
@@ -568,7 +637,42 @@ router.get('/dealers/:userId', async (req, res) => {
         .sort({ paymentDate: -1, createdAt: -1 }),
     ]);
 
-    res.json({ user, due, devices, payments });
+    const dueObj = due ? due.toObject() : null;
+    if (dueObj) {
+      const activeRenewals = await RenewalRequest.find({
+        dealerId: user._id,
+        status: { $ne: 'Rejected' },
+        paymentStatus: { $ne: 'Cancelled' },
+      }).lean();
+
+      let totalRenewalBill = 0;
+      let totalRenewalPaid = 0;
+      let totalRenewalOutstanding = 0;
+      let overdueRenewalDues = 0;
+
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      activeRenewals.forEach((r) => {
+        const bill = Number(r.billAmount) || 0;
+        const received = Number(r.receivedAmount) || 0;
+        const remaining = Number(r.remainingDue) || 0;
+
+        totalRenewalBill += bill;
+        totalRenewalPaid += received;
+        totalRenewalOutstanding += remaining;
+
+        const rDate = new Date(r.renewalDate);
+        if (r.paymentStatus !== 'Paid' && !Number.isNaN(rDate.getTime()) && rDate < thirtyDaysAgo) {
+          overdueRenewalDues += remaining;
+        }
+      });
+
+      dueObj.totalBillAmount = (dueObj.totalBillAmount || 0) + totalRenewalBill;
+      dueObj.totalPaidAmount = (dueObj.totalPaidAmount || 0) + totalRenewalPaid;
+      dueObj.totalOutstanding = (dueObj.totalOutstanding || 0) + totalRenewalOutstanding;
+      dueObj.currentDue = (dueObj.currentDue || 0) + overdueRenewalDues;
+    }
+
+    res.json({ user, due: dueObj, devices, payments });
   } catch (error) {
     console.error('Due detail error:', error.message);
     res.status(500).json({ message: 'Server error' });

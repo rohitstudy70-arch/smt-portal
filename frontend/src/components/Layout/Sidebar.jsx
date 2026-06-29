@@ -204,7 +204,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
 
 
-        {canShow(['ADMIN', 'DEALER']) && (
+        {canShow(['ADMIN', 'SUB_DEALER']) && (
           <li className={`sidebar-menu-item ${location.pathname === '/certificates' ? 'active' : ''}`}>
             <NavLink to="/certificates">
               <FaCertificate className="menu-icon" />

@@ -139,11 +139,23 @@
   gap: 18px;
 }
 
-.portal-report-grid,
-.portal-stats-grid {
+.portal-report-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
+}
+
+.portal-stats-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: flex-start;
+}
+
+.portal-stats-grid .portal-stat {
+  flex: 1 0 calc(25% - 11px);
+  max-width: calc(25% - 11px);
+  min-width: 240px;
 }
 
 .portal-stat {
@@ -704,10 +716,14 @@
 }
 
 @media (max-width: 1180px) {
-  .portal-stats-grid,
   .portal-report-grid,
   .portal-dashboard-actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .portal-stats-grid .portal-stat {
+    max-width: calc(50% - 7px);
+    flex: 1 0 calc(50% - 7px);
   }
 
   .portal-form-grid.device-grid {
@@ -738,7 +754,6 @@
 }
 
 @media (max-width: 640px) {
-  .portal-stats-grid,
   .portal-report-grid,
   .portal-dashboard-actions,
   .portal-form-grid,
@@ -746,6 +761,11 @@
   .portal-form-grid.device-grid,
   .portal-hierarchy {
     grid-template-columns: 1fr;
+  }
+
+  .portal-stats-grid .portal-stat {
+    max-width: 100%;
+    flex: 1 1 100%;
   }
 
   .span-2 {
