@@ -556,6 +556,43 @@ const CustomerDevicePortal = () => {
     return `${year}-${month}-${day}`;
   };
 
+  const handleSearchImei = async (imeiVal) => {
+    if (!imeiVal) {
+      alert('Please enter an IMEI number first.');
+      return;
+    }
+    if (!/^\d{15}$/.test(imeiVal)) {
+      alert('IMEI must contain exactly 15 digits.');
+      return;
+    }
+    try {
+      const response = await api.get(`/portal/renewals/search-imei/${imeiVal}`);
+      if (response.data) {
+        const details = response.data;
+        setRenewalForm(current => {
+          const next = {
+            ...current,
+            dealerId: details.dealerId || current.dealerId,
+            customerName: details.customerName || current.customerName,
+            customerMobile: details.customerMobile || current.customerMobile,
+            vehicleNumber: details.vehicleNumber || current.vehicleNumber,
+            deviceModel: details.deviceModel || current.deviceModel,
+            activationType: details.activationType || current.activationType,
+            productDescription: details.productDescription || current.productDescription,
+            validity: details.validity || current.validity,
+            renewalDate: details.renewalDate || current.renewalDate,
+            billAmount: details.billAmount !== undefined && details.billAmount !== null ? details.billAmount : current.billAmount,
+          };
+          next.newExpiryDate = calculateNewExpiryDate(next.renewalDate, next.validity);
+          return next;
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching IMEI details:', err);
+      alert(err.response?.data?.message || 'No details found or error searching for IMEI.');
+    }
+  };
+
   const handleRenewalFormChange = (field, value) => {
     setRenewalForm(current => {
       const next = { ...current, [field]: value };
@@ -564,6 +601,9 @@ const CustomerDevicePortal = () => {
       }
       return next;
     });
+    if (field === 'imei' && value && value.toString().length === 15) {
+      handleSearchImei(value);
+    }
   };
 
   const fetchRenewalsData = async () => {
@@ -2340,12 +2380,44 @@ const CustomerDevicePortal = () => {
 
             <label>
               <span>IMEI Number *</span>
-              <input 
-                type="number" 
-                value={renewalForm.imei} 
-                onChange={(e) => handleRenewalFormChange('imei', e.target.value)} 
-                required 
-              />
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <input 
+                  type="number" 
+                  value={renewalForm.imei} 
+                  onChange={(e) => handleRenewalFormChange('imei', e.target.value)} 
+                  required 
+                  style={{ flex: 1, margin: 0 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => handleSearchImei(renewalForm.imei)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: '38px',
+                    height: '38px',
+                    padding: '0',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-color)',
+                    background: '#ffffff',
+                    color: '#334155',
+                    cursor: 'pointer',
+                    transition: 'all 0.18s ease'
+                  }}
+                  title="Search IMEI"
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = '#2563eb';
+                    e.currentTarget.style.color = '#2563eb';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-color)';
+                    e.currentTarget.style.color = '#334155';
+                  }}
+                >
+                  <FaSearch />
+                </button>
+              </div>
             </label>
 
             <label>

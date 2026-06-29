@@ -1142,6 +1142,86 @@ router.get('/renewals/stats', protect, async (req, res) => {
   }
 });
 
+router.get('/renewals/search-imei/:imei', protect, async (req, res) => {
+  try {
+    const { imei } = req.params;
+    if (!/^\d+$/.test(imei)) {
+      return res.status(400).json({ message: 'Invalid IMEI number.' });
+    }
+
+    const scope = await getScope(req.user);
+    const deviceQuery = { imei, ...buildDeviceScopeQuery(scope) };
+    const activationQuery = { imei, ...buildRequestScopeQuery(scope) };
+    const renewalQuery = { imei, ...buildRequestScopeQuery(scope) };
+
+    const latestRenewal = await RenewalRequest.findOne(renewalQuery).sort({ createdAt: -1 });
+    const activation = await ActivationRequest.findOne(activationQuery).sort({ dateTime: -1, createdAt: -1 });
+    const device = await Device.findOne(deviceQuery);
+
+    if (!latestRenewal && !device && !activation) {
+      return res.status(404).json({ message: 'No details found for the given IMEI.' });
+    }
+
+    const customerName = latestRenewal?.customerName || activation?.customerName || '';
+    const customerMobile = latestRenewal?.customerMobile || activation?.regMobNo || activation?.regMobNo2 || '';
+    const vehicleNumber = latestRenewal?.vehicleNumber || activation?.vehicleNo || '';
+    const deviceModel = latestRenewal?.deviceModel || device?.vendor || activation?.vendor || '';
+
+    let activationType = 'NIC';
+    if (latestRenewal?.activationType) {
+      activationType = latestRenewal.activationType;
+    } else if (activation?.activationMode) {
+      const mode = activation.activationMode.toUpperCase();
+      if (mode === 'MINING' || mode === 'RENEWAL MINING') {
+        activationType = 'MINING';
+      }
+    } else if (activation?.plan) {
+      const plan = activation.plan.toUpperCase();
+      if (plan.includes('MINING')) {
+        activationType = 'MINING';
+      }
+    }
+
+    const validity = latestRenewal?.validity || device?.validity || activation?.validity || '1 Year';
+
+    let renewalDate = device?.expiryDate || latestRenewal?.newExpiryDate || activation?.expiryDate || null;
+    if (renewalDate) {
+      renewalDate = new Date(renewalDate).toISOString().split('T')[0];
+    }
+
+    const billAmount = latestRenewal?.billAmount || device?.renewalAmount || device?.billAmount || 0;
+
+    let productDescription = latestRenewal?.productDescription || 'Renewal';
+    if (!latestRenewal) {
+      if (device?.deviceType === 'GPS') {
+        productDescription = 'GPS RENEWAL';
+      } else if (device?.deviceType === 'VLTD') {
+        productDescription = 'VLTD RENEWAL';
+      } else if (activation?.requestType === 'Recharge Plan' || activation?.requestType === 'Top-up') {
+        productDescription = 'Renewal';
+      }
+    }
+
+    res.json({
+      dealerId: latestRenewal?.dealerId || device?.dealerId || activation?.userId || '',
+      customerName,
+      customerMobile,
+      imei,
+      vehicleNumber,
+      deviceModel,
+      activationType,
+      productDescription,
+      validity,
+      renewalDate,
+      billAmount,
+    });
+  } catch (error) {
+    console.error('Search IMEI error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
 router.post('/renewals', protect, async (req, res) => {
   try {
     const {

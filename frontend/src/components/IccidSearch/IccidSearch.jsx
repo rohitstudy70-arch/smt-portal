@@ -11,6 +11,7 @@ const IccidSearch = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [latestRequest, setLatestRequest] = useState(null);
+  const [latestRenewal, setLatestRenewal] = useState(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
@@ -42,37 +43,71 @@ const IccidSearch = () => {
       try {
         setLoading(true);
         setError('');
-        
+        setDevice(null);
+        setLatestRequest(null);
+        setLatestRenewal(null);
+
         // 1. Fetch device details
         const res = await api.get('/devices', {
           params: { search: searchQuery, limit: 1 }
         });
 
+        let foundDevice = null;
+        let targetImei = searchQuery;
+
         if (res.data.devices && res.data.devices.length > 0) {
-          const foundDevice = res.data.devices[0];
+          foundDevice = res.data.devices[0];
+          targetImei = foundDevice.imei;
           setDevice(foundDevice);
-
-          // 2. Fetch activation history for this device using its IMEI
-          const historyRes = await api.get('/activation-requests', {
-            params: { search: foundDevice.imei, limit: 100 }
-          });
-          
-          const history = historyRes.data.requests || [];
-
-          // Get the most recent activation request to populate vehicle & customer info
-          if (history.length > 0) {
-            // Sort by dateTime descending (newest first)
-            const sortedHistory = [...history].sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime));
-            setLatestRequest(sortedHistory[0]);
-          } else {
-            setLatestRequest(null);
-          }
-
-        } else {
-          setDevice(null);
-          setLatestRequest(null);
-          setError('No device found matching the search term.');
         }
+
+        // 2. Fetch history and renewals in parallel using targetImei
+        const [historyRes, renewalRes] = await Promise.all([
+          api.get('/activation-requests', {
+            params: { search: targetImei, limit: 100 }
+          }).catch(() => ({ data: { requests: [] } })),
+          api.get('/portal/renewals', {
+            params: { imei: targetImei }
+          }).catch(() => ({ data: [] }))
+        ]);
+
+        const history = historyRes.data.requests || [];
+        let fetchedRequest = null;
+        if (history.length > 0) {
+          const sortedHistory = [...history].sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime));
+          fetchedRequest = sortedHistory[0];
+          setLatestRequest(fetchedRequest);
+        }
+
+        const renewals = renewalRes.data || [];
+        let fetchedRenewal = null;
+        if (renewals.length > 0) {
+          const sortedRenewals = [...renewals].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+          fetchedRenewal = sortedRenewals[0];
+          setLatestRenewal(fetchedRenewal);
+        }
+
+        // If no device was found in Device table, but we have renewal or activation records, create a mock device!
+        if (!foundDevice) {
+          if (fetchedRenewal || fetchedRequest) {
+            const mockDevice = {
+              _id: fetchedRenewal?._id || fetchedRequest?._id,
+              imei: targetImei,
+              serialNo: fetchedRenewal?.serialNo || fetchedRequest?.serialNo || '—',
+              iccid: fetchedRenewal?.iccid || fetchedRequest?.iccid || '—',
+              vendor: fetchedRenewal?.deviceModel || fetchedRequest?.vendor || '—',
+              dealerName: fetchedRenewal?.dealerName || fetchedRequest?.dealerName || '—',
+              validity: fetchedRenewal?.validity || fetchedRequest?.validity || '1 Year',
+              presentDate: fetchedRequest?.installationDate || fetchedRenewal?.createdAt || null,
+              expiryDate: fetchedRenewal?.newExpiryDate || fetchedRequest?.expiryDate || null,
+              status: fetchedRenewal?.status || fetchedRequest?.status || 'Active',
+            };
+            setDevice(mockDevice);
+          } else {
+            setError('No device found matching the search term.');
+          }
+        }
+
         setLoading(false);
       } catch (err) {
         console.error('Error fetching search details:', err);
@@ -94,11 +129,12 @@ const IccidSearch = () => {
   const handleCopyDetails = () => {
     if (!device) return;
     
-    const vendorName = device.vendor || latestRequest?.vendor || '-';
+    const vendorName = device.vendor || latestRenewal?.deviceModel || latestRequest?.vendor || '-';
     const dealerName = device.dealerName
       || device.dealerId?.displayName
       || device.dealerId?.companyName
       || device.dealerId?.username
+      || latestRenewal?.dealerName
       || latestRequest?.dealerName
       || '-';
 
@@ -117,18 +153,18 @@ Expiry Date: ${formatDate(device.expiryDate)}
 
 --- VEHICLE DETAILS ---
 Vehicle Reg. Year: ${latestRequest?.registrationYear || '—'}
-Activation Type: ${latestRequest?.activationMode || '—'}
+Activation Type: ${latestRenewal?.activationType || latestRequest?.activationMode || '—'}
 Vehicle Condition: ${latestRequest?.vehicleCondition || '—'}
 Vehicle Make: ${latestRequest?.vehicleMake || '—'}
 Vehicle Model: ${latestRequest?.vehicleModel || '—'}
 RTO: ${latestRequest?.rto || '—'}
-Vehicle No: ${latestRequest?.vehicleNo || '—'}
+Vehicle No: ${latestRenewal?.vehicleNumber || latestRequest?.vehicleNo || '—'}
 Engine No: ${latestRequest?.engineNo || '—'}
 Chassis No: ${latestRequest?.chassisNo || '—'}
 
 --- CUSTOMER DETAILS ---
-Customer Name: ${latestRequest?.customerName || '—'}
-Mobile No 1: ${latestRequest?.regMobNo || '—'}
+Customer Name: ${latestRenewal?.customerName || latestRequest?.customerName || '—'}
+Mobile No 1: ${latestRenewal?.customerMobile || latestRequest?.regMobNo || '—'}
 Mobile No 2: ${latestRequest?.regMobNo2 || '—'}
 Aadhar No: ${latestRequest?.aadharNo || '—'}
 Address: ${latestRequest?.address || '—'}
@@ -358,7 +394,7 @@ State: ${latestRequest?.userId?.state || device.dealerId?.state || '—'}`;
                     </td>
                     <td>
                       <div className="grid-cell-label">Activation Type</div>
-                      <div className="grid-cell-value">{latestRequest?.activationMode || '—'}</div>
+                      <div className="grid-cell-value">{latestRenewal?.activationType || latestRequest?.activationMode || '—'}</div>
                     </td>
                     <td>
                       <div className="grid-cell-label">Vehicle Condition</div>
@@ -382,7 +418,7 @@ State: ${latestRequest?.userId?.state || device.dealerId?.state || '—'}`;
                   <tr>
                     <td>
                       <div className="grid-cell-label">Vehicle No</div>
-                      <div className="grid-cell-value bold">{latestRequest?.vehicleNo || '—'}</div>
+                      <div className="grid-cell-value bold">{latestRenewal?.vehicleNumber || latestRequest?.vehicleNo || '—'}</div>
                     </td>
                     <td>
                       <div className="grid-cell-label">Engine No</div>
@@ -407,11 +443,11 @@ State: ${latestRequest?.userId?.state || device.dealerId?.state || '—'}`;
                   <tr>
                     <td>
                       <div className="grid-cell-label">Customer Name</div>
-                      <div className="grid-cell-value bold">{latestRequest?.customerName || '—'}</div>
+                      <div className="grid-cell-value bold">{latestRenewal?.customerName || latestRequest?.customerName || '—'}</div>
                     </td>
                     <td>
                       <div className="grid-cell-label">Mobile No 1</div>
-                      <div className="grid-cell-value">{latestRequest?.regMobNo || '—'}</div>
+                      <div className="grid-cell-value">{latestRenewal?.customerMobile || latestRequest?.regMobNo || '—'}</div>
                     </td>
                     <td>
                       <div className="grid-cell-label">Mobile No 2</div>
