@@ -116,64 +116,16 @@ const syncDueForUser = async (userId) => {
     },
   ]);
 
-  const renewals = await RenewalRequest.find({
-    dealerId: user._id,
-    status: { $ne: 'Rejected' },
-    paymentStatus: { $ne: 'Cancelled' },
-  }).lean();
-
-  let totalRenewalBill = 0;
-  let totalRenewalPaid = 0;
-  let totalRenewalOutstanding = 0;
-  let overdueRenewalDues = 0;
-
-  renewals.forEach((r) => {
-    const bill = Number(r.billAmount) || 0;
-    const received = Number(r.receivedAmount) || 0;
-    const remaining = Number(r.remainingDue) || 0;
-
-    totalRenewalBill += bill;
-    totalRenewalPaid += received;
-    totalRenewalOutstanding += remaining;
-
-    const rDate = new Date(r.renewalDate);
-    if (r.paymentStatus !== 'Paid' && !Number.isNaN(rDate.getTime()) && rDate < thirtyDaysAgo) {
-      overdueRenewalDues += remaining;
-    }
-  });
-
   const totalDevicesAssigned = deviceSummary?.totalDevicesAssigned || 0;
-  const totalDeviceBillAmount = deviceSummary?.totalBillAmount || 0;
-  const dueDeviceBillAmount = deviceSummary?.dueBillAmount || 0;
-  const totalDevicePaidAmount = paymentSummary?.totalPaidAmount || 0;
+  const totalBillAmount = deviceSummary?.totalBillAmount || 0;
+  const dueBillAmount = deviceSummary?.dueBillAmount || 0;
+  const totalPaidAmount = paymentSummary?.totalPaidAmount || 0;
 
-  const deviceOutstanding = Math.max(totalDeviceBillAmount - totalDevicePaidAmount, 0);
-  const deviceCurrentDue = Math.max(dueDeviceBillAmount - totalDevicePaidAmount, 0);
-
-  const totalBillAmount = totalDeviceBillAmount + totalRenewalBill;
-  const totalPaidAmount = totalDevicePaidAmount + totalRenewalPaid;
-  const totalOutstanding = deviceOutstanding + totalRenewalOutstanding;
-  const currentDue = deviceCurrentDue + overdueRenewalDues;
-
-  let oldestPendingDate = null;
-  const oldestDevicePendingDate = deviceOutstanding > 0 ? deviceSummary?.oldestPendingDate : null;
-  let oldestRenewalPendingDate = null;
-
-  if (totalRenewalOutstanding > 0) {
-    const pendingRenewals = renewals.filter(r => (Number(r.remainingDue) || 0) > 0 && r.renewalDate);
-    if (pendingRenewals.length > 0) {
-      const dates = pendingRenewals.map(r => new Date(r.renewalDate)).filter(d => !isNaN(d.getTime()));
-      if (dates.length > 0) {
-        oldestRenewalPendingDate = new Date(Math.min(...dates));
-      }
-    }
-  }
-
-  if (oldestDevicePendingDate && oldestRenewalPendingDate) {
-    oldestPendingDate = new Date(Math.min(oldestDevicePendingDate, oldestRenewalPendingDate));
-  } else {
-    oldestPendingDate = oldestDevicePendingDate || oldestRenewalPendingDate || null;
-  }
+  const totalOutstanding = Math.max(totalBillAmount - totalPaidAmount, 0);
+  const currentDue = Math.max(dueBillAmount - totalPaidAmount, 0);
+  const oldestPendingDate = totalOutstanding > 0
+    ? deviceSummary?.oldestPendingDate || null
+    : null;
 
   dueRecord.parentDealerId = role === PORTAL_ROLES.SUB_DEALER ? user.parentId || null : null;
   dueRecord.accountType = getAccountType(user);

@@ -281,11 +281,13 @@ const DueDashboard = () => {
     const actionVal = searchParams.get('action');
     if (actionVal === 'pay-outstanding' && summary) {
       const selfDue = duesList.find(d => d.userId?._id?.toString() === user?._id?.toString() || d.userId?.toString() === user?._id?.toString());
-      openReportPaymentModal(selfDue || { totalOutstanding: summary.totalOutstandingAmount });
+      const deviceDue = selfDue?.totalOutstanding || summary?.totalOutstandingAmount || 0;
+      const renewalDue = renewalSummary?.totalDue || 0;
+      openReportPaymentModal({ totalOutstanding: deviceDue + renewalDue });
       const tabVal = searchParams.get('tab') || 'dues';
       navigate(`/due-dashboard?tab=${tabVal}`, { replace: true });
     }
-  }, [location.search, summary, duesList, user, navigate]);
+  }, [location.search, summary, duesList, user, navigate, renewalSummary]);
 
   // Initialize data based on active tab and role
   useEffect(() => {
@@ -666,7 +668,9 @@ const DueDashboard = () => {
                   onClick={(e) => {
                     e.stopPropagation();
                     const selfDue = duesList.find(d => d.userId?._id?.toString() === user?._id?.toString() || d.userId?.toString() === user?._id?.toString());
-                    openReportPaymentModal(selfDue || { totalOutstanding: summary.totalOutstandingAmount });
+                    const deviceDue = selfDue?.totalOutstanding || summary?.totalOutstandingAmount || 0;
+                    const renewalDue = renewalSummary?.totalDue || 0;
+                    openReportPaymentModal({ totalOutstanding: deviceDue + renewalDue });
                   }}
                 >
                   Pay Outstanding
