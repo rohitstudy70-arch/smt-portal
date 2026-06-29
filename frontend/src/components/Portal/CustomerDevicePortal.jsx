@@ -846,20 +846,20 @@ const CustomerDevicePortal = () => {
       alert('Valid payment amount is required.');
       return;
     }
-    if (!bulkPaymentForm.transactionId || !bulkPaymentForm.transactionId.trim()) {
-      alert('Transaction ID / Reference Number is required.');
-      return;
-    }
     if (bulkPaymentForm.paymentMode === 'UPI') {
+      if (!bulkPaymentForm.transactionId || !bulkPaymentForm.transactionId.trim()) {
+        alert('Transaction ID / Reference Number is required for UPI payments.');
+        return;
+      }
       const cleanedTxId = bulkPaymentForm.transactionId.trim();
       if (!/^\d{12}$/.test(cleanedTxId)) {
         alert('For UPI payments, the Transaction ID / Reference number must be exactly 12 numeric digits.');
         return;
       }
-    }
-    if (bulkPaymentForm.paymentMode !== 'Cash' && !bulkScreenshot) {
-      alert('Screenshot proof is required for digital payments.');
-      return;
+      if (!bulkScreenshot) {
+        alert('Screenshot proof is required for UPI payments.');
+        return;
+      }
     }
 
     setSubmittingBulkPayment(true);
@@ -916,20 +916,20 @@ const CustomerDevicePortal = () => {
       alert(`Payment amount cannot exceed remaining outstanding due (₹${remaining}).`);
       return;
     }
-    if (!renewalPaymentForm.transactionId || !renewalPaymentForm.transactionId.trim()) {
-      alert('Transaction ID / Reference Number is required.');
-      return;
-    }
     if (renewalPaymentForm.paymentMode === 'UPI') {
+      if (!renewalPaymentForm.transactionId || !renewalPaymentForm.transactionId.trim()) {
+        alert('Transaction ID / Reference Number is required for UPI payments.');
+        return;
+      }
       const cleanedTxId = renewalPaymentForm.transactionId.trim();
       if (!/^\d{12}$/.test(cleanedTxId)) {
         alert('For UPI payments, the Transaction ID / Reference number must be exactly 12 numeric digits.');
         return;
       }
-    }
-    if (renewalPaymentForm.paymentMode !== 'Cash' && !renewalScreenshot) {
-      alert('Please upload a payment screenshot/proof.');
-      return;
+      if (!renewalScreenshot) {
+        alert('Please upload a payment screenshot/proof for UPI payments.');
+        return;
+      }
     }
 
     try {
@@ -3236,7 +3236,9 @@ const CustomerDevicePortal = () => {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>Transaction ID / Reference Number *</span>
+                <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>
+                  Transaction ID / Reference Number {renewalPaymentForm.paymentMode === 'UPI' ? '*' : '(Optional)'}
+                </span>
                 <input 
                   type="text" 
                   value={renewalPaymentForm.transactionId} 
@@ -3247,7 +3249,7 @@ const CustomerDevicePortal = () => {
                   placeholder={renewalPaymentForm.paymentMode === 'UPI' ? "Enter 12-digit UPI UTR / Reference No." : "Enter transaction or reference ID..."}
                   maxLength={renewalPaymentForm.paymentMode === 'UPI' ? 12 : undefined}
                   style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 12px', fontSize: '13px' }}
-                  required
+                  required={renewalPaymentForm.paymentMode === 'UPI'}
                 />
                 {renewalPaymentForm.paymentMode === 'UPI' && (
                   <span style={{ fontSize: '10px', color: '#dc2626', marginTop: '2px', fontWeight: '600' }}>
@@ -3269,14 +3271,14 @@ const CustomerDevicePortal = () => {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>
-                  Upload Screenshot Proof {renewalPaymentForm.paymentMode !== 'Cash' && <span style={{ color: 'red' }}>*</span>}
+                  Upload Screenshot Proof {renewalPaymentForm.paymentMode === 'UPI' && <span style={{ color: 'red' }}>*</span>}
                 </span>
                 <input 
                   type="file" 
                   accept="image/*,application/pdf"
                   onChange={(e) => setRenewalScreenshot(e.target.files[0])}
                   style={{ fontSize: '12px' }}
-                  required={renewalPaymentForm.paymentMode !== 'Cash'}
+                  required={renewalPaymentForm.paymentMode === 'UPI'}
                 />
               </div>
 
@@ -3360,7 +3362,9 @@ const CustomerDevicePortal = () => {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>Transaction ID / Reference Number *</span>
+                <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>
+                  Transaction ID / Reference Number {bulkPaymentForm.paymentMode === 'UPI' ? '*' : '(Optional)'}
+                </span>
                 <input 
                   type="text" 
                   value={bulkPaymentForm.transactionId} 
@@ -3371,7 +3375,7 @@ const CustomerDevicePortal = () => {
                   placeholder={bulkPaymentForm.paymentMode === 'UPI' ? "Enter 12-digit UPI UTR / Reference No." : "Enter transaction or reference ID..."}
                   maxLength={bulkPaymentForm.paymentMode === 'UPI' ? 12 : undefined}
                   style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 12px', fontSize: '13px' }}
-                  required
+                  required={bulkPaymentForm.paymentMode === 'UPI'}
                 />
                 {bulkPaymentForm.paymentMode === 'UPI' && (
                   <span style={{ fontSize: '10px', color: '#dc2626', marginTop: '2px', fontWeight: '600' }}>
@@ -3393,14 +3397,14 @@ const CustomerDevicePortal = () => {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>
-                  Upload Screenshot Proof {bulkPaymentForm.paymentMode !== 'Cash' && <span style={{ color: 'red' }}>*</span>}
+                  Upload Screenshot Proof {bulkPaymentForm.paymentMode === 'UPI' && <span style={{ color: 'red' }}>*</span>}
                 </span>
                 <input 
                   type="file" 
                   accept="image/*,application/pdf"
                   onChange={(e) => setBulkScreenshot(e.target.files[0])}
                   style={{ fontSize: '12px' }}
-                  required={bulkPaymentForm.paymentMode !== 'Cash'}
+                  required={bulkPaymentForm.paymentMode === 'UPI'}
                 />
               </div>
 

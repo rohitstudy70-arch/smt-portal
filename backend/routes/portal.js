@@ -1334,23 +1334,30 @@ router.put('/renewals/:id/report-payment', protect, upload.single('screenshot'),
       return res.status(400).json({ message: 'Valid payment mode is required.' });
     }
 
-    if (paymentMode === 'UPI' && !/^\d{12}$/.test(transactionId.trim())) {
-      return res.status(400).json({ message: 'For UPI payments, the Transaction ID/Reference number must be exactly 12 numeric digits.' });
-    }
-    if (!transactionId || !transactionId.trim()) {
-      return res.status(400).json({ message: 'Transaction ID / Reference Number is required.' });
+    let finalTxId = (transactionId || '').trim();
+    if (paymentMode === 'UPI') {
+      if (!finalTxId) {
+        return res.status(400).json({ message: 'Transaction ID / Reference Number is required for UPI payments.' });
+      }
+      if (!/^\d{12}$/.test(finalTxId)) {
+        return res.status(400).json({ message: 'For UPI payments, the Transaction ID/Reference number must be exactly 12 numeric digits.' });
+      }
+    } else {
+      if (!finalTxId) {
+        finalTxId = `${paymentMode.toUpperCase().replace(/\s+/g, '')}-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      }
     }
 
     let screenshotUrl = renewal.screenshotUrl || '';
     if (req.file) {
       screenshotUrl = `/uploads/screenshots/${req.file.filename}`;
-    } else if (paymentMode !== 'Cash' && !screenshotUrl) {
-      return res.status(400).json({ message: 'Payment screenshot proof is required for digital payments.' });
+    } else if (paymentMode === 'UPI' && !screenshotUrl) {
+      return res.status(400).json({ message: 'Payment screenshot proof is required for UPI payments.' });
     }
 
     renewal.receivedAmount = receivedAmount;
     renewal.paymentMode = paymentMode;
-    renewal.transactionId = transactionId.trim();
+    renewal.transactionId = finalTxId;
     if (paymentDate) {
       const parsed = new Date(paymentDate);
       if (!isNaN(parsed.getTime())) {
@@ -1399,11 +1406,18 @@ router.put('/renewals/report-bulk-payment', protect, upload.single('screenshot')
       return res.status(400).json({ message: 'Valid payment mode is required.' });
     }
 
-    if (paymentMode === 'UPI' && !/^\d{12}$/.test(transactionId.trim())) {
-      return res.status(400).json({ message: 'For UPI payments, the Transaction ID/Reference number must be exactly 12 numeric digits.' });
-    }
-    if (!transactionId || !transactionId.trim()) {
-      return res.status(400).json({ message: 'Transaction ID / Reference Number is required.' });
+    let finalTxId = (transactionId || '').trim();
+    if (paymentMode === 'UPI') {
+      if (!finalTxId) {
+        return res.status(400).json({ message: 'Transaction ID / Reference Number is required for UPI payments.' });
+      }
+      if (!/^\d{12}$/.test(finalTxId)) {
+        return res.status(400).json({ message: 'For UPI payments, the Transaction ID/Reference number must be exactly 12 numeric digits.' });
+      }
+    } else {
+      if (!finalTxId) {
+        finalTxId = `${paymentMode.toUpperCase().replace(/\s+/g, '')}-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      }
     }
 
     const renewals = await RenewalRequest.find({ _id: { $in: requestIds } });
@@ -1422,8 +1436,8 @@ router.put('/renewals/report-bulk-payment', protect, upload.single('screenshot')
     let screenshotUrl = '';
     if (req.file) {
       screenshotUrl = `/uploads/screenshots/${req.file.filename}`;
-    } else if (paymentMode !== 'Cash') {
-      return res.status(400).json({ message: 'Payment screenshot proof is required for digital payments.' });
+    } else if (paymentMode === 'UPI') {
+      return res.status(400).json({ message: 'Payment screenshot proof is required for UPI payments.' });
     }
 
     let parsedDate = new Date();
@@ -1441,7 +1455,7 @@ router.put('/renewals/report-bulk-payment', protect, upload.single('screenshot')
 
       if (remainingPayment <= 0) {
         r.status = 'Under Review';
-        r.transactionId = transactionId.trim();
+        r.transactionId = finalTxId;
         r.paymentMode = paymentMode;
         r.paymentDate = parsedDate;
         if (remarks) r.remarks = remarks.trim();
@@ -1461,7 +1475,7 @@ router.put('/renewals/report-bulk-payment', protect, upload.single('screenshot')
 
       r.receivedAmount = (r.receivedAmount || 0) + alloc;
       r.status = 'Under Review';
-      r.transactionId = transactionId.trim();
+      r.transactionId = finalTxId;
       r.paymentMode = paymentMode;
       r.paymentDate = parsedDate;
       if (remarks) r.remarks = remarks.trim();

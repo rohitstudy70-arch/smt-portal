@@ -1890,10 +1890,10 @@ const DueDashboard = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Reference / UTR / Txn Number <span className="required" style={{ color: 'red' }}>*</span></label>
+                  <label>Reference / UTR / Txn Number {reportForm.paymentMode === 'UPI' ? <span className="required" style={{ color: 'red' }}>*</span> : '(Optional)'}</label>
                   <input
                     type="text"
-                    required
+                    required={reportForm.paymentMode === 'UPI'}
                     placeholder={reportForm.paymentMode === 'UPI' ? "Enter 12-digit UPI UTR / Reference No." : "Enter reference number..."}
                     maxLength={reportForm.paymentMode === 'UPI' ? 12 : undefined}
                     value={reportForm.referenceNumber}
@@ -1909,11 +1909,11 @@ const DueDashboard = () => {
                   )}
                 </div>
                 <div className="form-group">
-                  <label>Payment Screenshot / Receipt {reportForm.paymentMode !== 'Cash' && <span className="required" style={{ color: 'red' }}>*</span>}</label>
+                  <label>Payment Screenshot / Receipt {reportForm.paymentMode === 'UPI' && <span className="required" style={{ color: 'red' }}>*</span>}</label>
                   <input
                     type="file"
                     accept="image/*,application/pdf"
-                    required={reportForm.paymentMode !== 'Cash'}
+                    required={reportForm.paymentMode === 'UPI'}
                     onChange={(e) => setSelectedScreenshot(e.target.files[0])}
                     style={{ border: 'none', background: 'transparent', padding: '5px 0' }}
                   />

@@ -67,20 +67,23 @@ router.post('/', upload.single('screenshot'), async (req, res) => {
       return res.status(400).json({ message: 'Valid payment mode (Cash, UPI, NEFT, Bank Transfer) is required.' });
     }
 
-    if (!referenceNumber || !referenceNumber.trim()) {
-      return res.status(400).json({ message: 'Reference number is required.' });
-    }
-
+    let finalRef = (referenceNumber || '').trim();
     if (paymentMode === 'UPI') {
-      const cleanedRef = referenceNumber.trim();
-      if (!/^\d{12}$/.test(cleanedRef)) {
+      if (!finalRef) {
+        return res.status(400).json({ message: 'Reference/UTR number is required for UPI payments.' });
+      }
+      if (!/^\d{12}$/.test(finalRef)) {
         return res.status(400).json({ message: 'For UPI payments, the Reference/UTR number must be exactly 12 numeric digits.' });
+      }
+    } else {
+      if (!finalRef) {
+        finalRef = `${paymentMode.toUpperCase().replace(/\s+/g, '')}-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
       }
     }
 
     // Check if the reference number has already been submitted for verification
     const existingRef = await PaymentVerificationRequest.findOne({
-      referenceNumber: referenceNumber.trim(),
+      referenceNumber: finalRef,
       status: { $in: ['Pending', 'Approved'] }
     });
     if (existingRef) {
@@ -90,9 +93,9 @@ router.post('/', upload.single('screenshot'), async (req, res) => {
     let screenshotUrl = '';
     if (req.file) {
       screenshotUrl = `/uploads/screenshots/${req.file.filename}`;
-    } else if (paymentMode !== 'Cash') {
-      // Screenshot is required for non-cash modes
-      return res.status(400).json({ message: 'Payment screenshot proof is required for digital payments.' });
+    } else if (paymentMode === 'UPI') {
+      // Screenshot is required for UPI payments
+      return res.status(400).json({ message: 'Payment screenshot proof is required for UPI payments.' });
     }
 
     let paymentDate = new Date();
@@ -107,7 +110,7 @@ router.post('/', upload.single('screenshot'), async (req, res) => {
       userId: req.user._id,
       amount,
       paymentMode,
-      referenceNumber: referenceNumber.trim(),
+      referenceNumber: finalRef,
       remarks: (remarks || '').trim(),
       screenshotUrl,
       paymentDate,
