@@ -2839,7 +2839,7 @@ const CustomerDevicePortal = () => {
                     </span>
                   </td>
                   <td>
-                    {userRole === 'ADMIN' ? (
+                    {userRole === 'ADMIN' && renewal.status !== 'Activated' && renewal.status !== 'Completed' ? (
                       <select 
                         value={renewal.status} 
                         onChange={(e) => handleStatusChange(renewal._id, e.target.value)}
@@ -2913,14 +2913,16 @@ const CustomerDevicePortal = () => {
                               Activate
                             </button>
                           )}
-                          <button 
-                            type="button" 
-                            title="Edit" 
-                            onClick={() => handleEditRenewalClick(renewal)}
-                            style={{ padding: '6px 8px', background: '#f59e0b', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}
-                          >
-                            Edit
-                          </button>
+                          {renewal.status !== 'Activated' && renewal.status !== 'Completed' && (
+                            <button 
+                              type="button" 
+                              title="Edit" 
+                              onClick={() => handleEditRenewalClick(renewal)}
+                              style={{ padding: '6px 8px', background: '#f59e0b', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}
+                            >
+                              Edit
+                            </button>
+                          )}
                           <button 
                             type="button" 
                             title="Delete" 

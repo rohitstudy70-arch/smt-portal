@@ -1329,6 +1329,12 @@ router.put('/renewals/:id', protect, async (req, res) => {
       return res.status(404).json({ message: 'Renewal request not found.' });
     }
 
+    if (req.body.status !== undefined && req.body.status !== renewal.status) {
+      if (renewal.status === 'Activated' || renewal.status === 'Completed') {
+        return res.status(400).json({ message: 'Cannot change status of an activated or completed renewal request.' });
+      }
+    }
+
     const fields = [
       'dealerId',
       'customerName',
