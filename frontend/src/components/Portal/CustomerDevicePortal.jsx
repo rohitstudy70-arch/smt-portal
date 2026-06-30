@@ -2903,6 +2903,16 @@ const CustomerDevicePortal = () => {
                       )}
                       {userRole === 'ADMIN' && (
                         <>
+                          {renewal.status !== 'Activated' && renewal.status !== 'Completed' && (
+                            <button 
+                              type="button" 
+                              title="Activate Renewal" 
+                              onClick={() => handleStatusChange(renewal._id, 'Activated')}
+                              style={{ padding: '6px 8px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}
+                            >
+                              Activate
+                            </button>
+                          )}
                           <button 
                             type="button" 
                             title="Edit" 

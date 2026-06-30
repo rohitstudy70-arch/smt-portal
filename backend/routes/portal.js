@@ -1381,6 +1381,42 @@ router.put('/renewals/:id', protect, async (req, res) => {
     }
 
     await renewal.save();
+
+    if (req.body.status === 'Activated') {
+      const imeiToFind = (renewal.imei || '').trim();
+      let device = await Device.findOne({ imei: imeiToFind });
+      if (!device) {
+        device = new Device({
+          userId: renewal.userId,
+          dealerId: renewal.dealerId,
+          imei: imeiToFind,
+          serialNo: imeiToFind,
+          deviceName: renewal.deviceModel || 'Aquila Track Bharat 101 With IRNSS',
+          dealerName: renewal.dealerName,
+          validity: renewal.validity,
+          presentDate: renewal.renewalDate,
+          expiryDate: renewal.newExpiryDate,
+          deviceStatus: 'active',
+          status: 'Activated',
+          renewalAmount: renewal.billAmount,
+          billAmount: renewal.billAmount,
+        });
+      } else {
+        device.presentDate = renewal.renewalDate;
+        device.expiryDate = renewal.newExpiryDate;
+        device.validity = renewal.validity;
+        device.deviceStatus = 'active';
+        device.status = 'Activated';
+        device.renewalAmount = renewal.billAmount;
+      }
+      await device.save();
+
+      const ownerIds = getDueOwnerIdsFromDevice(device);
+      if (ownerIds && ownerIds.length > 0) {
+        await syncDueForUsers(ownerIds);
+      }
+    }
+
     res.json(renewal);
   } catch (error) {
     console.error('Portal update renewal error:', error.message);
