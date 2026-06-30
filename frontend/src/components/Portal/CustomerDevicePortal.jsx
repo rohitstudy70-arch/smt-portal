@@ -246,6 +246,8 @@ const CustomerDevicePortal = () => {
   const [renewalPage, setRenewalPage] = useState(1);
   const [renewalLimit, setRenewalLimit] = useState(10);
   const [editingRenewalId, setEditingRenewalId] = useState(null);
+  const editingRenewal = editingRenewalId ? renewals.find(r => r._id === editingRenewalId) : null;
+  const isEditingActivatedOrCompleted = !!(editingRenewal && (editingRenewal.status === 'Activated' || editingRenewal.status === 'Completed'));
   const [viewingRenewal, setViewingRenewal] = useState(null);
   const [reportPaymentRenewal, setReportPaymentRenewal] = useState(null);
   const [renewalPaymentForm, setRenewalPaymentForm] = useState({
@@ -2350,6 +2352,7 @@ const CustomerDevicePortal = () => {
               <select 
                 value={renewalForm.dealerId} 
                 onChange={(e) => handleRenewalFormChange('dealerId', e.target.value)}
+                disabled={isEditingActivatedOrCompleted}
               >
                 <option value="">Select Dealer</option>
                 {deviceDealerOptions.map(d => (
@@ -2387,10 +2390,12 @@ const CustomerDevicePortal = () => {
                   onChange={(e) => handleRenewalFormChange('imei', e.target.value)} 
                   required 
                   style={{ flex: 1, margin: 0 }}
+                  disabled={isEditingActivatedOrCompleted}
                 />
                 <button
                   type="button"
                   onClick={() => handleSearchImei(renewalForm.imei)}
+                  disabled={isEditingActivatedOrCompleted}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -2435,6 +2440,7 @@ const CustomerDevicePortal = () => {
               <select 
                 value={renewalForm.deviceModel} 
                 onChange={(e) => handleRenewalFormChange('deviceModel', e.target.value)}
+                disabled={isEditingActivatedOrCompleted}
               >
                 <option value="">Select Model</option>
                 {(userRole === 'ADMIN') && <option value="iTriangle">iTriangle</option>}
@@ -2453,6 +2459,7 @@ const CustomerDevicePortal = () => {
                 value={renewalForm.activationType} 
                 onChange={(e) => handleRenewalFormChange('activationType', e.target.value)}
                 required
+                disabled={isEditingActivatedOrCompleted}
               >
                 <option value="NIC">NIC</option>
                 <option value="MINING">MINING</option>
@@ -2464,6 +2471,7 @@ const CustomerDevicePortal = () => {
               <select 
                 value={renewalForm.productDescription} 
                 onChange={(e) => handleRenewalFormChange('productDescription', e.target.value)}
+                disabled={isEditingActivatedOrCompleted}
               >
                 <option value="">Select Product</option>
                 <option value="VLTD RENEWAL">VLTD RENEWAL</option>
@@ -2477,6 +2485,7 @@ const CustomerDevicePortal = () => {
               <select 
                 value={renewalForm.validity} 
                 onChange={(e) => handleRenewalFormChange('validity', e.target.value)}
+                disabled={isEditingActivatedOrCompleted}
               >
                 <option value="1 Year">1 Year</option>
                 <option value="2 Years">2 Years</option>
@@ -2490,6 +2499,7 @@ const CustomerDevicePortal = () => {
                 value={renewalForm.renewalDate} 
                 onChange={(e) => handleRenewalFormChange('renewalDate', e.target.value)} 
                 required 
+                disabled={isEditingActivatedOrCompleted}
               />
             </label>
 
@@ -2510,6 +2520,7 @@ const CustomerDevicePortal = () => {
                 value={renewalForm.billAmount} 
                 onChange={(e) => handleRenewalFormChange('billAmount', e.target.value)} 
                 required 
+                disabled={isEditingActivatedOrCompleted}
               />
             </label>
 
@@ -2913,16 +2924,14 @@ const CustomerDevicePortal = () => {
                               Activate
                             </button>
                           )}
-                          {renewal.status !== 'Activated' && renewal.status !== 'Completed' && (
-                            <button 
-                              type="button" 
-                              title="Edit" 
-                              onClick={() => handleEditRenewalClick(renewal)}
-                              style={{ padding: '6px 8px', background: '#f59e0b', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}
-                            >
-                              Edit
-                            </button>
-                          )}
+                          <button 
+                            type="button" 
+                            title="Edit" 
+                            onClick={() => handleEditRenewalClick(renewal)}
+                            style={{ padding: '6px 8px', background: '#f59e0b', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}
+                          >
+                            Edit
+                          </button>
                           <button 
                             type="button" 
                             title="Delete" 

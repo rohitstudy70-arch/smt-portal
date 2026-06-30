@@ -223,6 +223,12 @@ State: ${latestRequest?.userId?.state || device.dealerId?.state || '—'}`;
 
   const getActivationStatus = () => {
     if (!device) return 'none';
+    if (device.deviceStatus === 'active' || device.status === 'Activated' || device.status === 'Active') {
+      return 'active';
+    }
+    if (latestRenewal && ['Activated', 'Completed'].includes(latestRenewal.status)) {
+      return 'active';
+    }
     if (device.activationRequestStatus && device.activationRequestStatus !== 'none') {
       return device.activationRequestStatus;
     }
