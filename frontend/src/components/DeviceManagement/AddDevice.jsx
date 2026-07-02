@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FaCheckCircle,
   FaChevronDown,
+  FaCloudUploadAlt,
   FaFilter,
   FaMobileAlt,
   FaRedo,
@@ -13,6 +14,7 @@ import {
 } from 'react-icons/fa';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
+import BulkUploadDevices from './BulkUploadDevices';
 import './AddDevice.css';
 
 const getRole = (user) => {
@@ -92,6 +94,7 @@ const AddDevice = () => {
   const [filterDateMode, setFilterDateMode] = useState('all');
   const [filterFromDate, setFilterFromDate] = useState('');
   const [filterToDate, setFilterToDate] = useState('');
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
 
   const selectedDealer = useMemo(
     () => dealers.find((dealer) => dealer._id === formData.dealerId),
@@ -618,6 +621,15 @@ const AddDevice = () => {
             <button type="submit" className="btn-save" disabled={submitting}>
               <FaSave /> {submitting ? 'Saving...' : editingDeviceId ? 'Update Device' : (role === 'DEALER' ? 'Assign Device' : 'Save Device')}
             </button>
+            {(role === 'ADMIN' || role === 'DEALER') && (
+              <button
+                type="button"
+                className="btn-bulk-upload"
+                onClick={() => setBulkModalOpen(true)}
+              >
+                <FaCloudUploadAlt /> Bulk Upload
+              </button>
+            )}
           </div>
         </form>
       </div>
@@ -758,6 +770,16 @@ const AddDevice = () => {
           </table>
         </div>
       </div>
+
+      <BulkUploadDevices
+        isOpen={bulkModalOpen}
+        onClose={() => setBulkModalOpen(false)}
+        onUploadSuccess={() => fetchDevices(debouncedSearch, filterFromDate, filterToDate)}
+        dealers={dealers}
+        subDealers={subDealers}
+        role={role}
+        user={user}
+      />
     </div>
   );
 };

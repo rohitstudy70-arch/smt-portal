@@ -17,6 +17,9 @@ const {
   getDueOwnerIdsFromDevice,
   syncDueForUsers,
 } = require('../services/dueService');
+const multer = require('multer');
+const ExcelJS = require('exceljs');
+const path = require('path');
 
 const router = express.Router();
 
@@ -24,6 +27,20 @@ router.use(protect, attachHierarchyScope);
 
 const deviceManageRoles = [PORTAL_ROLES.ADMIN, PORTAL_ROLES.DEALER, PORTAL_ROLES.SUB_DEALER]; // assign/unassign
 const deviceCreateRoles = [PORTAL_ROLES.ADMIN, PORTAL_ROLES.DEALER, PORTAL_ROLES.SUB_DEALER]; // add/edit/delete devices — ADMIN, DEALER, SUB_DEALER allowed
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowedExtensions = ['.csv', '.xlsx', '.xls'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowedExtensions.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only .csv, .xlsx, and .xls files are allowed.'));
+    }
+  },
+});
 
 
 const escapeRegExp = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -197,11 +214,11 @@ const populateDevice = (query) => query
 
 const findDealerFromName = (scope, dealerName) => {
   if (!dealerName) return null;
-  const normalized = dealerName.toLowerCase();
+  const normalized = dealerName.trim().toLowerCase();
 
   return scope.users.find((candidate) => (
     getPortalRole(candidate) === PORTAL_ROLES.DEALER
-    && labelForUser(candidate).toLowerCase() === normalized
+    && labelForUser(candidate).trim().toLowerCase() === normalized
   )) || null;
 };
 
@@ -1094,5 +1111,564 @@ router.delete('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+// ─── Bulk Upload: Download sample template ───────────────────────────────────
+router.get(
+  '/bulk-upload/sample',
+  requireRoles(PORTAL_ROLES.ADMIN, PORTAL_ROLES.DEALER),
+  async (req, res) => {
+    try {
+      const { portalRole: role, hierarchyScope: scope, user } = req;
+
+      let sampleDealerName = 'ABC Traders';
+      let sampleSubDealerName = '';
+
+      if (role === PORTAL_ROLES.DEALER) {
+        sampleDealerName = labelForUser(user);
+        const sd = scope.users.find(
+          (u) => getPortalRole(u) === PORTAL_ROLES.SUB_DEALER && u.parentId?.toString() === user._id.toString()
+        );
+        if (sd) {
+          sampleSubDealerName = labelForUser(sd);
+        }
+      } else if (role === PORTAL_ROLES.ADMIN) {
+        const firstDealer = scope.users.find((u) => getPortalRole(u) === PORTAL_ROLES.DEALER);
+        if (firstDealer) {
+          sampleDealerName = labelForUser(firstDealer);
+          const sd = scope.users.find(
+            (u) => getPortalRole(u) === PORTAL_ROLES.SUB_DEALER && u.parentId?.toString() === firstDealer._id.toString()
+          );
+          if (sd) {
+            sampleSubDealerName = labelForUser(sd);
+          }
+        }
+      }
+
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet('Sample Devices');
+
+      const headers = [
+        'Dealer Name', 'Sub Dealer Name', 'Model', 'IMEI', 'Serial No',
+        'ICCID No', 'MSISDN1', 'MSISDN2', 'ITR No', 'Validity',
+        'Activation Date', 'Expiry Date', 'Bill Amount',
+      ];
+
+      const colWidths = [20, 20, 15, 20, 15, 18, 15, 15, 12, 12, 16, 16, 14];
+      sheet.columns = headers.map((h, i) => ({ header: h, key: h, width: colWidths[i] || 15 }));
+
+      // Style header row
+      const headerRow = sheet.getRow(1);
+      headerRow.eachCell((cell) => {
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      });
+
+      // Example rows
+      sheet.addRow([
+        sampleDealerName, sampleSubDealerName, 'Acute', '123456789012345', 'SER001',
+        'ICCID001', '9876543210', '9876543211', 'ITR001', '1 Year',
+        '2025-01-15', '2026-01-15', 2500,
+      ]);
+      sheet.addRow([
+        sampleDealerName, '', 'Markon', '123456789012346', 'SER002',
+        'ICCID002', '9876543212', '', '', '2 Years',
+        '2025-02-01', '2027-02-01', 3500,
+      ]);
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename=bulk_upload_sample.xlsx');
+
+      await workbook.xlsx.write(res);
+      res.end();
+    } catch (error) {
+      console.error('Sample download error:', error.message);
+      res.status(500).json({ message: 'Failed to generate sample file.' });
+    }
+  }
+);
+
+// ─── Bulk Upload: Process uploaded file ──────────────────────────────────────
+router.post(
+  '/bulk-upload',
+  requireRoles(PORTAL_ROLES.ADMIN, PORTAL_ROLES.DEALER),
+  (req, res, next) => {
+    upload.single('file')(req, res, (err) => {
+      if (err) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ message: 'File size exceeds the 5 MB limit.' });
+        }
+        return res.status(400).json({ message: err.message || 'File upload failed.' });
+      }
+      next();
+    });
+  },
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded. Please upload a .csv, .xlsx, or .xls file.' });
+      }
+
+      const { portalRole: role, hierarchyScope: scope, user } = req;
+
+      // ── Parse workbook ──────────────────────────────────────────────────
+      const workbook = new ExcelJS.Workbook();
+      const ext = path.extname(req.file.originalname).toLowerCase();
+
+      if (ext === '.csv') {
+        const { Readable } = require('stream');
+        const readable = Readable.from(req.file.buffer);
+        await workbook.csv.read(readable);
+      } else {
+        await workbook.xlsx.load(req.file.buffer);
+      }
+
+      const worksheet = workbook.worksheets[0];
+      if (!worksheet || worksheet.rowCount < 2) {
+        return res.status(400).json({ message: 'The uploaded file has no data rows.' });
+      }
+
+      // ── Build column index from header row ──────────────────────────────
+      const COLUMN_MAP = {
+        'dealer name': 'dealerName',
+        'sub dealer name': 'subDealerName',
+        'model': 'vendor',
+        'imei': 'imei',
+        'serial no': 'serialNo',
+        'iccid no': 'iccid',
+        'msisdn1': 'msisdn1',
+        'msisdn2': 'msisdn2',
+        'itr no': 'itrNo',
+        'validity': 'validity',
+        'activation date': 'presentDate',
+        'expiry date': 'expiryDate',
+        'bill amount': 'billAmount',
+      };
+
+      const headerRow = worksheet.getRow(1);
+      const colIndex = {}; // field name → column number
+      headerRow.eachCell((cell, colNumber) => {
+        const raw = String(cell.value || '').trim().toLowerCase();
+        if (COLUMN_MAP[raw]) {
+          colIndex[COLUMN_MAP[raw]] = colNumber;
+        }
+      });
+
+      // ── Read rows ──────────────────────────────────────────────────────
+      const cellVal = (row, field) => {
+        const col = colIndex[field];
+        if (!col) return '';
+        let v = row.getCell(col).value;
+        if (v === null || v === undefined) return '';
+        if (typeof v === 'object') {
+          if ('result' in v) v = v.result;
+          else if ('text' in v) v = v.text;
+        }
+        if (v instanceof Date) return v;
+        if (typeof v === 'number') return v;
+        return String(v).trim();
+      };
+
+      const rows = [];
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return; // skip header
+        rows.push({ rowNumber, row });
+      });
+
+      if (rows.length === 0) {
+        return res.status(400).json({ message: 'The uploaded file has no data rows.' });
+      }
+
+      // ── Extract raw data ───────────────────────────────────────────────
+      const parsed = rows.map(({ rowNumber, row }) => ({
+        rowNumber,
+        dealerName: cellVal(row, 'dealerName'),
+        subDealerName: cellVal(row, 'subDealerName'),
+        vendor: cellVal(row, 'vendor'),
+        imei: cellVal(row, 'imei'),
+        serialNo: cellVal(row, 'serialNo'),
+        iccid: cellVal(row, 'iccid'),
+        msisdn1: cellVal(row, 'msisdn1'),
+        msisdn2: cellVal(row, 'msisdn2'),
+        itrNo: cellVal(row, 'itrNo'),
+        validity: cellVal(row, 'validity'),
+        presentDate: cellVal(row, 'presentDate'),
+        expiryDate: cellVal(row, 'expiryDate'),
+        billAmount: cellVal(row, 'billAmount'),
+      }));
+
+      // ── Validation ─────────────────────────────────────────────────────
+      const errors = [];
+      const addErr = (row, field, message) => errors.push({ row, field, message });
+
+      // 1. Required fields
+      for (const p of parsed) {
+        if (!p.imei) addErr(p.rowNumber, 'IMEI', 'IMEI is required.');
+        if (!p.serialNo) addErr(p.rowNumber, 'Serial No', 'Serial No is required.');
+        if (!p.iccid) addErr(p.rowNumber, 'ICCID No', 'ICCID No is required.');
+        if (!p.vendor) addErr(p.rowNumber, 'Model', 'Model (vendor) is required.');
+        if (role === PORTAL_ROLES.ADMIN && !p.dealerName && !req.body.dealerId) {
+          addErr(p.rowNumber, 'Dealer Name', 'Dealer Name is required for admin uploads (unless selected in UI).');
+        }
+      }
+
+      // 2. Intra-file duplicates
+      const seenImei = {};
+      const seenSerial = {};
+      const seenIccid = {};
+      for (const p of parsed) {
+        if (p.imei) {
+          if (seenImei[p.imei]) {
+            addErr(p.rowNumber, 'IMEI', `Duplicate IMEI "${p.imei}" found in file (also in row ${seenImei[p.imei]}).`);
+          } else {
+            seenImei[p.imei] = p.rowNumber;
+          }
+        }
+        if (p.serialNo) {
+          if (seenSerial[p.serialNo]) {
+            addErr(p.rowNumber, 'Serial No', `Duplicate Serial No "${p.serialNo}" found in file (also in row ${seenSerial[p.serialNo]}).`);
+          } else {
+            seenSerial[p.serialNo] = p.rowNumber;
+          }
+        }
+        if (p.iccid) {
+          if (seenIccid[p.iccid]) {
+            addErr(p.rowNumber, 'ICCID No', `Duplicate ICCID "${p.iccid}" found in file (also in row ${seenIccid[p.iccid]}).`);
+          } else {
+            seenIccid[p.iccid] = p.rowNumber;
+          }
+        }
+      }
+
+      // 3. DB duplicates — batch queries
+      const allImeis = parsed.map((p) => p.imei).filter(Boolean);
+      const allSerials = parsed.map((p) => p.serialNo).filter(Boolean);
+      const allIccids = parsed.map((p) => p.iccid).filter(Boolean);
+
+      const [dbImeis, dbSerials, dbIccids] = await Promise.all([
+        allImeis.length ? Device.find({ $or: [{ imei: { $in: allImeis } }, { imeiNumber: { $in: allImeis } }] }).select('imei imeiNumber').lean() : [],
+        allSerials.length ? Device.find({ $or: [{ serialNo: { $in: allSerials } }, { serialNumber: { $in: allSerials } }] }).select('serialNo serialNumber').lean() : [],
+        allIccids.length ? Device.find({ $or: [{ iccid: { $in: allIccids } }, { iccidNumber: { $in: allIccids } }] }).select('iccid iccidNumber').lean() : [],
+      ]);
+
+      const existingImeis = new Set(dbImeis.flatMap((d) => [d.imei, d.imeiNumber].filter(Boolean)));
+      const existingSerials = new Set(dbSerials.flatMap((d) => [d.serialNo, d.serialNumber].filter(Boolean)));
+      const existingIccids = new Set(dbIccids.flatMap((d) => [d.iccid, d.iccidNumber].filter(Boolean)));
+
+      for (const p of parsed) {
+        if (p.imei && existingImeis.has(p.imei)) {
+          addErr(p.rowNumber, 'IMEI', `IMEI "${p.imei}" already exists in database.`);
+        }
+        if (p.serialNo && existingSerials.has(p.serialNo)) {
+          addErr(p.rowNumber, 'Serial No', `Serial No "${p.serialNo}" already exists in database.`);
+        }
+        if (p.iccid && existingIccids.has(p.iccid)) {
+          addErr(p.rowNumber, 'ICCID No', `ICCID "${p.iccid}" already exists in database.`);
+        }
+      }
+
+      // 4–5. Dealer / sub-dealer resolution
+      const dealerCache = {}; // dealerName → User doc | null
+      const subDealerCache = {}; // key → User doc | null
+
+      let selectedDealer = null;
+      let selectedSubDealer = null;
+
+      if (req.body.dealerId) {
+        selectedDealer = await ensureUserInHierarchy(req.body.dealerId, scope);
+        if (!selectedDealer || getPortalRole(selectedDealer) !== PORTAL_ROLES.DEALER) {
+          return res.status(400).json({ message: 'Selected dealer is invalid or not in your hierarchy.' });
+        }
+      }
+      if (req.body.subDealerId) {
+        selectedSubDealer = await ensureUserInHierarchy(req.body.subDealerId, scope);
+        if (!selectedSubDealer || getPortalRole(selectedSubDealer) !== PORTAL_ROLES.SUB_DEALER) {
+          return res.status(400).json({ message: 'Selected sub dealer is invalid or not in your hierarchy.' });
+        }
+        const expectedDealerId = selectedDealer ? selectedDealer._id : (role === PORTAL_ROLES.DEALER ? user._id : null);
+        if (expectedDealerId && selectedSubDealer.parentId?.toString() !== expectedDealerId.toString()) {
+          return res.status(400).json({ message: 'Selected sub dealer does not belong to the selected dealer.' });
+        }
+      }
+
+      for (const p of parsed) {
+        if (selectedDealer) {
+          // If a dealer is selected in the UI, we completely ignore any sheet-level dealer and sub-dealer columns
+          // because all devices are assigned directly to the selected dealer (or selected sub-dealer if chosen in UI)
+          continue;
+        } else if (role === PORTAL_ROLES.ADMIN) {
+          if (p.dealerName && !dealerCache.hasOwnProperty(p.dealerName)) {
+            dealerCache[p.dealerName] = findDealerFromName(scope, p.dealerName);
+          }
+          if (p.dealerName && !dealerCache[p.dealerName]) {
+            addErr(p.rowNumber, 'Dealer Name', `Dealer "${p.dealerName}" not found in your hierarchy.`);
+          }
+        }
+
+        if (selectedSubDealer) {
+          // resolved via body
+        } else if (p.subDealerName) {
+          const parentDealer = selectedDealer || (role === PORTAL_ROLES.ADMIN ? dealerCache[p.dealerName] : user);
+
+          if (parentDealer) {
+            const cacheKey = `${parentDealer._id}_${p.subDealerName.toLowerCase()}`;
+            if (!subDealerCache.hasOwnProperty(cacheKey)) {
+              const normalizedSub = p.subDealerName.trim().toLowerCase();
+              subDealerCache[cacheKey] = scope.users.find((u) =>
+                getPortalRole(u) === PORTAL_ROLES.SUB_DEALER
+                && u.parentId?.toString() === parentDealer._id.toString()
+                && labelForUser(u).trim().toLowerCase() === normalizedSub
+              ) || null;
+            }
+            if (!subDealerCache[cacheKey]) {
+              addErr(p.rowNumber, 'Sub Dealer Name', `Sub-dealer "${p.subDealerName}" not found under dealer.`);
+            }
+          }
+        }
+      }
+
+      // 6. Validity normalization
+      for (const p of parsed) {
+        if (p.validity) {
+          const normalized = normalizeValidity(p.validity);
+          if (!normalized) {
+            addErr(p.rowNumber, 'Validity', `Invalid validity "${p.validity}". Use "1 Year" or "2 Years".`);
+          } else {
+            p.validity = normalized;
+          }
+        } else {
+          p.validity = '1 Year'; // default
+        }
+      }
+
+      // 7. Parse dates
+      const parseExcelDate = (val) => {
+        if (!val) return null;
+        if (val instanceof Date) {
+          if (!isNaN(val.getTime())) return val;
+        }
+        if (typeof val === 'number') {
+          const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+          const msInDay = 24 * 60 * 60 * 1000;
+          const dObj = new Date(excelEpoch.getTime() + val * msInDay);
+          if (!isNaN(dObj.getTime())) return dObj;
+        }
+        const str = String(val).trim();
+        if (!str) return null;
+
+        let parsedDate = new Date(str);
+        if (!isNaN(parsedDate.getTime())) return parsedDate;
+
+        const parts = str.split(/[-\/]/);
+        if (parts.length === 3) {
+          if (parts[0].length === 4) {
+            const y = parseInt(parts[0], 10);
+            const m = parseInt(parts[1], 10) - 1;
+            const d = parseInt(parts[2], 10);
+            parsedDate = new Date(y, m, d);
+            if (!isNaN(parsedDate.getTime())) return parsedDate;
+          } else if (parts[2].length === 4) {
+            const d = parseInt(parts[0], 10);
+            const m = parseInt(parts[1], 10) - 1;
+            const y = parseInt(parts[2], 10);
+            parsedDate = new Date(y, m, d);
+            if (!isNaN(parsedDate.getTime())) return parsedDate;
+          }
+        }
+        return null;
+      };
+
+      for (const p of parsed) {
+        if (p.presentDate) {
+          const d = parseExcelDate(p.presentDate);
+          if (!d) {
+            addErr(p.rowNumber, 'Activation Date', `Invalid activation date format "${p.presentDate}". Use YYYY-MM-DD or DD-MM-YYYY.`);
+          } else {
+            p.presentDate = d;
+          }
+        } else {
+          p.presentDate = new Date();
+        }
+
+        if (p.expiryDate) {
+          const d = parseExcelDate(p.expiryDate);
+          if (!d) {
+            addErr(p.rowNumber, 'Expiry Date', `Invalid expiry date format "${p.expiryDate}". Use YYYY-MM-DD or DD-MM-YYYY.`);
+          } else {
+            p.expiryDate = d;
+          }
+        } else if (p.presentDate instanceof Date) {
+          p.expiryDate = addYears(p.presentDate, p.validity === '2 Years' ? 2 : 1);
+        }
+      }
+
+      // ── Determine valid rows (no errors) ───────────────────────────────
+      const errorRows = new Set(errors.map((e) => e.row));
+      const validRows = parsed.filter((p) => !errorRows.has(p.rowNumber));
+
+      // ── Insert valid rows ──────────────────────────────────────────────
+      const Product = require('../models/Product');
+      const successfulDevices = [];
+      const affectedOwnerIds = new Set();
+
+      for (const p of validRows) {
+        try {
+          // Resolve ownership
+          let dealer;
+          let subDealer = null;
+          let ownerId;
+
+          if (selectedDealer) {
+            dealer = selectedDealer;
+          } else if (role === PORTAL_ROLES.ADMIN) {
+            dealer = dealerCache[p.dealerName];
+          } else {
+            dealer = user;
+          }
+
+          if (selectedSubDealer) {
+            subDealer = selectedSubDealer;
+          } else if (p.subDealerName && !selectedDealer) {
+            const cacheKey = `${dealer._id}_${p.subDealerName.toLowerCase()}`;
+            subDealer = subDealerCache[cacheKey] || null;
+          }
+
+          ownerId = subDealer ? subDealer._id : dealer._id;
+
+          const dealerNameLabel = labelForUser(dealer);
+          const subDealerNameLabel = subDealer ? labelForUser(subDealer) : '';
+          const billAmt = Number(p.billAmount) || 0;
+
+          const deviceCreated = await Device.create({
+            userId: ownerId,
+            dealerId: dealer._id,
+            dealerName: dealerNameLabel,
+            subDealerId: subDealer?._id || null,
+            subDealerName: subDealerNameLabel,
+            vendor: p.vendor,
+            deviceName: p.deviceName || 'Aquila Track Bharat 101 With IRNSS',
+            imei: p.imei,
+            imeiNumber: p.imei,
+            iccid: p.iccid,
+            iccidNumber: p.iccid,
+            serialNo: p.serialNo,
+            serialNumber: p.serialNo,
+            msisdn1: p.msisdn1 || '',
+            msisdn2: p.msisdn2 || '',
+            itrNo: p.itrNo || '',
+            billAmount: billAmt,
+            validity: p.validity,
+            presentDate: p.presentDate,
+            expiryDate: p.expiryDate,
+            assignedTo: null,
+            assignmentHistory: [],
+            status: 'Processing',
+            activationRequestStatus: 'processing',
+            hasSim: Boolean(p.msisdn1 || p.msisdn2 || p.iccid),
+            createdBy: req.user._id,
+            createdByRole: req.portalRole,
+            updatedAt: p.presentDate,
+          });
+
+          // Transaction
+          if (billAmt > 0) {
+            const targetUser = await User.findById(ownerId);
+            const randomNum = Math.floor(10000 + Math.random() * 90000);
+            const date = new Date();
+            const mm = String(date.getMonth() + 1).padStart(2, '0');
+            const dd = String(date.getDate()).padStart(2, '0');
+            const transactionId = `ITR_${mm}_${dd}_${randomNum}`;
+
+            await Transaction.create({
+              userId: ownerId,
+              transactionId,
+              paymentId: deviceCreated._id.toString(),
+              paymentFor: 'Device Purchase',
+              referenceNo: p.imei,
+              payMode: 'Itwallet',
+              transactionType: 'Debit',
+              status: 'Success',
+              remarks: `Device Purchase: IMEI ${p.imei}`,
+              requestedAmt: billAmt,
+              transactedAmt: billAmt,
+              deviceName: deviceCreated.deviceName,
+              imei: p.imei,
+              iccid: p.iccid,
+              serialNo: p.serialNo,
+              balanceAfterTransaction: targetUser?.availableBalance || 0,
+              createdBy: req.user._id,
+            });
+          }
+
+          // Product sync
+          await Product.create({
+            userId: deviceCreated.userId,
+            dealerId: deviceCreated.dealerId,
+            dealerName: deviceCreated.dealerName,
+            subDealerId: deviceCreated.subDealerId,
+            subDealerName: deviceCreated.subDealerName,
+            vendor: deviceCreated.vendor || 'iTriangle',
+            productDescription: deviceCreated.deviceType === 'GPS' ? 'GPS' : 'VLTD',
+            existingDeviceSearch: '',
+            imei: deviceCreated.imei,
+            serialNo: deviceCreated.serialNo,
+            iccid: deviceCreated.iccid,
+            msisdn1: deviceCreated.msisdn1,
+            msisdn2: deviceCreated.msisdn2,
+            itrNo: deviceCreated.itrNo,
+            vehicleNumber: '',
+            validity: deviceCreated.validity || '1 Year',
+            activationDate: deviceCreated.presentDate,
+            expiryDate: deviceCreated.expiryDate,
+            billAmount: deviceCreated.billAmount || 0,
+            createdBy: req.user._id,
+            createdByRole: req.portalRole,
+            createdAt: deviceCreated.createdAt,
+            updatedAt: deviceCreated.updatedAt || deviceCreated.createdAt,
+          });
+
+          // Audit log
+          await AuditLog.create({
+            userId: req.user._id,
+            action: 'DEVICE_ASSIGNMENT',
+            ipAddress: req.ip || '',
+            details: {
+              imei: p.imei,
+              assignedTo: ownerId,
+              billAmount: billAmt,
+              source: 'bulk-upload',
+            },
+          }).catch((e) => console.error('Bulk upload audit log error:', e.message));
+
+          affectedOwnerIds.add(ownerId.toString());
+
+          const populated = await populateDevice(Device.findById(deviceCreated._id));
+          successfulDevices.push(populated);
+        } catch (rowErr) {
+          console.error(`Bulk upload row ${p.rowNumber} insert error:`, rowErr.message);
+          addErr(p.rowNumber, 'insert', `Failed to insert: ${rowErr.message}`);
+        }
+      }
+
+      // Sync dues for all affected users
+      if (affectedOwnerIds.size > 0) {
+        await syncDueForUsers([...affectedOwnerIds]).catch((e) =>
+          console.error('Bulk upload due sync error:', e.message)
+        );
+      }
+
+      res.status(200).json({
+        totalRows: parsed.length,
+        successCount: successfulDevices.length,
+        errorCount: errors.length,
+        errors,
+        successfulDevices,
+      });
+    } catch (error) {
+      console.error('Bulk upload error:', error.message);
+      res.status(500).json({ message: 'Server error during bulk upload.' });
+    }
+  }
+);
 
 module.exports = router;
