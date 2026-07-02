@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { PortalProvider } from './context/PortalContext';
 import Login from './components/Login/Login';
 import CustomerDevicePortal from './components/Portal/CustomerDevicePortal';
 import ActivationRequests from './components/ServiceRequests/ActivationRequests';
@@ -132,174 +133,176 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 function App() {
   return (
     <AuthProvider>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        
-        <Route 
-          path="/dashboard" 
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <CustomerDevicePortal />
-              </Layout>
-            </ProtectedRoute>
-          } 
-        />
+      <PortalProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          
+          <Route 
+            path="/dashboard" 
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <CustomerDevicePortal />
+                </Layout>
+              </ProtectedRoute>
+            } 
+          />
 
-        <Route
-          path="/invoice-generator"
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <InvoiceGenerator />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/invoice-generator"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <InvoiceGenerator />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/invoice/:invoiceId"
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <ProformaInvoice />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
-        
-        <Route 
-          path="/service-requests/activation" 
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <ActivationRequests />
-              </Layout>
-            </ProtectedRoute>
-          } 
-        />
-        
+          <Route
+            path="/invoice/:invoiceId"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <ProformaInvoice />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          
+          <Route 
+            path="/service-requests/activation" 
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <ActivationRequests />
+                </Layout>
+              </ProtectedRoute>
+            } 
+          />
+          
 
-        
-        <Route 
-          path="/account/change-password" 
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <ChangePassword />
-              </Layout>
-            </ProtectedRoute>
-          } 
-        />
+          
+          <Route 
+            path="/account/change-password" 
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <ChangePassword />
+                </Layout>
+              </ProtectedRoute>
+            } 
+          />
 
-        <Route 
-          path="/account/edit-profile" 
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <EditProfile />
-              </Layout>
-            </ProtectedRoute>
-          } 
-        />
-
-
-        
-        <Route 
-          path="/user-management" 
-          element={
-            <ProtectedRoute allowedRoles={['ADMIN', 'DEALER']}>
-              <Layout>
-                <UserManagement />
-              </Layout>
-            </ProtectedRoute>
-          } 
-        />
-
-        <Route 
-          path="/due-dashboard" 
-          element={
-            <ProtectedRoute allowedRoles={operationsRoles}>
-              <Layout>
-                <DueDashboard />
-              </Layout>
-            </ProtectedRoute>
-          } 
-        />
-
-        <Route 
-          path="/renewal-due-management" 
-          element={
-            <ProtectedRoute allowedRoles={['ADMIN']}>
-              <Layout>
-                <RenewalDueManagement />
-              </Layout>
-            </ProtectedRoute>
-          } 
-        />
-
-        <Route 
-          path="/device-management" 
-          element={
-            <ProtectedRoute allowedRoles={['ADMIN', 'DEALER']}>
-              <Layout>
-                <DeviceManagement />
-              </Layout>
-            </ProtectedRoute>
-          } 
-        />
-
-        <Route 
-          path="/add-device" 
-          element={
-            <ProtectedRoute allowedRoles={operationsRoles}>
-              <Layout>
-                <AddDevice />
-              </Layout>
-            </ProtectedRoute>
-          } 
-        />
-
-        <Route
-          path="/add-product"
-          element={
-            <ProtectedRoute allowedRoles={['ADMIN', 'DEALER']}>
-              <Layout>
-                <AddProduct />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
+          <Route 
+            path="/account/edit-profile" 
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <EditProfile />
+                </Layout>
+              </ProtectedRoute>
+            } 
+          />
 
 
+          
+          <Route 
+            path="/user-management" 
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'DEALER']}>
+                <Layout>
+                  <UserManagement />
+                </Layout>
+              </ProtectedRoute>
+            } 
+          />
 
-        <Route 
-          path="/certificates" 
-          element={
-            <ProtectedRoute allowedRoles={['ADMIN', 'SUB_DEALER']}>
-              <Layout>
-                <Certificates />
-              </Layout>
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/iccid-search" 
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <IccidSearch />
-              </Layout>
-            </ProtectedRoute>
-          } 
-        />
-        
+          <Route 
+            path="/due-dashboard" 
+            element={
+              <ProtectedRoute allowedRoles={operationsRoles}>
+                <Layout>
+                  <DueDashboard />
+                </Layout>
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/renewal-due-management" 
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <Layout>
+                  <RenewalDueManagement />
+                </Layout>
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/device-management" 
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'DEALER']}>
+                <Layout>
+                  <DeviceManagement />
+                </Layout>
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/add-device" 
+            element={
+              <ProtectedRoute allowedRoles={operationsRoles}>
+                <Layout>
+                  <AddDevice />
+                </Layout>
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route
+            path="/add-product"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'DEALER']}>
+                <Layout>
+                  <AddProduct />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
 
 
-        {/* Fallback routes */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
-      </Routes>
+
+          <Route 
+            path="/certificates" 
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'SUB_DEALER']}>
+                <Layout>
+                  <Certificates />
+                </Layout>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/iccid-search" 
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <IccidSearch />
+                </Layout>
+              </ProtectedRoute>
+            } 
+          />
+          
+
+
+          {/* Fallback routes */}
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </PortalProvider>
     </AuthProvider>
   );
 }

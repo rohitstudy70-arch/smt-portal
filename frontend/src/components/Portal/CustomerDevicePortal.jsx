@@ -29,6 +29,7 @@ import {
 } from 'react-icons/fa';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
+import { usePortal } from '../../context/PortalContext';
 import './CustomerDevicePortal.css';
 import RevenueBreakdownModal from './RevenueBreakdownModal';
 
@@ -189,6 +190,25 @@ const parseBulkDevices = (rawText) => {
 
 const CustomerDevicePortal = () => {
   const { user, updateProfile } = useAuth();
+  const {
+    summary,
+    dueSummary,
+    renewalDueSummary,
+    dealers,
+    deviceDealerOptions,
+    subDealers,
+    users,
+    customers,
+    devices,
+    reports,
+    loginLogs,
+    loading,
+    error,
+    userRole,
+    loadPortalData,
+    refreshPortalData,
+  } = usePortal();
+
   const location = useLocation();
   const navigate = useNavigate();
   const params = new URLSearchParams(location.search);
@@ -196,21 +216,8 @@ const CustomerDevicePortal = () => {
   const initialSearch = params.get('search') || '';
   const initialImei = params.get('imei') || '';
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [summary, setSummary] = useState(null);
-  const [dueSummary, setDueSummary] = useState(null);
-  const [renewalDueSummary, setRenewalDueSummary] = useState(null);
-  const [dealers, setDealers] = useState([]);
-  const [deviceDealerOptions, setDeviceDealerOptions] = useState([]);
-  const [subDealers, setSubDealers] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [customers, setCustomers] = useState([]);
-  const [devices, setDevices] = useState([]);
   const [renewals, setRenewals] = useState([]);
-  const [reports, setReports] = useState(null);
-  const [loginLogs, setLoginLogs] = useState([]);
   const [search, setSearch] = useState(initialSearch);
   const [selectedDealerFilter, setSelectedDealerFilter] = useState('');
   const [userForm, setUserForm] = useState(emptyUserForm);
@@ -282,7 +289,6 @@ const CustomerDevicePortal = () => {
   const [isRevenueModalOpen, setIsRevenueModalOpen] = useState(false);
   const [revenueModalTab, setRevenueModalTab] = useState('today');
 
-  const userRole = user?.role === 'partner' ? 'ADMIN' : user?.userType === 'Administration' ? 'ADMIN' : user?.userType === 'Sub Dealer' ? 'SUB_DEALER' : 'DEALER';
   const role = summary?.role || userRole;
   const isAdmin = role === 'ADMIN';
   const isCustomer = false;
@@ -465,85 +471,13 @@ const CustomerDevicePortal = () => {
     window.setTimeout(() => setNotice(''), 3500);
   };
 
-  const loadPortalData = useCallback(async () => {
-    try {
-      if (!summary) {
-        setLoading(true);
-      }
-      setError('');
-      const canManageUsers = userRole === 'ADMIN' || userRole === 'DEALER';
-      const isOps = userRole === 'ADMIN' || userRole === 'DEALER' || userRole === 'SUB_DEALER';
-      const [
-        summaryRes,
-        dealersRes,
-        subDealersRes,
-        usersRes,
-        customersRes,
-        devicesRes,
-        renewalsRes,
-        reportsRes,
-        loginLogsRes,
-        dueSummaryRes,
-        renewalDueSummaryRes,
-      ] = await Promise.all([
-        api.get('/portal/summary'),
-        canManageUsers ? api.get('/portal/users', { params: { type: 'dealer' } }) : Promise.resolve({ data: [] }),
-        canManageUsers ? api.get('/portal/users', { params: { type: 'subDealer' } }) : Promise.resolve({ data: [] }),
-        canManageUsers ? api.get('/portal/users', { params: { type: 'all' } }) : Promise.resolve({ data: [] }),
-        api.get('/portal/customers'),
-        api.get('/portal/devices', { params: { limit: 250 } }),
-        api.get('/portal/renewals'),
-        api.get('/portal/reports'),
-        canManageUsers ? api.get('/portal/login-logs').catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
-        isOps ? api.get('/due-dashboard/summary').catch(() => ({ data: null })) : Promise.resolve({ data: null }),
-        api.get('/portal/renewals/due-summary').catch(() => ({ data: null })),
-      ]);
-
-      setSummary(summaryRes.data);
-      setDueSummary(dueSummaryRes?.data || null);
-      setRenewalDueSummary(renewalDueSummaryRes?.data || null);
-      setDealers(dealersRes.data || []);
-      setUsers(usersRes.data || []);
-      setCustomers(customersRes.data || []);
-      setDevices(devicesRes.data?.devices || []);
-      setRenewals(renewalsRes.data || []);
-      setReports(reportsRes.data || null);
-      setLoginLogs(loginLogsRes.data || []);
-
-      const allUsers = usersRes.data || [];
-      
-      // Identify dealers
-      let dealerList = [];
-      if (userRole === 'ADMIN') {
-        const listFromDb = allUsers.filter(
-          (item) => item.userType === 'Dealer' || item.userType === '' || item.role === 'partner'
-        );
-        if (user && !listFromDb.some((u) => u._id === user._id)) {
-          listFromDb.unshift(user);
-        }
-        dealerList = listFromDb;
-      } else {
-        dealerList = user ? [user] : [];
-      }
-      setDeviceDealerOptions(dealerList);
-
-      // Identify sub-dealers
-      const subDealerList = allUsers.filter((item) => item.userType === 'Sub Dealer');
-      setSubDealers(subDealerList);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load portal data.');
-    } finally {
-      setLoading(false);
-    }
-  }, [userRole]);
-
   useEffect(() => {
     loadPortalData();
     const interval = setInterval(() => {
-      loadPortalData();
+      refreshPortalData();
     }, 30000);
     return () => clearInterval(interval);
-  }, [loadPortalData]);
+  }, [loadPortalData, refreshPortalData]);
 
   useEffect(() => {
     setSearch(initialSearch);
@@ -663,7 +597,7 @@ const CustomerDevicePortal = () => {
     await api.post('/portal/users', payload);
     setUserForm(emptyUserForm);
     showNotice(`${payload.userType} added successfully.`);
-    await loadPortalData();
+    await loadPortalData(true);
   };
 
   const saveUserEdit = async (event) => {
@@ -694,7 +628,7 @@ const CustomerDevicePortal = () => {
     }
     setEditUser(null);
     showNotice('Record updated successfully.');
-    await loadPortalData();
+    await loadPortalData(true);
   };
 
   const setUserStatus = async (targetUser, nextStatus) => {
@@ -704,7 +638,7 @@ const CustomerDevicePortal = () => {
     }
     await api.put(`/portal/users/${targetUser._id}`, { status: nextStatus });
     showNotice(`${getName(targetUser)} marked ${nextStatus}.`);
-    await loadPortalData();
+    await loadPortalData(true);
   };
 
   const resetPassword = async (event) => {
@@ -724,7 +658,7 @@ const CustomerDevicePortal = () => {
     await api.post('/devices', deviceForm);
     setDeviceForm(emptyDeviceForm);
     showNotice('Device added successfully.');
-    await loadPortalData();
+    await loadPortalData(true);
   };
 
   const bulkUploadDevices = async (event) => {
@@ -738,7 +672,7 @@ const CustomerDevicePortal = () => {
     const response = await api.post('/portal/devices/bulk', { devices: parsedDevices });
     setBulkText('');
     showNotice(response.data?.message || 'Bulk upload completed.');
-    await loadPortalData();
+    await loadPortalData(true);
   };
 
   const transferDevice = async (event) => {
@@ -750,7 +684,7 @@ const CustomerDevicePortal = () => {
     });
     setTransferForm({ deviceId: '', targetUserId: '', note: '' });
     showNotice('Device assignment updated.');
-    await loadPortalData();
+    await loadPortalData(true);
   };
 
   const handleSaveRenewal = async (event) => {
@@ -929,7 +863,7 @@ const CustomerDevicePortal = () => {
       setIsBulkPaymentModalOpen(false);
       setSelectedRenewalIds([]);
       fetchRenewalsData();
-      loadPortalData();
+      loadPortalData(true);
     } catch (err) {
       console.error(err);
       alert(err.response?.data?.message || 'Failed to submit bulk payment.');
