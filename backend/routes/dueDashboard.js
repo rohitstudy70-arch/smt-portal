@@ -183,10 +183,6 @@ const mapRenewalDevice = (device, renewalRequest) => {
     }
   }
 
-  if (renewalRequest && !['Activated', 'Completed'].includes(renewalRequest.status)) {
-    status = 'Expired';
-  }
-
   return {
     _id: device._id,
     imei: device.imei || device.imeiNumber || '',
@@ -285,7 +281,7 @@ const buildRenewalRows = async (req, { paginate = true } = {}) => {
   let rows = devices.map(d => mapRenewalDevice(d, renewalMap[(d.imei || d.imeiNumber || '').trim()])).filter((row) => {
     if (row.status === 'Active') {
       const req = renewalMap[row.imei.trim()];
-      if (!req || !['Activated', 'Completed'].includes(req.status)) {
+      if (!req || ['Activated', 'Completed'].includes(req.status)) {
         return false;
       }
     }
