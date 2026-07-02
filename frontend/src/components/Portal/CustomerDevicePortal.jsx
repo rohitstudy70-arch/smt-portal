@@ -467,7 +467,9 @@ const CustomerDevicePortal = () => {
 
   const loadPortalData = useCallback(async () => {
     try {
-      setLoading(true);
+      if (!summary) {
+        setLoading(true);
+      }
       setError('');
       const canManageUsers = userRole === 'ADMIN' || userRole === 'DEALER';
       const isOps = userRole === 'ADMIN' || userRole === 'DEALER' || userRole === 'SUB_DEALER';
