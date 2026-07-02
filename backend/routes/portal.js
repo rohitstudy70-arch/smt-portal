@@ -296,26 +296,27 @@ router.get('/summary', protect, async (req, res) => {
       Product.countDocuments(productScopeQuery),
     ]);
 
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    const expiringThisMonthCount = await Device.countDocuments({
+      ...deviceScopeQuery,
+      expiryDate: { $gte: monthStart, $lte: monthEnd },
+    });
+
     let dashboardTotalDevices = totalDevices;
     let dashboardAssignedDevices = assignedDevices;
     let dashboardActiveDevices = activeDevices;
     let dashboardAvailableDevices = availableDevices;
     let dashboardRenewalDueDevices = renewalDueDevices;
-    let expiringThisMonth = 0;
+    let expiringThisMonth = expiringThisMonthCount;
     let totalDues = 0;
     let totalRenewalDues = 0;
 
     if (scope.role === 'DEALER') {
       const selfId = req.user._id;
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
-      const dealerDeviceQuery = {
-        $or: [
-          { dealerId: selfId },
-          { userId: selfId },
-        ],
-      };
+      const dealerDeviceQuery = deviceScopeQuery;
 
       const unpaidRenewalQuery = {
         dealerId: selfId,
@@ -326,7 +327,6 @@ router.get('/summary', protect, async (req, res) => {
       const [
         dealerAssignedCount,
         dealerActivatedCount,
-        dealerExpiringThisMonth,
         renewalDueDeviceImeis,
         renewalDueSummary,
         dueRecord,
@@ -342,12 +342,6 @@ router.get('/summary', protect, async (req, res) => {
                 { activationRequestStatus: 'active' },
               ],
             },
-          ],
-        }),
-        Device.countDocuments({
-          $and: [
-            dealerDeviceQuery,
-            { expiryDate: { $gte: monthStart, $lte: monthEnd } },
           ],
         }),
         RenewalRequest.distinct('imei', unpaidRenewalQuery),
@@ -374,7 +368,6 @@ router.get('/summary', protect, async (req, res) => {
       dashboardActiveDevices = dealerActivatedCount;
       dashboardAvailableDevices = Math.max(dealerAssignedCount - dealerActivatedCount, 0);
       dashboardRenewalDueDevices = renewalDueDeviceImeis.length;
-      expiringThisMonth = dealerExpiringThisMonth;
       totalDues = Number(dueRecord?.totalOutstanding) || 0;
       totalRenewalDues = Number(renewalDueSummary[0]?.total) || 0;
     }
@@ -609,6 +602,20 @@ router.put('/users/:id', protect, async (req, res) => {
         user[field] = req.body[field];
       }
     });
+
+    if (req.body.username !== undefined) {
+      const username = String(req.body.username).trim();
+      if (!username) {
+        return res.status(400).json({ message: 'Username cannot be empty.' });
+      }
+      if (username !== user.username) {
+        const usernameExists = await User.findOne({ username });
+        if (usernameExists) {
+          return res.status(400).json({ message: 'Username is already taken.' });
+        }
+        user.username = username;
+      }
+    }
 
     if (user.userType === 'Dealer') {
       user.parentId = null;
@@ -1868,11 +1875,7 @@ router.get('/dealer-dashboard-summary', protect, async (req, res) => {
         ? { userId: req.user._id }
         : {};
 
-    const deviceQuery = role === 'DEALER'
-      ? { $or: [{ dealerId: req.user._id }, { userId: req.user._id }] }
-      : role === 'SUB_DEALER'
-        ? { $or: [{ subDealerId: req.user._id }, { userId: req.user._id }] }
-        : {};
+    const deviceQuery = buildDeviceScopeQuery(scope);
 
     const unpaidRenewalQuery = {
       ...renewalQuery,

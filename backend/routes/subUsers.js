@@ -164,7 +164,7 @@ router.put('/sub-user/:id', protect, async (req, res) => {
       return res.status(403).json({ message: 'Access denied: Only Admins are allowed to edit users.' });
     }
 
-    const { userType, displayName, mobileNo, email, status } = req.body;
+    const { userType, displayName, mobileNo, email, status, username } = req.body;
 
     const subUser = await User.findById(req.params.id);
     if (!subUser) {
@@ -208,6 +208,20 @@ router.put('/sub-user/:id', protect, async (req, res) => {
     if (mobileNo !== undefined) subUser.mobileNo = mobileNo;
     if (email !== undefined) subUser.email = email;
     if (status) subUser.status = status;
+
+    if (username !== undefined) {
+      const trimmedUsername = String(username).trim();
+      if (!trimmedUsername) {
+        return res.status(400).json({ message: 'Username cannot be empty.' });
+      }
+      if (trimmedUsername !== subUser.username) {
+        const usernameExists = await User.findOne({ username: trimmedUsername });
+        if (usernameExists) {
+          return res.status(400).json({ message: 'Username is already taken.' });
+        }
+        subUser.username = trimmedUsername;
+      }
+    }
 
     if (subUser.userType === 'Dealer') {
       subUser.parentId = null;

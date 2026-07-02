@@ -96,7 +96,7 @@ const UserManagement = () => {
     try {
       if (isEditMode) {
         // Edit Mode
-        const payload = { userType, displayName, mobileNo, email };
+        const payload = { userType, displayName, mobileNo, email, username };
         if (role === 'ADMIN' && userType === 'Sub Dealer') payload.parentId = parentId;
         await api.put(`/users/sub-user/${editingUserId}`, payload);
         setSuccess('Sub-user updated successfully!');
@@ -302,7 +302,6 @@ const UserManagement = () => {
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       placeholder="Enter Username"
-                      disabled={isEditMode} // Cannot edit username once created
                     />
                   </div>
                 </div>

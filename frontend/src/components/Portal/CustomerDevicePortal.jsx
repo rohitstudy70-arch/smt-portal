@@ -129,6 +129,7 @@ const statKeysByRole = {
     'availableDevices',
     'renewalDueDevices',
     'assignedDevices',
+    'expiringThisMonth',
   ],
 };
 
@@ -682,6 +683,7 @@ const CustomerDevicePortal = () => {
       state: editUser.state,
       pincode: editUser.pincode,
       status: editUser.status,
+      username: editUser.username,
     };
 
     const response = await api.put(`/portal/users/${editUser._id}`, payload);
@@ -3166,6 +3168,10 @@ const CustomerDevicePortal = () => {
                 <label>
                   <span>Email</span>
                   <input value={editUser.email || ''} onChange={(event) => setEditUser((current) => ({ ...current, email: event.target.value }))} />
+                </label>
+                <label>
+                  <span>Username</span>
+                  <input value={editUser.username || ''} onChange={(event) => setEditUser((current) => ({ ...current, username: event.target.value }))} />
                 </label>
                 <label>
                   <span>Status</span>

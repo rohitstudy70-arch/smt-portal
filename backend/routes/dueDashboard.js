@@ -167,12 +167,25 @@ const getRenewalStatus = (expiryDate) => {
   return 'Active';
 };
 
-const mapRenewalDevice = (device) => {
+const mapRenewalDevice = (device, renewalRequest) => {
   const now = startOfDay();
   const expiryDate = device.expiryDate ? new Date(device.expiryDate) : null;
   const remainingDays = expiryDate
     ? Math.ceil((startOfDay(expiryDate).getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
     : 0;
+
+  let status = 'Expired';
+  if (remainingDays >= 0) {
+    if (remainingDays <= 30) {
+      status = 'Expiring Soon';
+    } else {
+      status = 'Active';
+    }
+  }
+
+  if (renewalRequest && !['Activated', 'Completed'].includes(renewalRequest.status)) {
+    status = 'Expired';
+  }
 
   return {
     _id: device._id,
@@ -185,7 +198,7 @@ const mapRenewalDevice = (device) => {
     expiryDate,
     remainingDays,
     renewalAmount: Number(device.renewalAmount || device.billAmount || 0),
-    status: getRenewalStatus(expiryDate),
+    status,
   };
 };
 
@@ -254,12 +267,29 @@ const buildRenewalRows = async (req, { paginate = true } = {}) => {
     .populate('subDealerId', 'displayName companyName username userType')
     .sort({ expiryDate: 1, createdAt: -1 });
 
+  const imeis = devices.map(d => d.imei || d.imeiNumber).filter(Boolean);
+  const renewalRequests = await RenewalRequest.find({ imei: { $in: imeis } });
+  const renewalMap = {};
+  for (const r of renewalRequests) {
+    const imei = (r.imei || '').trim();
+    if (!renewalMap[imei] || new Date(r.createdAt) > new Date(renewalMap[imei].createdAt)) {
+      renewalMap[imei] = r;
+    }
+  }
+
   const customerRegex = customer && !isObjectId(customer)
     ? new RegExp(escapeRegExp(customer), 'i')
     : null;
   const normalizedStatus = String(deviceStatus || '').trim().toLowerCase();
 
-  let rows = devices.map(mapRenewalDevice).filter((row) => {
+  let rows = devices.map(d => mapRenewalDevice(d, renewalMap[(d.imei || d.imeiNumber || '').trim()])).filter((row) => {
+    if (row.status === 'Active') {
+      const req = renewalMap[row.imei.trim()];
+      if (!req || !['Activated', 'Completed'].includes(req.status)) {
+        return false;
+      }
+    }
+
     if (customer) {
       if (isObjectId(customer)) {
         const rawDevice = devices.find((device) => device._id.toString() === row._id.toString());
