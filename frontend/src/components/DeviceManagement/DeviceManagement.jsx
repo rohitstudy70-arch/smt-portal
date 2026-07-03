@@ -32,7 +32,7 @@ const DeviceManagement = () => {
 
   // Filters State
   const [activeTab, setActiveTab] = useState('Unassigned'); // 'Unassigned', 'Assigned', or 'all'
-  const [limit, setLimit] = useState(5);
+  const [limit, setLimit] = useState(100);
   const [page, setPage] = useState(1);
   const [filterUser, setFilterUser] = useState('');
   const [filterDealer, setFilterDealer] = useState('');
@@ -451,10 +451,10 @@ const DeviceManagement = () => {
               <div className="filter-item">
                 <label>Show</label>
                 <select value={limit} onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}>
-                  <option value={5}>5</option>
                   <option value={10}>10</option>
                   <option value={25}>25</option>
                   <option value={50}>50</option>
+                  <option value={100}>100</option>
                 </select>
               </div>
 
