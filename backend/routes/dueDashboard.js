@@ -413,9 +413,9 @@ const sendPdf = (res, filename, title, headers, rows) => {
 
 router.get('/summary', async (req, res) => {
   try {
-    const isDealer = req.portalRole === PORTAL_ROLES.DEALER;
+    const isDealerOrSubDealer = req.portalRole === PORTAL_ROLES.DEALER || req.portalRole === PORTAL_ROLES.SUB_DEALER;
 
-    if (isDealer) {
+    if (isDealerOrSubDealer) {
       const selfId = req.user._id;
 
       // 1. Sync & get dealer's unpaid device dues.
@@ -912,7 +912,7 @@ router.get('/revenue-breakdown', async (req, res) => {
     }
 
     const users = await getScopedDueUsers(req);
-    const userIds = users.map((u) => u._id);
+    const userIds = [...users.map((u) => u._id), req.user._id];
 
     const devices = await Device.find({
       userId: { $in: userIds },
@@ -928,7 +928,7 @@ router.get('/revenue-breakdown', async (req, res) => {
       subDealerName: d.subDealerId ? labelForUser(d.subDealerId) : (d.subDealerName || 'N/A'),
       customerName: d.assignedTo ? labelForUser(d.assignedTo) : 'N/A',
       presentDate: d.presentDate,
-      billAmount: d.billAmount
+      billAmount: Number(d.billAmount) || 0
     }));
 
     const totalRevenue = breakdown.reduce((sum, d) => sum + d.billAmount, 0);
