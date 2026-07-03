@@ -1087,31 +1087,31 @@ const CustomerDevicePortal = () => {
       link.click();
       URL.revokeObjectURL(url);
     } else {
-      const headers = ['Device ID', 'Dealer', 'Sub Dealer', 'Assigned Customer', 'IMEI', 'ICCID', 'Serial No', 'MSISDN 1', 'MSISDN 2', 'Validity', 'Activation Date', 'Expiry Date', 'Created By', 'Status'];
-      const rows = filteredDevices.map((device) => [
-        device._id || '',
-        device.dealerName || '',
-        device.subDealerName || '',
-        getLinkedName(device.assignedTo, ''),
-        device.imei || '',
-        device.iccid || '',
-        device.serialNo || '',
-        device.msisdn1 || '',
-        device.msisdn2 || '',
-        device.validity || '',
-        formatDate(device.presentDate),
-        formatDate(device.expiryDate),
-        getLinkedName(device.createdBy, ''),
-        device.status || '',
-      ]);
-      const csv = [headers, ...rows].map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', 'device-report.csv');
-      link.click();
-      URL.revokeObjectURL(url);
+      const triggerExcelDownload = async () => {
+        try {
+          const params = {
+            search,
+            fromDate: portalFromDate,
+            toDate: portalToDate,
+            dealerId: selectedDealerFilter
+          };
+          const res = await api.get('/devices/export', {
+            responseType: 'blob',
+            params
+          });
+          const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.setAttribute('download', `device_report_${new Date().toISOString().slice(0, 10)}.xlsx`);
+          link.click();
+          URL.revokeObjectURL(url);
+        } catch (err) {
+          console.error('Failed to export devices Excel:', err);
+          alert('Failed to download excel report.');
+        }
+      };
+      triggerExcelDownload();
     }
   };
 

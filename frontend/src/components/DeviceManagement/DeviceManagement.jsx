@@ -104,6 +104,35 @@ const DeviceManagement = () => {
     fetchDevices();
   };
 
+  const handleExportDevices = async () => {
+    try {
+      const params = {
+        status: activeTab,
+        assignedTo: filterUser,
+        vendor: filterVendor,
+        search,
+      };
+      if (filterDealer) params.dealerId = filterDealer;
+      if (filterSubDealer) params.subDealerId = filterSubDealer;
+
+      const res = await api.get('/devices/export', {
+        responseType: 'blob',
+        params,
+      });
+
+      const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `device_report_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export error:', err);
+      alert('Failed to export devices. Please try again.');
+    }
+  };
+
   const handleFileChange = (e) => {
     if (e.target.files[0]) {
       setFileName(e.target.files[0].name);
@@ -410,7 +439,7 @@ const DeviceManagement = () => {
             </button>
           </div>
 
-          <button className="btn-export-devices" onClick={() => alert('Exporting devices list to Excel...')}>
+          <button className="btn-export-devices" onClick={handleExportDevices}>
             Export
           </button>
         </div>

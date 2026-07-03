@@ -434,6 +434,127 @@ router.get('/', async (req, res) => {
   }
 });
 
+// @route   GET /api/devices/export
+// @desc    Export devices list as a formatted Excel file
+// @access  Protected
+router.get('/export', async (req, res) => {
+  try {
+    const { assignedTo } = req.query;
+
+    if (assignedTo) {
+      const assignee = await ensureUserInHierarchy(assignedTo, req.hierarchyScope);
+      if (!assignee) {
+        return res.status(403).json({ message: 'Forbidden: User is outside your hierarchy.' });
+      }
+    }
+
+    const scopeQuery = buildDeviceScopeQuery(req.hierarchyScope);
+    const filterQuery = buildDeviceFilterQuery(req.query, req.portalRole, req.user._id);
+    const assigneeQuery = assignedTo ? { assignedTo } : {};
+    const query = combineQueries(scopeQuery, filterQuery, assigneeQuery);
+
+    const devices = await populateDevice(Device.find(query)).sort({ createdAt: -1 });
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Device Report');
+
+    // Title Block
+    sheet.mergeCells('A1:M1');
+    const titleCell = sheet.getCell('A1');
+    titleCell.value = 'Device Management Report';
+    titleCell.font = { name: 'Arial', size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    sheet.getRow(1).height = 40;
+
+    // Blank Spacer Row
+    sheet.getRow(2).height = 15;
+
+    const headers = [
+      'Dealer Name', 'Sub Dealer Name', 'Assigned Customer', 'IMEI', 'ICCID', 
+      'Serial No', 'MSISDN 1', 'MSISDN 2', 'Validity', 
+      'Activation Date', 'Expiry Date', 'Created By', 'Status'
+    ];
+
+    const colWidths = [22, 22, 25, 20, 22, 18, 16, 16, 12, 16, 16, 20, 14];
+    sheet.columns = headers.map((h, i) => ({ header: h, key: h, width: colWidths[i] }));
+
+    // Format Header Row (Row 3)
+    const headerRow = sheet.getRow(3);
+    headerRow.height = 26;
+    headerRow.eachCell((cell) => {
+      cell.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2C3E50' } }; // Dark slate
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFBDC3C7' } },
+        left: { style: 'thin', color: { argb: 'FFBDC3C7' } },
+        bottom: { style: 'medium', color: { argb: 'FF2C3E50' } },
+        right: { style: 'thin', color: { argb: 'FFBDC3C7' } }
+      };
+    });
+
+    const formatDate = (dateVal) => {
+      if (!dateVal) return 'N/A';
+      const d = new Date(dateVal);
+      return isNaN(d.getTime()) ? 'N/A' : d.toISOString().slice(0, 10);
+    };
+
+    // Add Data Rows
+    devices.forEach((device) => {
+      const rowData = [
+        device.dealerName || 'N/A',
+        device.subDealerName || 'N/A',
+        device.assignedTo ? labelForUser(device.assignedTo) : 'N/A',
+        device.imei || '',
+        device.iccid || '',
+        device.serialNo || '',
+        device.msisdn1 || '',
+        device.msisdn2 || '',
+        device.validity || '',
+        formatDate(device.presentDate),
+        formatDate(device.expiryDate),
+        device.createdBy ? labelForUser(device.createdBy) : 'N/A',
+        device.status || ''
+      ];
+      sheet.addRow(rowData);
+    });
+
+    // Apply Borders, Alignments & Alternate fills
+    for (let i = 4; i <= sheet.rowCount; i++) {
+      const row = sheet.getRow(i);
+      row.height = 20;
+      row.eachCell((cell, colNum) => {
+        cell.font = { name: 'Arial', size: 10 };
+        const centerCols = [4, 5, 6, 7, 8, 9, 10, 11, 13];
+        cell.alignment = {
+          horizontal: centerCols.includes(colNum) ? 'center' : 'left',
+          vertical: 'middle'
+        };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFECF0F1' } },
+          left: { style: 'thin', color: { argb: 'FFECF0F1' } },
+          bottom: { style: 'thin', color: { argb: 'FFECF0F1' } },
+          right: { style: 'thin', color: { argb: 'FFECF0F1' } }
+        };
+        
+        if (i % 2 === 0) {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } };
+        }
+      });
+    }
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=device_report.xlsx');
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error('Device export error:', error.message);
+    res.status(500).json({ message: 'Server error during export.' });
+  }
+});
+
 // @route   POST /api/devices/assign
 // @desc    Assign device(s) to a hierarchy user
 // @access  Protected
