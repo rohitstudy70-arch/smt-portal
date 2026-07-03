@@ -2,23 +2,45 @@ import React, { useState, useEffect } from 'react';
 import './RevenueBreakdownModal.css';
 import api from '../../utils/api';
 
+const getFormattedDate = (date) => {
+  return date.toISOString().split('T')[0];
+};
+
+const getStartOfMonth = () => {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+};
+
 const RevenueBreakdownModal = ({ isOpen, onClose, initialTab = 'today' }) => {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [breakdown, setBreakdown] = useState([]);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [loading, setLoading] = useState(false);
 
+  const [customFrom, setCustomFrom] = useState(getFormattedDate(getStartOfMonth()));
+  const [customTo, setCustomTo] = useState(getFormattedDate(new Date()));
+
   useEffect(() => {
     if (isOpen) {
-      setActiveTab(initialTab);
-      fetchBreakdown(initialTab);
+      const tabToSet = initialTab === 'year' ? 'custom' : initialTab;
+      setActiveTab(tabToSet);
+      if (tabToSet === 'custom') {
+        fetchBreakdown('custom', customFrom, customTo);
+      } else {
+        fetchBreakdown(tabToSet);
+      }
     }
   }, [isOpen, initialTab]);
 
-  const fetchBreakdown = async (period) => {
+  const fetchBreakdown = async (period, from = customFrom, to = customTo) => {
     try {
       setLoading(true);
-      const res = await api.get('/due-dashboard/revenue-breakdown', { params: { period } });
+      const params = { period };
+      if (period === 'custom') {
+        params.fromDate = from;
+        params.toDate = to;
+      }
+      const res = await api.get('/due-dashboard/revenue-breakdown', { params });
       setBreakdown(res.data.breakdown || []);
       setTotalRevenue(res.data.totalRevenue || 0);
     } catch (err) {
@@ -30,7 +52,15 @@ const RevenueBreakdownModal = ({ isOpen, onClose, initialTab = 'today' }) => {
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-    fetchBreakdown(tab);
+    if (tab === 'custom') {
+      fetchBreakdown('custom', customFrom, customTo);
+    } else {
+      fetchBreakdown(tab);
+    }
+  };
+
+  const handleApplyCustomFilter = () => {
+    fetchBreakdown('custom', customFrom, customTo);
   };
 
   if (!isOpen) return null;
@@ -57,12 +87,42 @@ const RevenueBreakdownModal = ({ isOpen, onClose, initialTab = 'today' }) => {
             This Month
           </button>
           <button 
-            className={`btn ${activeTab === 'year' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => handleTabChange('year')}
+            className={`btn ${activeTab === 'custom' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => handleTabChange('custom')}
           >
-            This Year
+            Custom Date
           </button>
         </div>
+
+        {activeTab === 'custom' && (
+          <div className="custom-date-filter" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '15px', padding: '10px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+            <div className="form-group" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label style={{ fontSize: '13px', fontWeight: '600', color: '#475569' }}>From:</label>
+              <input 
+                type="date" 
+                value={customFrom} 
+                onChange={(e) => setCustomFrom(e.target.value)}
+                style={{ padding: '6px 10px', fontSize: '13px', border: '1px solid #cbd5e1', borderRadius: '6px', outline: 'none' }}
+              />
+            </div>
+            <div className="form-group" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label style={{ fontSize: '13px', fontWeight: '600', color: '#475569' }}>To:</label>
+              <input 
+                type="date" 
+                value={customTo} 
+                onChange={(e) => setCustomTo(e.target.value)}
+                style={{ padding: '6px 10px', fontSize: '13px', border: '1px solid #cbd5e1', borderRadius: '6px', outline: 'none' }}
+              />
+            </div>
+            <button 
+              className="btn btn-primary" 
+              onClick={handleApplyCustomFilter}
+              style={{ padding: '6px 15px', fontSize: '13px', fontWeight: '700', borderRadius: '6px' }}
+            >
+              Apply Filter
+            </button>
+          </div>
+        )}
 
         <div className="modal-body">
           {loading ? (

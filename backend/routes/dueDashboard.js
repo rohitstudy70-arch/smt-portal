@@ -907,8 +907,18 @@ router.get('/revenue-breakdown', async (req, res) => {
     } else if (period === 'year') {
       startDate = new Date(now.getFullYear(), 0, 1);
       endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+    } else if (period === 'custom') {
+      const { fromDate, toDate } = req.query;
+      if (!fromDate || !toDate) {
+        return res.status(400).json({ message: 'From Date and To Date are required for custom period.' });
+      }
+      startDate = startOfDay(fromDate);
+      endDate = endOfDay(toDate);
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        return res.status(400).json({ message: 'Invalid custom dates provided.' });
+      }
     } else {
-      return res.status(400).json({ message: 'Invalid period. Use today, month, or year.' });
+      return res.status(400).json({ message: 'Invalid period. Use today, month, year, or custom.' });
     }
 
     const users = await getScopedDueUsers(req);
