@@ -284,6 +284,8 @@ const CustomerDevicePortal = () => {
   const [portalFromDate, setPortalFromDate] = useState('');
   const [portalToDate, setPortalToDate] = useState('');
   const [deviceTab, setDeviceTab] = useState('list'); // 'list' or 'history'
+  const [deviceListPage, setDeviceListPage] = useState(1);
+  const [deviceHistoryPage, setDeviceHistoryPage] = useState(1);
 
   // Revenue Breakdown Modal State
   const [isRevenueModalOpen, setIsRevenueModalOpen] = useState(false);
@@ -432,6 +434,16 @@ const CustomerDevicePortal = () => {
     ));
   }, [devices, search, portalFromDate, portalToDate]);
 
+  const paginatedRecords = useMemo(() => {
+    const start = (deviceListPage - 1) * 100;
+    return filteredDevices.slice(start, start + 100);
+  }, [filteredDevices, deviceListPage]);
+
+  const paginatedAssignments = useMemo(() => {
+    const start = (deviceHistoryPage - 1) * 100;
+    return filteredAssignments.slice(start, start + 100);
+  }, [filteredAssignments, deviceHistoryPage]);
+
   const handlePortalDateModeChange = (mode) => {
     setPortalDateMode(mode);
     const todayStr = getLocalDateString();
@@ -482,6 +494,14 @@ const CustomerDevicePortal = () => {
   useEffect(() => {
     setSearch(initialSearch);
   }, [initialSearch]);
+
+  useEffect(() => {
+    setDeviceListPage(1);
+  }, [search, selectedDealerFilter, portalFromDate, portalToDate, portalDateMode, deviceTab]);
+
+  useEffect(() => {
+    setDeviceHistoryPage(1);
+  }, [search, portalFromDate, portalToDate, portalDateMode, deviceTab]);
 
   const calculateNewExpiryDate = (rDateStr, val) => {
     if (!rDateStr) return '';
@@ -1955,6 +1975,90 @@ const CustomerDevicePortal = () => {
     );
   };
 
+  const renderPagination = (currentPage, totalItems, onPageChange) => {
+    const limit = 100;
+    const totalPages = Math.ceil(totalItems / limit);
+    if (totalPages <= 1) return null;
+
+    const start = (currentPage - 1) * limit + 1;
+    const end = Math.min(currentPage * limit, totalItems);
+
+    const pages = [];
+    for (let i = 1; i <= totalPages; i++) {
+      pages.push(i);
+    }
+
+    return (
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderTop: '1px solid var(--border-color)', background: 'var(--bg-card)', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: '500' }}>
+          Showing {start} to {end} of {totalItems} records
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <button
+            type="button"
+            disabled={currentPage === 1}
+            onClick={() => onPageChange(currentPage - 1)}
+            style={{
+              padding: '6px 12px',
+              fontSize: '13px',
+              fontWeight: '600',
+              border: '1.5px solid var(--border-color)',
+              borderRadius: '6px',
+              background: currentPage === 1 ? '#f1f5f9' : '#ffffff',
+              color: currentPage === 1 ? '#cbd5e1' : 'var(--text-dark)',
+              cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            Previous
+          </button>
+          
+          {pages.map((p) => (
+            <button
+              type="button"
+              key={p}
+              onClick={() => onPageChange(p)}
+              style={{
+                padding: '6px 12px',
+                fontSize: '13px',
+                fontWeight: '700',
+                border: '1.5px solid',
+                borderColor: currentPage === p ? 'var(--primary-color)' : 'var(--border-color)',
+                borderRadius: '6px',
+                background: currentPage === p ? 'var(--primary-color)' : '#ffffff',
+                color: currentPage === p ? '#ffffff' : 'var(--text-dark)',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: currentPage === p ? '0 2px 4px rgba(30,58,138,0.2)' : 'none',
+              }}
+            >
+              {p}
+            </button>
+          ))}
+
+          <button
+            type="button"
+            disabled={currentPage === totalPages}
+            onClick={() => onPageChange(currentPage + 1)}
+            style={{
+              padding: '6px 12px',
+              fontSize: '13px',
+              fontWeight: '600',
+              border: '1.5px solid var(--border-color)',
+              borderRadius: '6px',
+              background: currentPage === totalPages ? '#f1f5f9' : '#ffffff',
+              color: currentPage === totalPages ? '#cbd5e1' : 'var(--text-dark)',
+              cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   const renderDevicesTable = (records = filteredDevices, title = 'Device List') => (
     <section className="portal-panel">
       <div className="portal-panel-header">
@@ -2065,88 +2169,94 @@ const CustomerDevicePortal = () => {
 
       <div className="portal-table-wrap">
         {deviceTab === 'list' ? (
-          <table className="portal-table wide">
-            <thead>
-              <tr>
-                <th>Dealer Name</th>
-                <th>Sub Dealer Name</th>
-                <th>IMEI</th>
-                <th>ICCID</th>
-                <th>Serial No</th>
-                <th>MSISDN 1</th>
-                <th>MSISDN 2</th>
-                <th>Validity</th>
-                <th>Activation Date</th>
-                <th>Expiry Date</th>
-                <th>Created By</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {records.map((device) => (
-                <tr key={device._id}>
-                  <td>{getLinkedName(device.dealerId, device.dealerName)}</td>
-                  <td>{getLinkedName(device.subDealerId, device.subDealerName)}</td>
-                  <td className="strong">{device.imei}</td>
-                  <td>{device.iccid || '-'}</td>
-                  <td>{device.serialNo || '-'}</td>
-                  <td>{device.msisdn1 || '-'}</td>
-                  <td>{device.msisdn2 || '-'}</td>
-                  <td>{device.validity || '-'}</td>
-                  <td>{formatDate(device.presentDate)}</td>
-                  <td>{formatDate(device.expiryDate)}</td>
-                  <td>{getLinkedName(device.createdBy)}</td>
-                  <td>{renderStatus(device.status)}</td>
-                </tr>
-              ))}
-              {records.length === 0 && (
+          <>
+            <table className="portal-table wide">
+              <thead>
                 <tr>
-                  <td colSpan={12} className="portal-empty">No device records found.</td>
+                  <th>Dealer Name</th>
+                  <th>Sub Dealer Name</th>
+                  <th>IMEI</th>
+                  <th>ICCID</th>
+                  <th>Serial No</th>
+                  <th>MSISDN 1</th>
+                  <th>MSISDN 2</th>
+                  <th>Validity</th>
+                  <th>Activation Date</th>
+                  <th>Expiry Date</th>
+                  <th>Created By</th>
+                  <th>Status</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {paginatedRecords.map((device) => (
+                  <tr key={device._id}>
+                    <td>{getLinkedName(device.dealerId, device.dealerName)}</td>
+                    <td>{getLinkedName(device.subDealerId, device.subDealerName)}</td>
+                    <td className="strong">{device.imei}</td>
+                    <td>{device.iccid || '-'}</td>
+                    <td>{device.serialNo || '-'}</td>
+                    <td>{device.msisdn1 || '-'}</td>
+                    <td>{device.msisdn2 || '-'}</td>
+                    <td>{device.validity || '-'}</td>
+                    <td>{formatDate(device.presentDate)}</td>
+                    <td>{formatDate(device.expiryDate)}</td>
+                    <td>{getLinkedName(device.createdBy)}</td>
+                    <td>{renderStatus(device.status)}</td>
+                  </tr>
+                ))}
+                {paginatedRecords.length === 0 && (
+                  <tr>
+                    <td colSpan={12} className="portal-empty">No device records found.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+            {renderPagination(deviceListPage, records.length, setDeviceListPage)}
+          </>
         ) : (
-          <table className="portal-table wide">
-            <thead>
-              <tr>
-                <th>Date & Time</th>
-                <th>IMEI</th>
-                <th>Serial No</th>
-                <th>Action</th>
-                <th>From User</th>
-                <th>To User</th>
-                <th>Changed By</th>
-                <th>Note</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredAssignments.map((item) => (
-                <tr key={item._id}>
-                  <td>{formatDate(item.entry.changedAt)}</td>
-                  <td className="strong">{item.device.imei}</td>
-                  <td>{item.device.serialNo || '-'}</td>
-                  <td>
-                    <span className={`portal-badge ${
-                      item.entry.action === 'Assigned' ? 'success' :
-                      item.entry.action === 'Transferred' ? 'warning' : 'danger'
-                    }`}>
-                      {item.entry.action}
-                    </span>
-                  </td>
-                  <td>{getLinkedName(item.entry.fromUser) || '-'}</td>
-                  <td>{getLinkedName(item.entry.toUser) || '-'}</td>
-                  <td>{getLinkedName(item.entry.changedBy) || '-'}</td>
-                  <td>{item.entry.note || '-'}</td>
-                </tr>
-              ))}
-              {filteredAssignments.length === 0 && (
+          <>
+            <table className="portal-table wide">
+              <thead>
                 <tr>
-                  <td colSpan={8} className="portal-empty">No assignment records found.</td>
+                  <th>Date & Time</th>
+                  <th>IMEI</th>
+                  <th>Serial No</th>
+                  <th>Action</th>
+                  <th>From User</th>
+                  <th>To User</th>
+                  <th>Changed By</th>
+                  <th>Note</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {paginatedAssignments.map((item) => (
+                  <tr key={item._id}>
+                    <td>{formatDate(item.entry.changedAt)}</td>
+                    <td className="strong">{item.device.imei}</td>
+                    <td>{item.device.serialNo || '-'}</td>
+                    <td>
+                      <span className={`portal-badge ${
+                        item.entry.action === 'Assigned' ? 'success' :
+                        item.entry.action === 'Transferred' ? 'warning' : 'danger'
+                      }`}>
+                        {item.entry.action}
+                      </span>
+                    </td>
+                    <td>{getLinkedName(item.entry.fromUser) || '-'}</td>
+                    <td>{getLinkedName(item.entry.toUser) || '-'}</td>
+                    <td>{getLinkedName(item.entry.changedBy) || '-'}</td>
+                    <td>{item.entry.note || '-'}</td>
+                  </tr>
+                ))}
+                {paginatedAssignments.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="portal-empty">No assignment records found.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+            {renderPagination(deviceHistoryPage, filteredAssignments.length, setDeviceHistoryPage)}
+          </>
         )}
       </div>
     </section>
