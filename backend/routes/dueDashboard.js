@@ -500,6 +500,7 @@ router.get('/summary', async (req, res) => {
 
     const users = await getScopedDueUsers(req);
     const userIds = users.map((user) => user._id);
+    const allUserIds = [...userIds, req.user._id];
     const dues = await DealerDue.find({ userId: { $in: userIds } });
     const todayStart = startOfDay();
     const todayEnd = endOfDay();
@@ -509,8 +510,8 @@ router.get('/summary', async (req, res) => {
     const [todaysCollection, monthlyCollection, todaysRevenue, monthlyRevenue] = await Promise.all([
       sumPayments({ userId: { $in: userIds }, paymentDate: { $gte: todayStart, $lte: todayEnd } }),
       sumPayments({ userId: { $in: userIds }, paymentDate: { $gte: monthStart, $lte: monthEnd } }),
-      sumDeviceRevenue({ userId: { $in: userIds }, presentDate: { $gte: todayStart, $lte: todayEnd } }),
-      sumDeviceRevenue({ userId: { $in: userIds }, presentDate: { $gte: monthStart, $lte: monthEnd } }),
+      sumDeviceRevenue({ userId: { $in: allUserIds }, presentDate: { $gte: todayStart, $lte: todayEnd } }),
+      sumDeviceRevenue({ userId: { $in: allUserIds }, presentDate: { $gte: monthStart, $lte: monthEnd } }),
     ]);
 
     // Aggregate renewals for Admin scoped users to combine in Admin cards
