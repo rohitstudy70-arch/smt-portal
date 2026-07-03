@@ -481,8 +481,10 @@ router.get('/export', async (req, res) => {
 
     // Format Header Row (Row 3)
     const headerRow = sheet.getRow(3);
+    headerRow.values = headers;
     headerRow.height = 26;
-    headerRow.eachCell((cell) => {
+    for (let col = 1; col <= headers.length; col++) {
+      const cell = headerRow.getCell(col);
       cell.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2C3E50' } }; // Dark slate
       cell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -492,7 +494,7 @@ router.get('/export', async (req, res) => {
         bottom: { style: 'medium', color: { argb: 'FF2C3E50' } },
         right: { style: 'thin', color: { argb: 'FFBDC3C7' } }
       };
-    });
+    }
 
     const formatDate = (dateVal) => {
       if (!dateVal) return 'N/A';
