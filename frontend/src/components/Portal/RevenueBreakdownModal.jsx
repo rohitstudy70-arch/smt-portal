@@ -87,6 +87,12 @@ const RevenueBreakdownModal = ({ isOpen, onClose, initialTab = 'today' }) => {
             This Month
           </button>
           <button 
+            className={`btn ${activeTab === 'prev_month' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => handleTabChange('prev_month')}
+          >
+            Previous Month
+          </button>
+          <button 
             className={`btn ${activeTab === 'custom' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => handleTabChange('custom')}
           >
