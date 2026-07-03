@@ -63,6 +63,24 @@ const RevenueBreakdownModal = ({ isOpen, onClose, initialTab = 'today' }) => {
     fetchBreakdown('custom', customFrom, customTo);
   };
 
+  const getPeriodLabel = () => {
+    if (activeTab === 'today') return 'Today';
+    if (activeTab === 'month') return 'This Month';
+    if (activeTab === 'prev_month') return 'Previous Month';
+    if (activeTab === 'custom') {
+      const formatDateStr = (dateStr) => {
+        if (!dateStr) return '';
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+          return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+        return dateStr;
+      };
+      return `${formatDateStr(customFrom)} to ${formatDateStr(customTo)}`;
+    }
+    return '';
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -169,7 +187,7 @@ const RevenueBreakdownModal = ({ isOpen, onClose, initialTab = 'today' }) => {
               </div>
               
               <div className="revenue-total-summary" style={{ marginTop: '20px', textAlign: 'right', padding: '15px', backgroundColor: '#eef2f5', borderRadius: '8px' }}>
-                <h4 style={{ margin: 0, color: '#2c3e50' }}>Total Revenue: <span style={{ color: '#27ae60', marginLeft: '10px' }}>₹{totalRevenue.toLocaleString()}</span></h4>
+                <h4 style={{ margin: 0, color: '#2c3e50' }}>Total Revenue ({getPeriodLabel()}): <span style={{ color: '#27ae60', marginLeft: '10px' }}>₹{totalRevenue.toLocaleString()}</span></h4>
               </div>
             </>
           )}
