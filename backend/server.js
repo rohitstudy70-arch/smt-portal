@@ -33,6 +33,10 @@ const allowedOrigins = [
   'http://localhost:5173',
   'https://smt-portal-i5pm.vercel.app',
   'https://smt-portal-teal.vercel.app',
+  'https://cdbportal.cloud',
+  'http://cdbportal.cloud',
+  'https://www.cdbportal.cloud',
+  'http://www.cdbportal.cloud',
   process.env.FRONTEND_URL
 ].filter(Boolean);
 
