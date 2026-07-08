@@ -221,7 +221,7 @@ function App() {
           <Route 
             path="/due-dashboard" 
             element={
-              <ProtectedRoute allowedRoles={operationsRoles}>
+              <ProtectedRoute allowedRoles={['ADMIN', 'DEALER']}>
                 <Layout>
                   <DueDashboard />
                 </Layout>

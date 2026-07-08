@@ -47,19 +47,15 @@ const buildDeviceDueQuery = (user) => {
   const role = getPortalRole(user);
 
   if (role === PORTAL_ROLES.SUB_DEALER) {
-    return {
-      $or: [
-        { subDealerId: user._id },
-        { userId: user._id },
-      ],
-    };
+    // Sub-dealers have no dues directly assigned to them.
+    return { _id: null };
   }
 
   if (role === PORTAL_ROLES.DEALER) {
     return {
       $or: [
-        { dealerId: user._id, subDealerId: null },
-        { userId: user._id, subDealerId: null },
+        { dealerId: user._id },
+        { userId: user._id, dealerId: null },
       ],
     };
   }
@@ -158,27 +154,27 @@ const syncDueForUsers = async (userIds = []) => {
 };
 
 const getDueOwnerIdsFromDevice = (device) => uniqueObjectIds([
+  device?.dealerId,
   device?.subDealerId,
-  !device?.subDealerId ? device?.dealerId : null,
-  !device?.subDealerId && !device?.dealerId ? device?.userId : null,
+  device?.userId,
 ]);
 
 const getDueUsersForScope = async (scope, currentUser) => {
   if (scope.role === PORTAL_ROLES.ADMIN) {
     return scope.users.filter((user) => (
-      [PORTAL_ROLES.DEALER, PORTAL_ROLES.SUB_DEALER].includes(getPortalRole(user))
+      [PORTAL_ROLES.DEALER].includes(getPortalRole(user))
     ));
   }
 
   const role = getPortalRole(currentUser);
   if (role === PORTAL_ROLES.DEALER) {
     return scope.users.filter((user) => (
-      [PORTAL_ROLES.DEALER, PORTAL_ROLES.SUB_DEALER].includes(getPortalRole(user))
+      [PORTAL_ROLES.DEALER].includes(getPortalRole(user))
     ));
   }
 
   if (role === PORTAL_ROLES.SUB_DEALER) {
-    return [currentUser];
+    return [];
   }
 
   return [];

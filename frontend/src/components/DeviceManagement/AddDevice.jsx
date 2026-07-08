@@ -71,6 +71,7 @@ const createEmptyForm = (dealer, defaultVendor = '') => ({
 const AddDevice = () => {
   const { user } = useAuth();
   const role = getRole(user);
+  const tableColSpan = (user?.role === 'partner' ? 14 : 13) - (role === 'SUB_DEALER' ? 1 : 0);
   const [dealers, setDealers] = useState([]);
   const [subDealers, setSubDealers] = useState([]);
   const [devices, setDevices] = useState([]);
@@ -598,16 +599,18 @@ const AddDevice = () => {
               <input type="text" value={formatDate(expiryDate)} readOnly className="readonly-field" />
             </div>
 
-            <div className="form-group">
-              <label>Bill Amount</label>
-              <input
-                type="number"
-                name="billAmount"
-                value={formData.billAmount}
-                onChange={(event) => updateFormField('billAmount', event.target.value)}
-                placeholder="Enter Bill Amount"
-              />
-            </div>
+            {role !== 'SUB_DEALER' && (
+              <div className="form-group">
+                <label>Bill Amount</label>
+                <input
+                  type="number"
+                  name="billAmount"
+                  value={formData.billAmount}
+                  onChange={(event) => updateFormField('billAmount', event.target.value)}
+                  placeholder="Enter Bill Amount"
+                />
+              </div>
+            )}
 
 
           </div>
@@ -708,7 +711,7 @@ const AddDevice = () => {
                 <th>MSISDN 1</th>
                 <th>MSISDN 2</th>
                 <th>Validity</th>
-                <th>Bill Amount</th>
+                {role !== 'SUB_DEALER' && <th>Bill Amount</th>}
                 <th>Activation Date</th>
                 <th>Expiry Date</th>
                 <th>Created By</th>
@@ -719,7 +722,7 @@ const AddDevice = () => {
             <tbody>
               {devicesLoading ? (
                 <tr>
-                  <td colSpan={user?.role === 'partner' ? 14 : 13} className="table-empty">Loading devices...</td>
+                  <td colSpan={tableColSpan} className="table-empty">Loading devices...</td>
                 </tr>
               ) : devices.length > 0 ? (
                 devices.map((device) => (
@@ -732,7 +735,7 @@ const AddDevice = () => {
                     <td>{device.msisdn1 || '-'}</td>
                     <td>{device.msisdn2 || '-'}</td>
                     <td>{device.validity || '-'}</td>
-                    <td>₹{device.billAmount || 0}</td>
+                    {role !== 'SUB_DEALER' && <td>₹{device.billAmount || 0}</td>}
                     <td>{formatDate(device.presentDate)}</td>
                     <td>{formatDate(device.expiryDate)}</td>
                     <td>{getLinkedName(device.createdBy)}</td>
@@ -763,7 +766,7 @@ const AddDevice = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={user?.role === 'partner' ? 14 : 13} className="table-empty">No device records found.</td>
+                  <td colSpan={tableColSpan} className="table-empty">No device records found.</td>
                 </tr>
               )}
             </tbody>

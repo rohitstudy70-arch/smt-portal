@@ -422,8 +422,19 @@ router.get('/', async (req, res) => {
       });
     }
 
+    const isSubDealer = req.portalRole === PORTAL_ROLES.SUB_DEALER;
+    const sanitizedDevices = devices.map((device) => {
+      if (isSubDealer) {
+        const dObj = device.toObject ? device.toObject() : device;
+        dObj.billAmount = 0;
+        dObj.renewalAmount = 0;
+        return dObj;
+      }
+      return device;
+    });
+
     res.json({
-      devices,
+      devices: sanitizedDevices,
       total,
       pages: Math.ceil(total / parsedLimit),
       currentPage: parsedPage,
@@ -833,8 +844,10 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
         const dd = String(date.getDate()).padStart(2, '0');
         transactionId = `ITR_${mm}_${dd}_${randomNum}`;
 
+        const transactionUserObj = ownership.subDealer ? ownership.dealer : targetUser;
+
         transactionCreated = await Transaction.create({
-          userId: targetUser._id,
+          userId: transactionUserObj._id,
           transactionId,
           paymentId: deviceCreated._id.toString(),
           paymentFor: 'Device Purchase',
@@ -849,7 +862,7 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
           imei: input.imei,
           iccid: input.iccid,
           serialNo: input.serialNo,
-          balanceAfterTransaction: targetUser.availableBalance || 0,
+          balanceAfterTransaction: transactionUserObj.availableBalance || 0,
           createdBy: req.user._id,
         });
       }
@@ -989,24 +1002,21 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
       return res.status(400).json({ message: 'A device with this Serial Number already exists.' });
     }
 
-    const oldBillAmount = device.billAmount || 0;
-    const oldUserId = device.userId;
-    const newBillAmount = Number(input.billAmount) || 0;
-    const newUserId = ownership.ownerId;
-    const oldDueOwnerIds = getDueOwnerIdsFromDevice(device);
+    const oldFinancialUserId = device.subDealerId ? device.dealerId : device.userId;
+    const newFinancialUserId = ownership.subDealer ? ownership.dealer?._id : ownership.ownerId;
 
-    const isSameOwner = oldUserId.toString() === newUserId.toString();
-    const oldOwner = await User.findById(oldUserId);
-    const newOwner = isSameOwner ? oldOwner : await User.findById(newUserId);
+    const isSameFinancialOwner = oldFinancialUserId && newFinancialUserId && oldFinancialUserId.toString() === newFinancialUserId.toString();
+    const oldFinancialOwner = await User.findById(oldFinancialUserId);
+    const newFinancialOwner = isSameFinancialOwner ? oldFinancialOwner : await User.findById(newFinancialUserId);
 
-    if (!newOwner) {
-      return res.status(404).json({ message: 'Target user not found for wallet check.' });
+    if (!newFinancialOwner) {
+      return res.status(404).json({ message: 'Target financial user not found for wallet check.' });
     }
 
     let transactionsCreated = [];
 
     try {
-      if (isSameOwner) {
+      if (isSameFinancialOwner) {
         const netChange = newBillAmount - oldBillAmount;
         if (netChange !== 0) {
           const randomNum = Math.floor(10000 + Math.random() * 90000);
@@ -1019,7 +1029,7 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
           const txAmt = Math.abs(netChange);
 
           const transaction = await Transaction.create({
-            userId: newOwner._id,
+            userId: newFinancialOwner._id,
             transactionId,
             paymentId: device._id.toString(),
             paymentFor: 'Device Purchase Adjustment',
@@ -1034,14 +1044,14 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
             imei: input.imei,
             iccid: input.iccid,
             serialNo: input.serialNo,
-            balanceAfterTransaction: newOwner.availableBalance || 0,
+            balanceAfterTransaction: newFinancialOwner.availableBalance || 0,
             createdBy: req.user._id,
           });
           transactionsCreated.push(transaction);
         }
       } else {
         // Refund old owner
-        if (oldOwner && oldBillAmount > 0) {
+        if (oldFinancialOwner && oldBillAmount > 0) {
           const randomNum = Math.floor(10000 + Math.random() * 90000);
           const date = new Date();
           const mm = String(date.getMonth() + 1).padStart(2, '0');
@@ -1049,7 +1059,7 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
           const transactionId = `ITR_${mm}_${dd}_${randomNum}`;
 
           const transaction = await Transaction.create({
-            userId: oldOwner._id,
+            userId: oldFinancialOwner._id,
             transactionId,
             paymentId: device._id.toString(),
             paymentFor: 'Device Reassignment Refund',
@@ -1064,14 +1074,14 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
             imei: input.imei,
             iccid: input.iccid,
             serialNo: input.serialNo,
-            balanceAfterTransaction: oldOwner.availableBalance || 0,
+            balanceAfterTransaction: oldFinancialOwner.availableBalance || 0,
             createdBy: req.user._id,
           });
           transactionsCreated.push(transaction);
         }
 
         // Charge new owner
-        if (newBillAmount > 0) {
+        if (newFinancialOwner && newBillAmount > 0) {
           const randomNum = Math.floor(10000 + Math.random() * 90000);
           const date = new Date();
           const mm = String(date.getMonth() + 1).padStart(2, '0');
@@ -1079,7 +1089,7 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
           const transactionId = `ITR_${mm}_${dd}_${randomNum}`;
 
           const transaction = await Transaction.create({
-            userId: newOwner._id,
+            userId: newFinancialOwner._id,
             transactionId,
             paymentId: device._id.toString(),
             paymentFor: 'Device Purchase',
@@ -1094,7 +1104,7 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
             imei: input.imei,
             iccid: input.iccid,
             serialNo: input.serialNo,
-            balanceAfterTransaction: newOwner.availableBalance || 0,
+            balanceAfterTransaction: newFinancialOwner.availableBalance || 0,
             createdBy: req.user._id,
           });
           transactionsCreated.push(transaction);
@@ -1695,7 +1705,8 @@ router.post(
 
           // Transaction
           if (billAmt > 0) {
-            const targetUser = await User.findById(ownerId);
+            const txUserId = subDealer ? dealer._id : ownerId;
+            const targetUserObj = subDealer ? dealer : await User.findById(ownerId);
             const randomNum = Math.floor(10000 + Math.random() * 90000);
             const date = new Date();
             const mm = String(date.getMonth() + 1).padStart(2, '0');
@@ -1703,7 +1714,7 @@ router.post(
             const transactionId = `ITR_${mm}_${dd}_${randomNum}`;
 
             await Transaction.create({
-              userId: ownerId,
+              userId: txUserId,
               transactionId,
               paymentId: deviceCreated._id.toString(),
               paymentFor: 'Device Purchase',
@@ -1718,7 +1729,7 @@ router.post(
               imei: p.imei,
               iccid: p.iccid,
               serialNo: p.serialNo,
-              balanceAfterTransaction: targetUser?.availableBalance || 0,
+              balanceAfterTransaction: targetUserObj?.availableBalance || 0,
               createdBy: req.user._id,
             });
           }

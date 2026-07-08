@@ -2842,9 +2842,9 @@ const CustomerDevicePortal = () => {
                 {userRole === 'ADMIN' && <th>Activation Type</th>}
                 {userRole === 'ADMIN' && <th>Product</th>}
                 <th>Validity</th>
-                <th>Bill Amount</th>
-                <th>Received Amount</th>
-                <th>Remaining Due</th>
+                {userRole !== 'SUB_DEALER' && <th>Bill Amount</th>}
+                {userRole !== 'SUB_DEALER' && <th>Received Amount</th>}
+                {userRole !== 'SUB_DEALER' && <th>Remaining Due</th>}
                 <th>Payment Status</th>
                 <th>Renewal Status</th>
                 <th>Renewal Date</th>
@@ -2880,9 +2880,9 @@ const CustomerDevicePortal = () => {
                   {userRole === 'ADMIN' && <td>{renewal.activationType || '-'}</td>}
                   {userRole === 'ADMIN' && <td>{renewal.productDescription}</td>}
                   <td>{renewal.validity}</td>
-                  <td className="strong">₹{(renewal.billAmount || 0).toLocaleString()}</td>
-                  <td>₹{(renewal.receivedAmount || 0).toLocaleString()}</td>
-                  <td className="strong" style={{ color: (renewal.remainingDue || 0) > 0 ? '#ef4444' : '#10b981' }}>₹{(renewal.remainingDue || 0).toLocaleString()}</td>
+                  {userRole !== 'SUB_DEALER' && <td className="strong">₹{(renewal.billAmount || 0).toLocaleString()}</td>}
+                  {userRole !== 'SUB_DEALER' && <td>₹{(renewal.receivedAmount || 0).toLocaleString()}</td>}
+                  {userRole !== 'SUB_DEALER' && <td className="strong" style={{ color: (renewal.remainingDue || 0) > 0 ? '#ef4444' : '#10b981' }}>₹{(renewal.remainingDue || 0).toLocaleString()}</td>}
                   <td>
                     <span style={{
                       display: 'inline-block',
@@ -3285,12 +3285,14 @@ const CustomerDevicePortal = () => {
                 ['Validity', viewingRenewal.validity],
                 ['Renewal Date', formatDate(viewingRenewal.renewalDate)],
                 ['New Expiry Date', formatDate(viewingRenewal.newExpiryDate)],
-                ['Bill Amount', `₹${viewingRenewal.billAmount}`],
-                ['Received Amount', `₹${viewingRenewal.receivedAmount || 0}`],
-                ['Remaining Due', `₹${viewingRenewal.billAmount - (viewingRenewal.receivedAmount || 0)}`],
-                ['Payment Mode', viewingRenewal.paymentMode || '-'],
-                ['Transaction ID', viewingRenewal.transactionId || '-'],
-                ['Payment Date', viewingRenewal.paymentDate ? formatDate(viewingRenewal.paymentDate) : '-'],
+                ...(userRole !== 'SUB_DEALER' ? [
+                  ['Bill Amount', `₹${viewingRenewal.billAmount}`],
+                  ['Received Amount', `₹${viewingRenewal.receivedAmount || 0}`],
+                  ['Remaining Due', `₹${viewingRenewal.billAmount - (viewingRenewal.receivedAmount || 0)}`],
+                  ['Payment Mode', viewingRenewal.paymentMode || '-'],
+                  ['Transaction ID', viewingRenewal.transactionId || '-'],
+                  ['Payment Date', viewingRenewal.paymentDate ? formatDate(viewingRenewal.paymentDate) : '-'],
+                ] : []),
                 ['Status', viewingRenewal.status],
                 ['Remarks', viewingRenewal.remarks || '-'],
                 ['Created Date', formatDate(viewingRenewal.createdAt)],

@@ -761,8 +761,19 @@ router.get('/devices', protect, async (req, res) => {
       Device.countDocuments(query),
     ]);
 
+    const isSubDealer = scope.role === 'SUB_DEALER';
+    const sanitizedDevices = devices.map((device) => {
+      if (isSubDealer) {
+        const dObj = device.toObject ? device.toObject() : device;
+        dObj.billAmount = 0;
+        dObj.renewalAmount = 0;
+        return dObj;
+      }
+      return device;
+    });
+
     res.json({
-      devices,
+      devices: sanitizedDevices,
       total,
       pages: Math.ceil(total / parsedLimit),
       currentPage: parsedPage,
