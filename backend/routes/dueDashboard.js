@@ -9,6 +9,7 @@ const DuePayment = require('../models/DuePayment');
 const RenewalRequest = require('../models/RenewalRequest');
 const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
+const ActivationRequest = require('../models/ActivationRequest');
 const { protect } = require('../middleware/auth');
 
 // Multer Storage Configuration for screenshots
@@ -167,7 +168,7 @@ const getRenewalStatus = (expiryDate) => {
   return 'Active';
 };
 
-const mapRenewalDevice = (device, renewalRequest) => {
+const mapRenewalDevice = (device, renewalRequest, activationRequest) => {
   const now = startOfDay();
   const expiryDate = device.expiryDate ? new Date(device.expiryDate) : null;
   const remainingDays = expiryDate
@@ -183,6 +184,8 @@ const mapRenewalDevice = (device, renewalRequest) => {
     }
   }
 
+  const vehicleNumber = activationRequest?.vehicleNo || '';
+
   return {
     _id: device._id,
     imei: device.imei || device.imeiNumber || '',
@@ -195,6 +198,7 @@ const mapRenewalDevice = (device, renewalRequest) => {
     remainingDays,
     renewalAmount: Number(device.renewalAmount || device.billAmount || 0),
     status,
+    vehicleNumber,
   };
 };
 
@@ -264,7 +268,11 @@ const buildRenewalRows = async (req, { paginate = true } = {}) => {
     .sort({ expiryDate: 1, createdAt: -1 });
 
   const imeis = devices.map(d => d.imei || d.imeiNumber).filter(Boolean);
-  const renewalRequests = await RenewalRequest.find({ imei: { $in: imeis } });
+  const [renewalRequests, activationRequests] = await Promise.all([
+    RenewalRequest.find({ imei: { $in: imeis } }),
+    ActivationRequest.find({ imei: { $in: imeis } }),
+  ]);
+
   const renewalMap = {};
   for (const r of renewalRequests) {
     const imei = (r.imei || '').trim();
@@ -273,19 +281,23 @@ const buildRenewalRows = async (req, { paginate = true } = {}) => {
     }
   }
 
+  const activationMap = {};
+  for (const act of activationRequests) {
+    const imei = (act.imei || '').trim();
+    if (!activationMap[imei] || new Date(act.createdAt) > new Date(activationMap[imei].createdAt)) {
+      activationMap[imei] = act;
+    }
+  }
+
   const customerRegex = customer && !isObjectId(customer)
     ? new RegExp(escapeRegExp(customer), 'i')
     : null;
   const normalizedStatus = String(deviceStatus || '').trim().toLowerCase();
 
-  let rows = devices.map(d => mapRenewalDevice(d, renewalMap[(d.imei || d.imeiNumber || '').trim()])).filter((row) => {
-    if (row.status === 'Active') {
-      const req = renewalMap[row.imei.trim()];
-      if (!req || ['Activated', 'Completed'].includes(req.status)) {
-        return false;
-      }
-    }
-
+  let rows = devices.map(d => {
+    const imei = (d.imei || d.imeiNumber || '').trim();
+    return mapRenewalDevice(d, renewalMap[imei], activationMap[imei]);
+  }).filter((row) => {
     if (customer) {
       if (isObjectId(customer)) {
         const rawDevice = devices.find((device) => device._id.toString() === row._id.toString());
@@ -310,6 +322,7 @@ const buildRenewalRows = async (req, { paginate = true } = {}) => {
       || regex.test(row.customerName)
       || regex.test(row.dealerName)
       || regex.test(row.subDealerName)
+      || regex.test(row.vehicleNumber)
     ));
   }
 

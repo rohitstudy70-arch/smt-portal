@@ -1309,7 +1309,7 @@ const DueDashboard = () => {
                     {renewalsList.map((device) => (
                       <tr key={device._id}>
                         <td className="strong">{device.imei}</td>
-                        <td>{device.deviceName}</td>
+                        <td>{device.deviceName}{device.vehicleNumber ? ` (${device.vehicleNumber})` : ''}</td>
                         <td>{device.customerName || '-'}</td>
                         <td>{device.dealerName || '-'}</td>
                         <td>{formatDate(device.activationDate)}</td>
