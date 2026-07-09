@@ -121,6 +121,9 @@ const DueDashboard = () => {
 
   // Admin Verification States
   const [adminVerificationRequests, setAdminVerificationRequests] = useState([]);
+  const [verificationSubTab, setVerificationSubTab] = useState('requests'); // 'requests' or 'collections'
+  const [adminPayments, setAdminPayments] = useState([]);
+  const [loadingPayments, setLoadingPayments] = useState(false);
   const [verificationFilters, setVerificationFilters] = useState({
     status: 'all',
     dateRange: 'all',
@@ -254,6 +257,42 @@ const DueDashboard = () => {
     }
   }, [isAdmin, verificationFilters.status, verificationFilters.dateRange]);
 
+  // Fetch All Payments (Collections) for Admin view
+  const fetchAdminPayments = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      setLoadingPayments(true);
+      const params = {};
+      
+      if (verificationFilters.dateRange === 'today') {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        params.fromDate = `${yyyy}-${mm}-${dd}`;
+        params.toDate = `${yyyy}-${mm}-${dd}`;
+      } else if (verificationFilters.dateRange === 'month') {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const lastDay = new Date(yyyy, today.getMonth() + 1, 0).getDate();
+        params.fromDate = `${yyyy}-${mm}-01`;
+        params.toDate = `${yyyy}-${mm}-${lastDay}`;
+      } else if (verificationFilters.dateRange === 'custom') {
+        if (verificationFilters.fromDate) params.fromDate = verificationFilters.fromDate;
+        if (verificationFilters.toDate) params.toDate = verificationFilters.toDate;
+      }
+
+      const res = await api.get('/due-dashboard/payments', { params });
+      setAdminPayments(res.data.payments || []);
+    } catch (err) {
+      console.error('Error fetching admin payments:', err);
+      setError('Failed to load payment records.');
+    } finally {
+      setLoadingPayments(false);
+    }
+  }, [isAdmin, verificationFilters.dateRange, verificationFilters.fromDate, verificationFilters.toDate]);
+
   // Parse initial filters from query parameters
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
@@ -267,8 +306,10 @@ const DueDashboard = () => {
         setDuesFilters(prev => ({ ...prev, status: 'all', accountType: 'Sub Dealer' }));
       } else if (filterVal === 'today') {
         setVerificationFilters({ status: 'Approved', dateRange: 'today' });
+        setVerificationSubTab('collections');
       } else if (filterVal === 'month') {
         setVerificationFilters({ status: 'Approved', dateRange: 'month' });
+        setVerificationSubTab('collections');
       } else if (filterVal === 'expiringThisMonth') {
         const currentMonthStr = new Date().toISOString().slice(0, 7);
         setRenewalsFilters(prev => ({ ...prev, expiryMonth: currentMonthStr, deviceStatus: 'all' }));
@@ -309,9 +350,10 @@ const DueDashboard = () => {
     } else if (activeTab === 'verifications') {
       if (isAdmin) {
         fetchAdminVerificationRequests();
+        fetchAdminPayments();
       }
     }
-  }, [activeTab, fetchSummary, fetchDues, fetchRenewals, fetchSelfDetails, fetchVerificationRequests, fetchAdminVerificationRequests, isListView, isAdmin]);
+  }, [activeTab, fetchSummary, fetchDues, fetchRenewals, fetchSelfDetails, fetchVerificationRequests, fetchAdminVerificationRequests, fetchAdminPayments, isListView, isAdmin]);
 
   // Open Tab handler
   const handleTabChange = (tabName) => {
@@ -369,6 +411,7 @@ const DueDashboard = () => {
       // Refresh views
       fetchSummary();
       fetchDues();
+      fetchAdminPayments();
     } catch (err) {
       console.error('Error submitting payment:', err);
       alert(err.response?.data?.message || 'Error occurred while recording payment.');
@@ -489,6 +532,7 @@ const DueDashboard = () => {
       // Refresh data
       fetchSummary();
       fetchAdminVerificationRequests();
+      fetchAdminPayments();
     } catch (err) {
       console.error('Error verifying payment request:', err);
       alert(err.response?.data?.message || 'Failed to verify payment request.');
@@ -1495,26 +1539,28 @@ const DueDashboard = () => {
           </div>
         )}
 
-        {/* TAB 4: PAYMENT VERIFICATION REQUESTS */}
+        {/* TAB 4: COLLECTIONS & PAYMENT VERIFICATION REQUESTS */}
         {activeTab === 'verifications' && isAdmin && (
           <div className="due-panel">
-            <div className="due-panel-header">
-              <h3>Payment Verification Requests</h3>
+            <div className="due-panel-header" style={{ borderBottom: 'none', paddingBottom: '0' }}>
+              <h3>Collections & Verification Requests</h3>
               <div className="due-filters-bar">
-                <div className="filter-select">
-                  <FaFilter />
-                  <select
-                    value={verificationFilters.status}
-                    onChange={(e) => {
-                      setVerificationFilters(prev => ({ ...prev, status: e.target.value }));
-                    }}
-                  >
-                    <option value="all">All Status</option>
-                    <option value="Pending">Pending</option>
-                    <option value="Approved">Approved</option>
-                    <option value="Rejected">Rejected</option>
-                  </select>
-                </div>
+                {verificationSubTab === 'requests' && (
+                  <div className="filter-select">
+                    <FaFilter />
+                    <select
+                      value={verificationFilters.status}
+                      onChange={(e) => {
+                        setVerificationFilters(prev => ({ ...prev, status: e.target.value }));
+                      }}
+                    >
+                      <option value="all">All Status</option>
+                      <option value="Pending">Pending</option>
+                      <option value="Approved">Approved</option>
+                      <option value="Rejected">Rejected</option>
+                    </select>
+                  </div>
+                )}
                 <div className="filter-select">
                   <FaFilter />
                   <select
@@ -1557,84 +1603,160 @@ const DueDashboard = () => {
                 )}
               </div>
             </div>
-            <div className="due-table-wrap">
-              {loadingRequests ? (
-                <div className="loading-spinner">Loading Verification Requests...</div>
-              ) : (
-                <table className="due-table">
-                  <thead>
-                    <tr>
-                      <th>Dealer Name</th>
-                      <th>Company</th>
-                      <th>Mobile</th>
-                      <th>Amount</th>
-                      <th>Mode</th>
-                      <th>Reference No</th>
-                      <th>Payment Date & Time</th>
-                      <th>Date Submitted</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {getFilteredVerificationRequests().map((req) => (
-                      <tr key={req._id}>
-                        <td>{req.userId?.displayName || req.userId?.username || '—'}</td>
-                        <td>{req.userId?.companyName || '—'}</td>
-                        <td>{req.userId?.mobileNo || '—'}</td>
-                        <td className="amount">₹{(req.amount || 0).toLocaleString()}</td>
-                        <td>{req.paymentMode}</td>
-                        <td className="strong">
-                          <div>{req.referenceNumber}</div>
-                          {req.screenshotUrl && (
-                            <div style={{ marginTop: '4px' }}>
-                              <a 
-                                href={`${(api.defaults.baseURL || '').replace(/\/api$/, '')}${req.screenshotUrl}`} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                style={{ color: '#00bcd4', fontSize: '11px', textDecoration: 'underline', fontWeight: '500', display: 'inline-block' }}
-                              >
-                                View Proof
-                              </a>
-                            </div>
-                          )}
-                        </td>
-                        <td>{formatDateTime(req.paymentDate || req.createdAt)}</td>
-                        <td>{formatDateTime(req.createdAt)}</td>
-                        <td>
-                          <span className={`due-status-badge req-status-${req.status.toLowerCase()}`}>
-                            {req.status}
-                          </span>
-                        </td>
-                        <td>
-                          {req.status === 'Pending' ? (
-                            <button
-                              type="button"
-                              className="due-action-btn primary"
-                              onClick={() => openVerifyModal(req)}
-                            >
-                              Verify
-                            </button>
-                          ) : (
-                            <span className="verified-info" style={{ fontWeight: '600', display: 'block', fontSize: '11px' }} title={req.adminRemarks}>
-                              {req.status === 'Approved' ? '✅ Approved' : '❌ Rejected'}
-                              <span style={{ display: 'block', fontSize: '9.5px', color: '#888', fontWeight: 'normal', marginTop: '2px' }}>
-                                {req.status === 'Approved' ? 'Approved: ' : 'Rejected: '}{formatDateTime(req.verifiedAt || req.updatedAt)}
-                              </span>
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                    {adminVerificationRequests.length === 0 && (
-                      <tr>
-                        <td colSpan={9} className="table-empty">No payment verification requests found.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              )}
+
+            <div className="due-self-tabs" style={{ display: 'flex', gap: '10px', margin: '0 24px 20px 24px', borderBottom: '1px solid #444', paddingBottom: '8px' }}>
+              <button
+                type="button"
+                className={`due-tab-btn compact-tab-btn ${verificationSubTab === 'requests' ? 'active' : ''}`}
+                onClick={() => setVerificationSubTab('requests')}
+                style={{ padding: '6px 12px', fontSize: '12px' }}
+              >
+                Verification Requests ({getFilteredVerificationRequests().length})
+              </button>
+              <button
+                type="button"
+                className={`due-tab-btn compact-tab-btn ${verificationSubTab === 'collections' ? 'active' : ''}`}
+                onClick={() => setVerificationSubTab('collections')}
+                style={{ padding: '6px 12px', fontSize: '12px' }}
+              >
+                All Payments / Collections ({adminPayments.length})
+              </button>
             </div>
+
+            {verificationSubTab === 'requests' ? (
+              <div className="due-table-wrap">
+                {loadingRequests ? (
+                  <div className="loading-spinner">Loading Verification Requests...</div>
+                ) : (
+                  <table className="due-table">
+                    <thead>
+                      <tr>
+                        <th>Dealer Name</th>
+                        <th>Company</th>
+                        <th>Mobile</th>
+                        <th>Amount</th>
+                        <th>Mode</th>
+                        <th>Reference No</th>
+                        <th>Payment Date & Time</th>
+                        <th>Date Submitted</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {getFilteredVerificationRequests().map((req) => (
+                        <tr key={req._id}>
+                          <td>{req.userId?.displayName || req.userId?.username || '—'}</td>
+                          <td>{req.userId?.companyName || '—'}</td>
+                          <td>{req.userId?.mobileNo || '—'}</td>
+                          <td className="amount">₹{(req.amount || 0).toLocaleString()}</td>
+                          <td>{req.paymentMode}</td>
+                          <td className="strong">
+                            <div>{req.referenceNumber}</div>
+                            {req.screenshotUrl && (
+                              <div style={{ marginTop: '4px' }}>
+                                <a 
+                                  href={`${(api.defaults.baseURL || '').replace(/\/api$/, '')}${req.screenshotUrl}`} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  style={{ color: '#00bcd4', fontSize: '11px', textDecoration: 'underline', fontWeight: '500', display: 'inline-block' }}
+                                >
+                                  View Proof
+                                </a>
+                              </div>
+                            )}
+                          </td>
+                          <td>{formatDateTime(req.paymentDate || req.createdAt)}</td>
+                          <td>{formatDateTime(req.createdAt)}</td>
+                          <td>
+                            <span className={`due-status-badge req-status-${req.status.toLowerCase()}`}>
+                              {req.status}
+                            </span>
+                          </td>
+                          <td>
+                            {req.status === 'Pending' ? (
+                              <button
+                                type="button"
+                                className="due-action-btn primary"
+                                onClick={() => openVerifyModal(req)}
+                              >
+                                Verify
+                              </button>
+                            ) : (
+                              <span className="verified-info" style={{ fontWeight: '600', display: 'block', fontSize: '11px' }} title={req.adminRemarks}>
+                                {req.status === 'Approved' ? '✅ Approved' : '❌ Rejected'}
+                                <span style={{ display: 'block', fontSize: '9.5px', color: '#888', fontWeight: 'normal', marginTop: '2px' }}>
+                                  {req.status === 'Approved' ? 'Approved: ' : 'Rejected: '}{formatDateTime(req.verifiedAt || req.updatedAt)}
+                                </span>
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                      {getFilteredVerificationRequests().length === 0 && (
+                        <tr>
+                          <td colSpan={10} className="table-empty">No payment verification requests found for this filter.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            ) : (
+              <div className="due-table-wrap">
+                {loadingPayments ? (
+                  <div className="loading-spinner">Loading Collections History...</div>
+                ) : (
+                  <table className="due-table">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Dealer Name</th>
+                        <th>Dealer ID</th>
+                        <th>Amount</th>
+                        <th>Payment Mode</th>
+                        <th>Reference No</th>
+                        <th>Remarks</th>
+                        <th>Recorded By</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {adminPayments.map((p) => (
+                        <tr key={p._id}>
+                          <td>{new Date(p.paymentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                          <td>{p.userId?.displayName || p.userId?.username || '—'}</td>
+                          <td>{p.userId?.username || '—'}</td>
+                          <td className="amount">₹{(p.amount || 0).toLocaleString()}</td>
+                          <td>{p.paymentMode}</td>
+                          <td className="strong">
+                            <div>{p.referenceNumber || '—'}</div>
+                            {p.screenshotUrl && (
+                              <div style={{ marginTop: '4px' }}>
+                                <a 
+                                  href={`${(api.defaults.baseURL || '').replace(/\/api$/, '')}${p.screenshotUrl}`} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  style={{ color: '#00bcd4', fontSize: '11px', textDecoration: 'underline', fontWeight: '500', display: 'inline-block' }}
+                                >
+                                  View Proof
+                                </a>
+                              </div>
+                            )}
+                          </td>
+                          <td>{p.remarks || '—'}</td>
+                          <td>{p.updatedBy?.displayName || p.updatedBy?.username || '—'}</td>
+                        </tr>
+                      ))}
+                      {adminPayments.length === 0 && (
+                        <tr>
+                          <td colSpan={8} className="table-empty">No payment collections found for the selected period.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

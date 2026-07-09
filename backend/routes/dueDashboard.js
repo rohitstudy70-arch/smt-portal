@@ -338,78 +338,252 @@ const buildRenewalRows = async (req, { paginate = true } = {}) => {
   };
 };
 
-const escapePdfText = (value) => String(value ?? '')
-  .replace(/\\/g, '\\\\')
-  .replace(/\(/g, '\\(')
-  .replace(/\)/g, '\\)')
-  .replace(/[^\x20-\x7E]/g, ' ');
-
-const buildSimplePdf = (title, headers, rows) => {
-  const pages = [];
-  const rowsPerPage = 28;
-  const preparedRows = rows.length > 0 ? rows : [['No records found']];
-  const pageCount = Math.ceil(preparedRows.length / rowsPerPage);
-
-  for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
-    const chunk = preparedRows.slice(pageIndex * rowsPerPage, (pageIndex + 1) * rowsPerPage);
-    const lines = [
-      `BT /F1 16 Tf 40 800 Td (${escapePdfText(title)}) Tj ET`,
-      `BT /F1 8 Tf 40 780 Td (${escapePdfText(headers.join(' | ')).slice(0, 130)}) Tj ET`,
-    ];
-
-    chunk.forEach((row, index) => {
-      const y = 760 - (index * 24);
-      const line = row.map((cell) => String(cell ?? '')).join(' | ').slice(0, 150);
-      lines.push(`BT /F1 8 Tf 40 ${y} Td (${escapePdfText(line)}) Tj ET`);
-    });
-
-    lines.push(`BT /F1 8 Tf 500 30 Td (${pageIndex + 1} / ${pageCount}) Tj ET`);
-    pages.push(lines.join('\n'));
+const getColLetter = (colIndex) => {
+  let temp = colIndex;
+  let letter = '';
+  while (temp > 0) {
+    let modulo = (temp - 1) % 26;
+    letter = String.fromCharCode(65 + modulo) + letter;
+    temp = Math.floor((temp - modulo) / 26);
   }
-
-  const objects = [];
-  objects.push('<< /Type /Catalog /Pages 2 0 R >>');
-
-  const kids = pages.map((_, index) => `${4 + (index * 2)} 0 R`).join(' ');
-  objects.push(`<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>`);
-  objects.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
-
-  pages.forEach((content, index) => {
-    const pageObjectId = 4 + (index * 2);
-    const contentObjectId = pageObjectId + 1;
-    objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${contentObjectId} 0 R >>`);
-    objects.push(`<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}\nendstream`);
-  });
-
-  let pdf = '%PDF-1.4\n';
-  const offsets = [0];
-  objects.forEach((object, index) => {
-    offsets.push(Buffer.byteLength(pdf));
-    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
-  });
-
-  const xrefStart = Buffer.byteLength(pdf);
-  pdf += `xref\n0 ${objects.length + 1}\n`;
-  pdf += '0000000000 65535 f \n';
-  offsets.slice(1).forEach((offset) => {
-    pdf += `${String(offset).padStart(10, '0')} 00000 n \n`;
-  });
-  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`;
-
-  return Buffer.from(pdf);
+  return letter;
 };
 
-const sendExcel = async (res, filename, sheetName, headers, rows) => {
+const getPdfColSettings = (header, headers = []) => {
+  const h = header.toLowerCase();
+  const hasSubDealer = headers.some(x => x.toLowerCase() === 'sub dealer name');
+  const hasTotalBill = headers.some(x => x.toLowerCase() === 'total bill amount');
+  const hasPaymentMode = headers.some(x => x.toLowerCase() === 'payment mode');
+
+  let width = 80;
+  let align = 'left';
+
+  if (hasSubDealer) {
+    // Renewal Due Report (11 columns, total width: 780)
+    if (h === 'imei') width = 80;
+    else if (h === 'device name') width = 70;
+    else if (h === 'vehicle number') width = 65;
+    else if (h === 'customer name') width = 75;
+    else if (h === 'dealer name') width = 75;
+    else if (h === 'sub dealer name') width = 75;
+    else if (h === 'activation date') width = 55;
+    else if (h === 'expiry date') width = 55;
+    else if (h === 'remaining days') { width = 80; align = 'right'; }
+    else if (h === 'renewal amount') { width = 90; align = 'right'; }
+    else if (h === 'status') { width = 60; align = 'center'; }
+  } else if (hasTotalBill) {
+    // Dealer Due Report
+    if (h === 'dealer name') width = 120;
+    else if (h === 'dealer id') { width = 80; align = 'center'; }
+    else if (h === 'account type') { width = 80; align = 'center'; }
+    else if (h === 'total devices assigned') { width = 60; align = 'right'; }
+    else if (h === 'total bill amount') { width = 75; align = 'right'; }
+    else if (h === 'total paid amount') { width = 75; align = 'right'; }
+    else if (h === 'total outstanding') { width = 75; align = 'right'; }
+    else if (h === 'current due') { width = 75; align = 'right'; }
+    else if (h === 'last payment date') { width = 80; align = 'center'; }
+    else if (h === 'status') { width = 60; align = 'center'; }
+  } else if (hasPaymentMode) {
+    // Collection / Payments Report
+    if (h === 'date') { width = 80; align = 'center'; }
+    else if (h === 'dealer name') width = 140;
+    else if (h === 'dealer id') { width = 80; align = 'center'; }
+    else if (h === 'amount') { width = 75; align = 'right'; }
+    else if (h === 'payment mode') { width = 85; align = 'center'; }
+    else if (h === 'reference number') { width = 105; align = 'center'; }
+    else if (h === 'remarks') width = 110;
+    else if (h === 'updated by') width = 105;
+  }
+
+  return { width, align };
+};
+
+const sendExcel = async (res, filename, sheetNameOrSheets, headers, rows, totalsColumns) => {
   const workbook = new ExcelJS.Workbook();
-  const worksheet = workbook.addWorksheet(sheetName);
-  worksheet.columns = headers.map((header) => ({
-    header,
-    key: header,
-    width: Math.max(16, header.length + 4),
-  }));
-  rows.forEach((row) => worksheet.addRow(row));
-  worksheet.getRow(1).font = { bold: true };
-  worksheet.views = [{ state: 'frozen', ySplit: 1 }];
+  
+  let sheets = [];
+  if (Array.isArray(sheetNameOrSheets)) {
+    sheets = sheetNameOrSheets;
+  } else {
+    sheets = [{
+      sheetName: sheetNameOrSheets,
+      title: sheetNameOrSheets,
+      headers,
+      rows,
+      totalsColumns: totalsColumns || []
+    }];
+  }
+
+  for (const sheetInfo of sheets) {
+    const { sheetName, title, headers: sheetHeaders, rows: sheetRows, totalsColumns: sheetTotals } = sheetInfo;
+    const worksheet = workbook.addWorksheet(sheetName.slice(0, 31));
+    
+    // Gridlines visibility
+    worksheet.views = [{ showGridLines: true }];
+
+    // 1. Add Title Banner
+    const titleRow = worksheet.addRow([title]);
+    titleRow.height = 36;
+    worksheet.mergeCells(1, 1, 1, sheetHeaders.length);
+    const titleCell = titleRow.getCell(1);
+    titleCell.font = { name: 'Segoe UI', size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF1F4E78' } // Navy Blue
+    };
+    titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+
+    // 2. Add Metadata Row
+    const metaRow = worksheet.addRow([`Report Generated On: ${new Date().toLocaleString()} | Total Records: ${sheetRows.length}`]);
+    metaRow.height = 20;
+    worksheet.mergeCells(2, 1, 2, sheetHeaders.length);
+    const metaCell = metaRow.getCell(1);
+    metaCell.font = { name: 'Segoe UI', size: 9, italic: true, color: { argb: 'FF595959' } };
+    metaCell.alignment = { vertical: 'middle', horizontal: 'left' };
+
+    // 3. Add Empty Separator Row
+    worksheet.addRow([]);
+    worksheet.getRow(3).height = 10;
+
+    // 4. Add Headers Row
+    const headerRow = worksheet.addRow(sheetHeaders);
+    headerRow.height = 26;
+    headerRow.eachCell((cell) => {
+      cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF2E75B6' } // Medium Steel Blue
+      };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFD9D9D9' } },
+        left: { style: 'thin', color: { argb: 'FFD9D9D9' } },
+        bottom: { style: 'thin', color: { argb: 'FFD9D9D9' } },
+        right: { style: 'thin', color: { argb: 'FFD9D9D9' } }
+      };
+    });
+
+    // 5. Add Data Rows
+    sheetRows.forEach((row, rowIndex) => {
+      const dataRowValues = sheetHeaders.map(h => row[h]);
+      const dataRow = worksheet.addRow(dataRowValues);
+      dataRow.height = 20;
+      
+      const isEven = rowIndex % 2 === 0;
+      const rowBgColor = isEven ? 'FFFFFFFF' : 'FFF2F6F9';
+
+      dataRow.eachCell((cell, colIndex) => {
+        const header = sheetHeaders[colIndex - 1];
+        cell.font = { name: 'Segoe UI', size: 10 };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: rowBgColor }
+        };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+          left: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+          bottom: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+          right: { style: 'thin', color: { argb: 'FFE0E0E0' } }
+        };
+
+        // Alignments and Number Formats
+        const lowerHeader = header.toLowerCase();
+        if (lowerHeader.includes('amount') || lowerHeader.includes('outstanding') || lowerHeader.includes('due') || lowerHeader.includes('price')) {
+          cell.alignment = { vertical: 'middle', horizontal: 'right' };
+          cell.numFmt = '₹#,##0.00';
+          if (cell.value !== undefined && cell.value !== null) {
+            const num = Number(cell.value);
+            if (!isNaN(num)) {
+              cell.value = num;
+            }
+          }
+        } else if (lowerHeader.includes('devices') || lowerHeader.includes('days') || lowerHeader.includes('quantity')) {
+          cell.alignment = { vertical: 'middle', horizontal: 'right' };
+          cell.numFmt = '#,##0';
+          if (cell.value !== undefined && cell.value !== null) {
+            const num = Number(cell.value);
+            if (!isNaN(num)) {
+              cell.value = num;
+            }
+          }
+        } else if (lowerHeader.includes('date')) {
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+          if (cell.value && !(cell.value instanceof Date)) {
+            const dateVal = new Date(cell.value);
+            if (!isNaN(dateVal.getTime())) {
+              cell.value = dateVal;
+              cell.numFmt = 'yyyy-mm-dd';
+            }
+          }
+        } else if (lowerHeader.includes('id') || lowerHeader.includes('imei') || lowerHeader.includes('status')) {
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        } else {
+          cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+        }
+      });
+    });
+
+    // 6. Add Totals Row using formulas
+    if (sheetTotals && sheetTotals.length > 0 && sheetRows.length > 0) {
+      const totalsRowValues = sheetHeaders.map((header, index) => {
+        if (index === 0) return 'Total';
+        if (sheetTotals.includes(header)) {
+          const colLetter = getColLetter(index + 1);
+          const startRow = 5;
+          const endRow = startRow + sheetRows.length - 1;
+          return { formula: `SUM(${colLetter}${startRow}:${colLetter}${endRow})` };
+        }
+        return '';
+      });
+
+      const totalsRow = worksheet.addRow(totalsRowValues);
+      totalsRow.height = 22;
+      totalsRow.eachCell((cell, colIndex) => {
+        const header = sheetHeaders[colIndex - 1];
+        cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF1F4E78' } };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFEFEFEF' }
+        };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FF1F4E78' } },
+          bottom: { style: 'double', color: { argb: 'FF1F4E78' } },
+          left: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+          right: { style: 'thin', color: { argb: 'FFE0E0E0' } }
+        };
+
+        const lowerHeader = header.toLowerCase();
+        if (lowerHeader.includes('amount') || lowerHeader.includes('outstanding') || lowerHeader.includes('due') || lowerHeader.includes('price')) {
+          cell.alignment = { vertical: 'middle', horizontal: 'right' };
+          cell.numFmt = '₹#,##0.00';
+        } else if (lowerHeader.includes('devices') || lowerHeader.includes('days')) {
+          cell.alignment = { vertical: 'middle', horizontal: 'right' };
+          cell.numFmt = '#,##0';
+        }
+      });
+    }
+
+    // 7. Auto-adjust columns widths
+    sheetHeaders.forEach((header, index) => {
+      const column = worksheet.getColumn(index + 1);
+      let maxLen = header.length;
+      sheetRows.forEach((row) => {
+        const val = row[header];
+        if (val !== undefined && val !== null) {
+          const strVal = val instanceof Date ? val.toISOString().slice(0, 10) : String(val);
+          maxLen = Math.max(maxLen, strVal.length);
+        }
+      });
+      column.width = Math.min(Math.max(maxLen + 4, 12), 40);
+    });
+
+    // Freeze header and metadata row
+    worksheet.views = [{ state: 'frozen', ySplit: 4, xSplit: 0, showGridLines: true }];
+  }
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.setHeader('Content-Disposition', `attachment; filename="${filename}.xlsx"`);
@@ -417,11 +591,213 @@ const sendExcel = async (res, filename, sheetName, headers, rows) => {
   res.end();
 };
 
-const sendPdf = (res, filename, title, headers, rows) => {
-  const pdf = buildSimplePdf(title, headers, rows.map((row) => headers.map((header) => row[header])));
+const sendPdf = (res, filename, title, headersOrSections, rows, totalsColumns) => {
+  const PDFDocument = require('pdfkit');
+  
+  let sections = [];
+  if (Array.isArray(headersOrSections) && typeof headersOrSections[0] === 'object') {
+    sections = headersOrSections;
+  } else {
+    sections = [{
+      sectionTitle: '',
+      headers: headersOrSections,
+      rows,
+      totalsColumns: totalsColumns || []
+    }];
+  }
+
+  const doc = new PDFDocument({
+    layout: 'landscape',
+    size: 'A4',
+    margins: { top: 40, bottom: 40, left: 30, right: 30 },
+    bufferPages: true
+  });
+
+  const margin = 30;
+  let y = 60;
+
+  sections.forEach((section, secIndex) => {
+    const { sectionTitle, headers, rows: sectionRows, totalsColumns: sectionTotals } = section;
+
+    if (secIndex > 0) {
+      doc.addPage();
+      y = 60;
+    }
+
+    // Draw Section Header
+    if (sectionTitle) {
+      doc.font('Helvetica-Bold').fontSize(12).fillColor('#1F4E78').text(sectionTitle, margin, y);
+      y += 20;
+    }
+
+    // Draw Table Header
+    doc.font('Helvetica-Bold').fontSize(8).fillColor('#FFFFFF');
+    doc.rect(margin, y, 780, 22).fill('#1F4E78');
+
+    let x = margin;
+    headers.forEach((header) => {
+      const { width, align } = getPdfColSettings(header, headers);
+      doc.fillColor('#FFFFFF').text(header, x + 4, y + 6, {
+        width: width - 8,
+        align: align,
+        height: 12,
+        ellipsis: true
+      });
+      x += width;
+    });
+    y += 22;
+
+    // Draw Table Rows
+    doc.font('Helvetica').fontSize(8).fillColor('#333333');
+    if (sectionRows.length === 0) {
+      const rowHeight = 20;
+      doc.rect(margin, y, 780, rowHeight).fill('#FFFFFF');
+      doc.fillColor('#777777').text('No records found', margin + 4, y + 6, {
+        width: 772,
+        align: 'center'
+      });
+      doc.strokeColor('#E0E0E0').lineWidth(0.5).rect(margin, y, 780, rowHeight).stroke();
+      y += rowHeight;
+    } else {
+      sectionRows.forEach((row, rowIndex) => {
+        const rowHeight = 20;
+
+        // Page break check (A4 Landscape height is 595.28)
+        if (y + rowHeight > 510) {
+          doc.addPage();
+          y = 60;
+          
+          doc.font('Helvetica-Bold').fontSize(8).fillColor('#FFFFFF');
+          doc.rect(margin, y, 780, 22).fill('#1F4E78');
+          let xTemp = margin;
+          headers.forEach((header) => {
+            const { width, align } = getPdfColSettings(header, headers);
+            doc.fillColor('#FFFFFF').text(header, xTemp + 4, y + 6, {
+              width: width - 8,
+              align: align,
+              height: 12,
+              ellipsis: true
+            });
+            xTemp += width;
+          });
+          y += 22;
+          doc.font('Helvetica').fontSize(8).fillColor('#333333');
+        }
+
+        const bgColor = rowIndex % 2 === 0 ? '#FFFFFF' : '#F9FBFD';
+        doc.rect(margin, y, 780, rowHeight).fill(bgColor);
+
+        let cellX = margin;
+        headers.forEach((header) => {
+          const { width, align } = getPdfColSettings(header, headers);
+          let value = row[header] !== undefined && row[header] !== null ? String(row[header]) : '';
+          
+          const lowerHeader = header.toLowerCase();
+          if (lowerHeader.includes('amount') || lowerHeader.includes('outstanding') || lowerHeader.includes('due') || lowerHeader.includes('price')) {
+            const num = Number(value);
+            if (!isNaN(num) && value !== '') {
+              value = 'Rs. ' + num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+          }
+
+          doc.fillColor('#333333').text(value, cellX + 4, y + 6, {
+            width: width - 8,
+            align: align,
+            height: 12,
+            ellipsis: true
+          });
+
+          doc.strokeColor('#E0E0E0').lineWidth(0.5)
+            .moveTo(cellX, y).lineTo(cellX, y + rowHeight).stroke();
+
+          cellX += width;
+        });
+
+        doc.strokeColor('#E0E0E0').lineWidth(0.5)
+          .moveTo(cellX, y).lineTo(cellX, y + rowHeight).stroke();
+
+        doc.strokeColor('#E0E0E0').lineWidth(0.5)
+          .moveTo(margin, y + rowHeight).lineTo(margin + 780, y + rowHeight).stroke();
+
+        y += rowHeight;
+      });
+    }
+
+    // Draw Totals Row
+    if (sectionTotals && sectionTotals.length > 0 && sectionRows.length > 0) {
+      const rowHeight = 22;
+      if (y + rowHeight > 510) {
+        doc.addPage();
+        y = 60;
+      }
+
+      doc.rect(margin, y, 780, rowHeight).fill('#ECEFF1');
+      doc.strokeColor('#1F4E78').lineWidth(0.75)
+        .moveTo(margin, y).lineTo(margin + 780, y).stroke();
+
+      doc.font('Helvetica-Bold').fontSize(8).fillColor('#1F4E78');
+      let cellX = margin;
+      headers.forEach((header, idx) => {
+        const { width, align } = getPdfColSettings(header, headers);
+        let value = '';
+        if (idx === 0) {
+          value = 'Total';
+        } else if (sectionTotals.includes(header)) {
+          const sum = sectionRows.reduce((acc, r) => {
+            const val = Number(r[header]);
+            return acc + (isNaN(val) ? 0 : val);
+          }, 0);
+          
+          const lowerHeader = header.toLowerCase();
+          if (lowerHeader.includes('amount') || lowerHeader.includes('outstanding') || lowerHeader.includes('due')) {
+            value = 'Rs. ' + sum.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          } else {
+            value = sum.toLocaleString('en-IN');
+          }
+        }
+
+        doc.text(value, cellX + 4, y + 7, {
+          width: width - 8,
+          align: align,
+          height: 12,
+          ellipsis: true
+        });
+
+        cellX += width;
+      });
+
+      doc.strokeColor('#1F4E78').lineWidth(0.75)
+        .moveTo(margin, y + rowHeight - 2).lineTo(margin + 780, y + rowHeight - 2).stroke();
+      doc.strokeColor('#1F4E78').lineWidth(0.75)
+        .moveTo(margin, y + rowHeight).lineTo(margin + 780, y + rowHeight).stroke();
+
+      y += rowHeight;
+    }
+  });
+
+  // Global Page Numbers & Running Headers/Footers
+  const range = doc.bufferedPageRange();
+  for (let i = 0; i < range.count; i++) {
+    doc.switchToPage(i);
+
+    // Draw header banner
+    doc.rect(30, 15, 780, 20).fill('#1F4E78');
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('#FFFFFF').text('SMT CUSTOMER PORTAL - SYSTEM REPORTS', 38, 21);
+    doc.font('Helvetica').fontSize(9).fillColor('#FFFFFF').text(title.toUpperCase(), 30, 21, { align: 'right', width: 772 });
+
+    // Draw footer page info
+    doc.strokeColor('#D3D3D3').lineWidth(0.5).moveTo(30, 555).lineTo(810, 555).stroke();
+    doc.font('Helvetica-Oblique').fontSize(7.5).fillColor('#777777')
+      .text(`Generated On: ${new Date().toLocaleString()}`, 30, 563);
+    doc.font('Helvetica').fontSize(8).fillColor('#777777')
+      .text(`Page ${i + 1} of ${range.count}`, 30, 563, { align: 'right', width: 780 });
+  }
+
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="${filename}.pdf"`);
-  res.send(pdf);
+  
+  doc.pipe(res);
+  doc.end();
 };
 
 router.get('/summary', async (req, res) => {
@@ -563,6 +939,40 @@ router.get('/summary', async (req, res) => {
     });
   } catch (error) {
     console.error('Due summary error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET /api/due-dashboard/payments
+// @desc    Get all payments (collections) visible to current hierarchy
+// @access  Protected
+router.get('/payments', async (req, res) => {
+  try {
+    const userIds = await getScopedDueUserIds(req);
+    const query = paymentMatchForScope(userIds, req.query);
+
+    const { limit = 100, page = 1 } = req.query;
+    const parsedLimit = Math.min(parseInt(limit, 10) || 100, 500);
+    const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
+
+    const [payments, total] = await Promise.all([
+      DuePayment.find(query)
+        .populate('userId', 'displayName companyName username userType mobileNo')
+        .populate('updatedBy', 'displayName companyName username userType')
+        .sort({ paymentDate: -1, createdAt: -1 })
+        .skip((parsedPage - 1) * parsedLimit)
+        .limit(parsedLimit),
+      DuePayment.countDocuments(query),
+    ]);
+
+    res.json({
+      payments,
+      total,
+      pages: Math.ceil(total / parsedLimit),
+      currentPage: parsedPage,
+    });
+  } catch (error) {
+    console.error('All payments error:', error.message);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -833,11 +1243,6 @@ router.get('/export', async (req, res) => {
       return res.status(400).json({ message: 'Export format must be excel or pdf.' });
     }
 
-    let title = 'Dealer Due Report';
-    let filename = 'dealer-due-report';
-    let headers = [];
-    let rows = [];
-
     if (type === 'collection') {
       const userIds = await getScopedDueUserIds(req);
       const payments = await DuePayment.find(paymentMatchForScope(userIds, req.query))
@@ -845,10 +1250,10 @@ router.get('/export', async (req, res) => {
         .populate('updatedBy', 'displayName companyName username userType')
         .sort({ paymentDate: -1, createdAt: -1 });
 
-      title = 'Collection Report';
-      filename = 'collection-report';
-      headers = ['Date', 'Dealer Name', 'Dealer ID', 'Amount', 'Payment Mode', 'Reference Number', 'Remarks', 'Updated By'];
-      rows = payments.map((payment) => ({
+      const title = 'Collection Report';
+      const filename = 'collection-report';
+      const headers = ['Date', 'Dealer Name', 'Dealer ID', 'Amount', 'Payment Mode', 'Reference Number', 'Remarks', 'Updated By'];
+      const rows = payments.map((payment) => ({
         Date: payment.paymentDate ? payment.paymentDate.toISOString().slice(0, 10) : '',
         'Dealer Name': payment.userId ? labelForUser(payment.userId) : '',
         'Dealer ID': payment.userId?.username || '',
@@ -858,30 +1263,45 @@ router.get('/export', async (req, res) => {
         Remarks: payment.remarks || '',
         'Updated By': payment.updatedBy ? labelForUser(payment.updatedBy) : '',
       }));
+
+      if (normalizedFormat === 'pdf') {
+        return sendPdf(res, filename, title, headers, rows, ['Amount']);
+      }
+      return sendExcel(res, filename, title, headers, rows, ['Amount']);
+
     } else if (type === 'renewal-due') {
       const result = await buildRenewalRows(req, { paginate: false });
-      title = 'Renewal Due Report';
-      filename = 'renewal-due-report';
-      headers = ['IMEI', 'Device Name', 'Customer Name', 'Dealer Name', 'Activation Date', 'Expiry Date', 'Remaining Days', 'Renewal Amount', 'Status'];
-      rows = result.rows.map((device) => ({
+      const title = 'Renewal Due Report';
+      const filename = 'renewal-due-report';
+      const headers = ['IMEI', 'Device Name', 'Vehicle Number', 'Customer Name', 'Dealer Name', 'Sub Dealer Name', 'Activation Date', 'Expiry Date', 'Remaining Days', 'Renewal Amount', 'Status'];
+      const rows = result.rows.map((device) => ({
         IMEI: device.imei,
         'Device Name': device.deviceName,
+        'Vehicle Number': device.vehicleNumber || '',
         'Customer Name': device.customerName,
         'Dealer Name': device.dealerName,
+        'Sub Dealer Name': device.subDealerName || '',
         'Activation Date': device.activationDate ? new Date(device.activationDate).toISOString().slice(0, 10) : '',
         'Expiry Date': device.expiryDate ? new Date(device.expiryDate).toISOString().slice(0, 10) : '',
         'Remaining Days': device.remainingDays,
         'Renewal Amount': device.renewalAmount,
         Status: device.status,
       }));
+
+      if (normalizedFormat === 'pdf') {
+        return sendPdf(res, filename, title, headers, rows, ['Renewal Amount']);
+      }
+      return sendExcel(res, filename, title, headers, rows, ['Renewal Amount']);
+
     } else {
+      // dealer-due: Outstanding dues for all dealers + their full payment logs!
       const userIds = await getScopedDueUserIds(req);
       const dues = await DealerDue.find({ userId: { $in: userIds } })
         .populate('userId', 'displayName companyName username userType')
         .sort({ totalOutstanding: -1, currentDue: -1 });
 
-      headers = ['Dealer Name', 'Dealer ID', 'Account Type', 'Total Devices Assigned', 'Total Bill Amount', 'Total Paid Amount', 'Total Outstanding', 'Current Due', 'Last Payment Date', 'Status'];
-      rows = dues.map((due) => ({
+      const dueHeaders = ['Dealer Name', 'Dealer ID', 'Account Type', 'Total Devices Assigned', 'Total Bill Amount', 'Total Paid Amount', 'Total Outstanding', 'Current Due', 'Last Payment Date', 'Status'];
+      const dueRows = dues.map((due) => ({
         'Dealer Name': due.dealerName || (due.userId ? labelForUser(due.userId) : ''),
         'Dealer ID': due.dealerCode || due.userId?.username || '',
         'Account Type': due.accountType,
@@ -893,13 +1313,64 @@ router.get('/export', async (req, res) => {
         'Last Payment Date': due.lastPaymentDate ? due.lastPaymentDate.toISOString().slice(0, 10) : '',
         Status: due.status,
       }));
-    }
 
-    if (normalizedFormat === 'pdf') {
-      return sendPdf(res, filename, title, headers, rows);
-    }
+      // Fetch payment records of these dealers
+      const payments = await DuePayment.find({ userId: { $in: userIds } })
+        .populate('userId', 'displayName companyName username userType')
+        .populate('updatedBy', 'displayName companyName username userType')
+        .sort({ paymentDate: -1, createdAt: -1 });
 
-    return sendExcel(res, filename, title.slice(0, 31), headers, rows);
+      const paymentHeaders = ['Date', 'Dealer Name', 'Dealer ID', 'Amount', 'Payment Mode', 'Reference Number', 'Remarks', 'Updated By'];
+      const paymentRows = payments.map((payment) => ({
+        Date: payment.paymentDate ? payment.paymentDate.toISOString().slice(0, 10) : '',
+        'Dealer Name': payment.userId ? labelForUser(payment.userId) : '',
+        'Dealer ID': payment.userId?.username || '',
+        Amount: payment.amount || 0,
+        'Payment Mode': payment.paymentMode || '',
+        'Reference Number': payment.referenceNumber || '',
+        Remarks: payment.remarks || '',
+        'Updated By': payment.updatedBy ? labelForUser(payment.updatedBy) : '',
+      }));
+
+      const title = 'Dealer Due Report';
+      const filename = 'dealer-due-report';
+
+      if (normalizedFormat === 'pdf') {
+        const sections = [
+          {
+            sectionTitle: 'Dealer Outstanding Dues Summary',
+            headers: dueHeaders,
+            rows: dueRows,
+            totalsColumns: ['Total Bill Amount', 'Total Paid Amount', 'Total Outstanding', 'Current Due']
+          },
+          {
+            sectionTitle: 'Dealer Due Payments History (Collections)',
+            headers: paymentHeaders,
+            rows: paymentRows,
+            totalsColumns: ['Amount']
+          }
+        ];
+        return sendPdf(res, filename, title, sections);
+      } else {
+        const sheets = [
+          {
+            sheetName: 'Dealer Dues Summary',
+            title: 'Dealer Outstanding Dues Summary',
+            headers: dueHeaders,
+            rows: dueRows,
+            totalsColumns: ['Total Bill Amount', 'Total Paid Amount', 'Total Outstanding', 'Current Due']
+          },
+          {
+            sheetName: 'Due Payments History',
+            title: 'Dealer Due Payments History (Collections)',
+            headers: paymentHeaders,
+            rows: paymentRows,
+            totalsColumns: ['Amount']
+          }
+        ];
+        return sendExcel(res, filename, sheets);
+      }
+    }
   } catch (error) {
     console.error('Due export error:', error.message);
     res.status(500).json({ message: 'Server error' });
