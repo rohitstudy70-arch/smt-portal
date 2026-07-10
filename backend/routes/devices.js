@@ -965,6 +965,12 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
     const originalImei = device.imei;
     const input = normalizeDeviceInput(req.body);
 
+    const oldBillAmount = device.billAmount || 0;
+    const newBillAmount = Number(input.billAmount) || 0;
+    const oldUserId = device.userId;
+    const newUserId = ownership.ownerId;
+    const oldDueOwnerIds = getDueOwnerIdsFromDevice(device);
+
     if (!input.vendor) {
       return res.status(400).json({ message: 'Model (vendor) is required.' });
     }

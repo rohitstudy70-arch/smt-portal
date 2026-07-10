@@ -85,7 +85,17 @@ const syncDueForUser = async (userId) => {
         dueBillAmount: {
           $sum: {
             $cond: [
-              { $lte: [{ $ifNull: ['$presentDate', '$createdAt'] }, thirtyDaysAgo] },
+              {
+                $or: [
+                  { $lte: [{ $ifNull: ['$presentDate', '$createdAt'] }, thirtyDaysAgo] },
+                  {
+                    $and: [
+                      { $ne: [{ $ifNull: ['$status', ''] }, 'Active'] },
+                      { $ne: [{ $ifNull: ['$status', ''] }, 'Activated'] }
+                    ]
+                  }
+                ]
+              },
               { $ifNull: ['$billAmount', 0] },
               0
             ]
