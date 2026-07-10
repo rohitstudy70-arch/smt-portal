@@ -470,7 +470,7 @@ router.get('/export', async (req, res) => {
     const sheet = workbook.addWorksheet('Device Report');
 
     // Title Block
-    sheet.mergeCells('A1:M1');
+    sheet.mergeCells('A1:N1');
     const titleCell = sheet.getCell('A1');
     titleCell.value = 'Device Management Report';
     titleCell.font = { name: 'Arial', size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
@@ -483,11 +483,11 @@ router.get('/export', async (req, res) => {
 
     const headers = [
       'Dealer Name', 'Sub Dealer Name', 'Assigned Customer', 'IMEI', 'ICCID', 
-      'Serial No', 'MSISDN 1', 'MSISDN 2', 'Validity', 
+      'Serial No', 'MSISDN 1', 'MSISDN 2', 'Validity', 'Bill Amount',
       'Activation Date', 'Expiry Date', 'Created By', 'Status'
     ];
 
-    const colWidths = [22, 22, 25, 20, 22, 18, 16, 16, 12, 16, 16, 20, 14];
+    const colWidths = [22, 22, 25, 20, 22, 18, 16, 16, 12, 15, 16, 16, 20, 14];
     sheet.columns = headers.map((h, i) => ({ header: h, key: h, width: colWidths[i] }));
 
     // Format Header Row (Row 3)
@@ -525,6 +525,7 @@ router.get('/export', async (req, res) => {
         device.msisdn1 || '',
         device.msisdn2 || '',
         device.validity || '',
+        device.billAmount || 0,
         formatDate(device.presentDate),
         formatDate(device.expiryDate),
         device.createdBy ? labelForUser(device.createdBy) : 'N/A',
@@ -539,7 +540,7 @@ router.get('/export', async (req, res) => {
       row.height = 20;
       row.eachCell((cell, colNum) => {
         cell.font = { name: 'Arial', size: 10 };
-        const centerCols = [4, 5, 6, 7, 8, 9, 10, 11, 13];
+        const centerCols = [4, 5, 6, 7, 8, 9, 10, 11, 12, 14];
         cell.alignment = {
           horizontal: centerCols.includes(colNum) ? 'center' : 'left',
           vertical: 'middle'
