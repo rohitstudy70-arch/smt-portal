@@ -117,7 +117,6 @@ const statKeysByRole = {
     'activeDevices',
     'expiredDevices',
     'devicesAddedToday',
-    'renewalDueDevices',
   ],
   DEALER: [
     'assignedDevices',
@@ -131,7 +130,6 @@ const statKeysByRole = {
   ],
   SUB_DEALER: [
     'availableDevices',
-    'renewalDueDevices',
     'assignedDevices',
     'expiringThisMonth',
   ],
