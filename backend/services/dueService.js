@@ -57,6 +57,7 @@ const buildDeviceDueQuery = (user) => {
         { dealerId: user._id },
         { userId: user._id, dealerId: null },
       ],
+      status: { $nin: ['Active', 'Activated'] },
     };
   }
 
