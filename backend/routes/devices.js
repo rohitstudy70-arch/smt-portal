@@ -882,7 +882,7 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
         }
       }).catch((e) => console.error('Failed to log audit event:', e.message));
 
-      await syncDueForUsers([ownership.ownerId]);
+      await syncDueForUsers(getDueOwnerIdsFromDevice(deviceCreated));
 
       // Sync to Product collection
       const Product = require('../models/Product');
@@ -1775,7 +1775,10 @@ router.post(
             },
           }).catch((e) => console.error('Bulk upload audit log error:', e.message));
 
-          affectedOwnerIds.add(ownerId.toString());
+          affectedOwnerIds.add(dealer._id.toString());
+          if (subDealer) {
+            affectedOwnerIds.add(subDealer._id.toString());
+          }
 
           const populated = await populateDevice(Device.findById(deviceCreated._id));
           successfulDevices.push(populated);
