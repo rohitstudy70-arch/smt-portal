@@ -584,6 +584,19 @@ const AddDevice = () => {
               </select>
             </div>
 
+            {role !== 'SUB_DEALER' && (
+              <div className="form-group">
+                <label>Bill Amount</label>
+                <input
+                  type="number"
+                  name="billAmount"
+                  value={formData.billAmount}
+                  onChange={(event) => updateFormField('billAmount', event.target.value)}
+                  placeholder="Enter Bill Amount"
+                />
+              </div>
+            )}
+
             <div className="form-group">
               <label>Activation Date</label>
               <input
@@ -598,19 +611,6 @@ const AddDevice = () => {
               <label>Expiry Date</label>
               <input type="text" value={formatDate(expiryDate)} readOnly className="readonly-field" />
             </div>
-
-            {role !== 'SUB_DEALER' && (
-              <div className="form-group">
-                <label>Bill Amount</label>
-                <input
-                  type="number"
-                  name="billAmount"
-                  value={formData.billAmount}
-                  onChange={(event) => updateFormField('billAmount', event.target.value)}
-                  placeholder="Enter Bill Amount"
-                />
-              </div>
-            )}
 
 
           </div>

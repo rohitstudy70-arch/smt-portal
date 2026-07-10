@@ -70,6 +70,7 @@ const emptyDeviceForm = {
   msisdn1: '',
   msisdn2: '',
   validity: '1 Year',
+  billAmount: '',
   status: 'Active',
   presentDate: getLocalDateString(),
 };
@@ -1946,6 +1947,17 @@ const CustomerDevicePortal = () => {
               <option value="2 Years">2 Years</option>
             </select>
           </label>
+          {role !== 'SUB_DEALER' && (
+            <label>
+              <span>Bill Amount</span>
+              <input
+                type="number"
+                value={deviceForm.billAmount || ''}
+                onChange={(event) => updateDeviceForm('billAmount', event.target.value)}
+                placeholder="Enter Bill Amount"
+              />
+            </label>
+          )}
           <label>
             <span>Activation Date</span>
             <input
@@ -2181,6 +2193,7 @@ const CustomerDevicePortal = () => {
                   <th>MSISDN 1</th>
                   <th>MSISDN 2</th>
                   <th>Validity</th>
+                  {role !== 'SUB_DEALER' && <th>Bill Amount</th>}
                   <th>Activation Date</th>
                   <th>Expiry Date</th>
                   <th>Created By</th>
@@ -2198,6 +2211,7 @@ const CustomerDevicePortal = () => {
                     <td>{device.msisdn1 || '-'}</td>
                     <td>{device.msisdn2 || '-'}</td>
                     <td>{device.validity || '-'}</td>
+                    {role !== 'SUB_DEALER' && <td>₹{device.billAmount || 0}</td>}
                     <td>{formatDate(device.presentDate)}</td>
                     <td>{formatDate(device.expiryDate)}</td>
                     <td>{getLinkedName(device.createdBy)}</td>
@@ -2206,7 +2220,7 @@ const CustomerDevicePortal = () => {
                 ))}
                 {paginatedRecords.length === 0 && (
                   <tr>
-                    <td colSpan={12} className="portal-empty">No device records found.</td>
+                    <td colSpan={role !== 'SUB_DEALER' ? 13 : 12} className="portal-empty">No device records found.</td>
                   </tr>
                 )}
               </tbody>
