@@ -105,6 +105,8 @@ const statCatalog = {
   expiringThisMonth: { label: 'Expiring This Month', icon: FaCalendarAlt, tone: 'violet' },
   totalDues: { label: 'Total Dues', icon: FaRupeeSign, tone: 'red' },
   totalRenewalDues: { label: 'Total Renewal Dues', icon: FaRupeeSign, tone: 'orange' },
+  totalPurchase: { label: 'Total Purchase', icon: FaSimCard, tone: 'red' },
+  totalRenewal: { label: 'Total Renewal', icon: FaCalendarAlt, tone: 'red' },
 };
 
 const statKeysByRole = {
@@ -120,8 +122,8 @@ const statKeysByRole = {
   DEALER: [
     'assignedDevices',
     'totalSubDealers',
-    'renewalDueDevices',
-    'availableDevices',
+    'totalPurchase',
+    'totalRenewal',
     'totalDevices',
     'expiringThisMonth',
     'totalDues',
@@ -1175,7 +1177,11 @@ const CustomerDevicePortal = () => {
         openView('devices');
         break;
       case 'availableDevices':
+      case 'totalPurchase':
         openView('devices');
+        break;
+      case 'totalRenewal':
+        openView('renewals');
         break;
       case 'totalProducts':
         navigate('/add-product');
@@ -1469,7 +1475,7 @@ const CustomerDevicePortal = () => {
                   >
                     <div>
                       <span className="portal-stat-value">₹{(dueSummary.totalOutstandingAmount || 0).toLocaleString()}</span>
-                      <span className="portal-stat-label">My Total Outstanding</span>
+                      <span className="portal-stat-label">Total Bill Amount</span>
                       {dueSummary.totalOutstandingAmount > 0 && (
                         <button
                           type="button"
@@ -1497,26 +1503,18 @@ const CustomerDevicePortal = () => {
                     <FaRupeeSign className="portal-stat-icon" />
                   </div>
 
-                  <div 
-                    className="portal-stat stat-amber" 
-                    onClick={() => navigate('/due-dashboard?tab=dues&filter=PendingDues')} 
-                    style={{ cursor: 'pointer' }}
-                  >
+                  <div className="portal-stat stat-amber">
                     <div>
                       <span className="portal-stat-value">₹{(dueSummary.totalDueAmount || 0).toLocaleString()}</span>
-                      <span className="portal-stat-label">My Current Due (Over 30 Days)</span>
+                      <span className="portal-stat-label">Total Paid</span>
                     </div>
                     <FaRupeeSign className="portal-stat-icon" />
                   </div>
 
-                  <div 
-                    className="portal-stat stat-violet" 
-                    onClick={() => { setRevenueModalTab('today'); setIsRevenueModalOpen(true); }}
-                    style={{ cursor: 'pointer' }}
-                  >
+                  <div className="portal-stat stat-violet">
                     <div>
                       <span className="portal-stat-value">₹{(dueSummary.todaysRevenue || 0).toLocaleString()}</span>
-                      <span className="portal-stat-label">Today's Revenue</span>
+                      <span className="portal-stat-label">REMAINING DUES</span>
                     </div>
                     <FaChartLine className="portal-stat-icon" />
                   </div>
