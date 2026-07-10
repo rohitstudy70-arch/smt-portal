@@ -17,6 +17,7 @@ import ProformaInvoice from './components/ProformaInvoice/ProformaInvoice';
 import IccidSearch from './components/IccidSearch/IccidSearch';
 import DueDashboard from './components/DueDashboard/DueDashboard';
 import RenewalDueManagement from './components/RenewalDueManagement/RenewalDueManagement';
+import LedgerBook from './components/LedgerBook/LedgerBook';
 
 const getRole = (user) => {
   if (user?.role === 'partner') return 'ADMIN';
@@ -246,6 +247,17 @@ function App() {
               <ProtectedRoute allowedRoles={['ADMIN', 'DEALER']}>
                 <Layout>
                   <DeviceManagement />
+                </Layout>
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/ledger-book" 
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'DEALER']}>
+                <Layout>
+                  <LedgerBook />
                 </Layout>
               </ProtectedRoute>
             } 

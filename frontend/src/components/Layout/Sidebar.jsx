@@ -15,6 +15,7 @@ import {
   FaPlusCircle,
   FaBoxOpen,
   FaCertificate,
+  FaBook,
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import './Sidebar.css';
@@ -171,6 +172,15 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             <NavLink to="/due-dashboard">
               <FaMoneyBillWave className="menu-icon" />
               <span className="menu-text">Due Dashboard</span>
+            </NavLink>
+          </li>
+        )}
+
+        {canShow(['ADMIN', 'DEALER']) && (
+          <li className={`sidebar-menu-item ${location.pathname === '/ledger-book' ? 'active' : ''}`}>
+            <NavLink to="/ledger-book">
+              <FaBook className="menu-icon" />
+              <span className="menu-text">Ledger Book</span>
             </NavLink>
           </li>
         )}
