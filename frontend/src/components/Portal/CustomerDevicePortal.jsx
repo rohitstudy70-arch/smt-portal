@@ -103,8 +103,8 @@ const statCatalog = {
   pendingRenewals: { label: 'Pending Renewals', icon: FaRedo, tone: 'violet' },
   totalProducts: { label: 'Total Products', icon: FaBoxOpen, tone: 'blue' },
   expiringThisMonth: { label: 'Expiring This Month', icon: FaCalendarAlt, tone: 'violet' },
-  totalDues: { label: 'Total Dues', icon: FaRupeeSign, tone: 'red' },
-  totalRenewalDues: { label: 'Total Renewal Dues', icon: FaRupeeSign, tone: 'orange' },
+  totalDues: { label: 'Total Purchase Revenue', icon: FaRupeeSign, tone: 'red' },
+  totalRenewalDues: { label: 'Total Renewal Revenue', icon: FaRupeeSign, tone: 'orange' },
   totalPurchase: { label: 'Total Purchase', icon: FaSimCard, tone: 'red' },
   totalRenewal: { label: 'Total Renewal', icon: FaCalendarAlt, tone: 'red' },
 };
