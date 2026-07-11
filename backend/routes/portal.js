@@ -1903,6 +1903,7 @@ router.get('/dealer-dashboard-summary', protect, async (req, res) => {
       overdueRenewalSummary,
       todaysRenewalSummary,
       dueRecord,
+      renewalPaidSummary,
     ] = await Promise.all([
       Device.countDocuments(deviceQuery),
       Device.countDocuments({
@@ -1955,12 +1956,23 @@ router.get('/dealer-dashboard-summary', protect, async (req, res) => {
         { $group: { _id: null, total: { $sum: { $ifNull: ['$receivedAmount', 0] } } } },
       ]),
       ['DEALER', 'SUB_DEALER'].includes(role) ? syncDueForUser(req.user._id) : Promise.resolve(null),
+      RenewalRequest.aggregate([
+        {
+          $match: {
+            ...renewalQuery,
+            status: { $ne: 'Rejected' },
+            paymentStatus: { $ne: 'Cancelled' },
+          },
+        },
+        { $group: { _id: null, total: { $sum: { $ifNull: ['$receivedAmount', 0] } } } },
+      ]),
     ]);
     const deviceTotalBillAmount = dueRecord ? dueRecord.totalBillAmount || 0 : 0;
     const deviceTotalPaidAmount = dueRecord ? dueRecord.totalPaidAmount || 0 : 0;
+    const totalRenewalPaid = renewalPaidSummary[0]?.total || 0;
 
     const totalBillAmount = deviceTotalBillAmount + totalRenewalDues;
-    const totalPaidAmount = deviceTotalPaidAmount;
+    const totalPaidAmount = deviceTotalPaidAmount + totalRenewalPaid;
     const remainingDues = Math.max(totalBillAmount - totalPaidAmount, 0);
 
     const todaysDeviceRevenue = ['DEALER', 'SUB_DEALER'].includes(role)
