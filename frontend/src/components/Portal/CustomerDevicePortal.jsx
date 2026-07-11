@@ -2866,9 +2866,6 @@ const CustomerDevicePortal = () => {
                 {userRole === 'ADMIN' && <th>Product</th>}
                 <th>Validity</th>
                 {userRole !== 'SUB_DEALER' && <th>Bill Amount</th>}
-                {userRole !== 'SUB_DEALER' && <th>Received Amount</th>}
-                {userRole !== 'SUB_DEALER' && <th>Remaining Due</th>}
-                <th>Payment Status</th>
                 <th>Renewal Status</th>
                 <th>Renewal Date</th>
                 <th>New Expiry Date</th>
@@ -2904,8 +2901,6 @@ const CustomerDevicePortal = () => {
                   {userRole === 'ADMIN' && <td>{renewal.productDescription}</td>}
                   <td>{renewal.validity}</td>
                   {userRole !== 'SUB_DEALER' && <td className="strong">₹{(renewal.billAmount || 0).toLocaleString()}</td>}
-                  {userRole !== 'SUB_DEALER' && <td>₹{(renewal.receivedAmount || 0).toLocaleString()}</td>}
-                  {userRole !== 'SUB_DEALER' && <td className="strong" style={{ color: (renewal.remainingDue || 0) > 0 ? '#ef4444' : '#10b981' }}>₹{(renewal.remainingDue || 0).toLocaleString()}</td>}
                   <td>
                     <span style={{
                       display: 'inline-block',
@@ -2914,10 +2909,10 @@ const CustomerDevicePortal = () => {
                       fontSize: '11px',
                       fontWeight: '700',
                       textTransform: 'uppercase',
-                      background: renewal.paymentStatus === 'Paid' ? '#d1fae5' : renewal.paymentStatus === 'Partially Paid' ? '#fef3c7' : '#fee2e2',
-                      color: renewal.paymentStatus === 'Paid' ? '#065f46' : renewal.paymentStatus === 'Partially Paid' ? '#92400e' : '#991b1b',
+                      background: renewal.status === 'Completed' || renewal.status === 'Activated' || renewal.status === 'Approved' ? '#d1fae5' : renewal.status === 'Rejected' || renewal.status === 'Cancelled' ? '#f3f4f6' : '#fee2e2',
+                      color: renewal.status === 'Completed' || renewal.status === 'Activated' || renewal.status === 'Approved' ? '#065f46' : renewal.status === 'Rejected' || renewal.status === 'Cancelled' ? '#4b5563' : '#991b1b',
                     }}>
-                      {renewal.paymentStatus || 'Pending'}
+                      {renewal.status}
                     </span>
                   </td>
                   <td>
@@ -3310,8 +3305,6 @@ const CustomerDevicePortal = () => {
                 ['New Expiry Date', formatDate(viewingRenewal.newExpiryDate)],
                 ...(userRole !== 'SUB_DEALER' ? [
                   ['Bill Amount', `₹${viewingRenewal.billAmount}`],
-                  ['Received Amount', `₹${viewingRenewal.receivedAmount || 0}`],
-                  ['Remaining Due', `₹${viewingRenewal.billAmount - (viewingRenewal.receivedAmount || 0)}`],
                   ['Payment Mode', viewingRenewal.paymentMode || '-'],
                   ['Transaction ID', viewingRenewal.transactionId || '-'],
                   ['Payment Date', viewingRenewal.paymentDate ? formatDate(viewingRenewal.paymentDate) : '-'],
@@ -3372,7 +3365,7 @@ const CustomerDevicePortal = () => {
                 <div style={{ textAlign: 'right' }}>
                   <span style={{ fontSize: '11px', color: '#64748b', display: 'block', textTransform: 'uppercase', fontWeight: '700' }}>Outstanding Due</span>
                   <strong style={{ fontSize: '16px', color: '#ef4444' }}>
-                    ₹{(reportPaymentRenewal.billAmount - (reportPaymentRenewal.receivedAmount || 0)).toLocaleString()}
+                    ₹{(reportPaymentRenewal.remainingDue || 0).toLocaleString()}
                   </strong>
                 </div>
               </div>

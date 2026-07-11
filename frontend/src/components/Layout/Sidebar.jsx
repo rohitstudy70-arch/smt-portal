@@ -180,6 +180,15 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           </li>
         )}
 
+        {role === 'ADMIN' && (
+          <li className={`sidebar-menu-item ${location.pathname === '/renewal-due-management' ? 'active' : ''}`}>
+            <NavLink to="/renewal-due-management">
+              <FaCalendarAlt className="menu-icon" />
+              <span className="menu-text">Renewal Due Devices</span>
+            </NavLink>
+          </li>
+        )}
+
         {canShow(['ADMIN', 'DEALER', 'SUB_DEALER']) && (
           <li className={`sidebar-menu-item ${location.pathname === '/add-device' ? 'active' : ''}`}>
             <NavLink to="/add-device">

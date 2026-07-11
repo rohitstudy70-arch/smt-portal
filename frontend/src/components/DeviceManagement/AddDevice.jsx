@@ -97,6 +97,10 @@ const AddDevice = () => {
   const [filterToDate, setFilterToDate] = useState('');
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
 
+  // Pagination states
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(25);
+
   const selectedDealer = useMemo(
     () => dealers.find((dealer) => dealer._id === formData.dealerId),
     [dealers, formData.dealerId]
@@ -126,13 +130,13 @@ const AddDevice = () => {
     window.setTimeout(() => setToast({ show: false, type: '', message: '' }), 4000);
   };
 
-  const fetchDevices = useCallback(async (searchQuery = '', fromDate = '', toDate = '') => {
+  const fetchDevices = useCallback(async (searchQuery = '', fromDate = '', toDate = '', targetPage = 1, targetLimit = 25) => {
     try {
       setDevicesLoading(true);
       const response = await api.get('/devices', {
         params: {
-          limit: 100,
-          page: 1,
+          limit: targetLimit,
+          page: targetPage,
           search: searchQuery,
           dateFrom: fromDate,
           dateTo: toDate,
@@ -151,17 +155,19 @@ const AddDevice = () => {
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(tableSearch);
+      setPage(1);
     }, 400);
     return () => clearTimeout(handler);
   }, [tableSearch]);
 
-  // Fetch devices when search query, role or date filters change
+  // Fetch devices when search query, role, date filters, page, or limit change
   useEffect(() => {
-    fetchDevices(debouncedSearch, filterFromDate, filterToDate);
-  }, [debouncedSearch, filterFromDate, filterToDate, fetchDevices]);
+    fetchDevices(debouncedSearch, filterFromDate, filterToDate, page, limit);
+  }, [debouncedSearch, filterFromDate, filterToDate, page, limit, fetchDevices]);
 
   const handleDateModeChange = (mode) => {
     setFilterDateMode(mode);
+    setPage(1);
     const todayStr = getLocalDateString();
     
     if (mode === 'all') {
@@ -308,7 +314,8 @@ const AddDevice = () => {
         showToast('success', 'Device added successfully!');
       }
       handleReset();
-      await fetchDevices(debouncedSearch);
+      setPage(1);
+      await fetchDevices(debouncedSearch, filterFromDate, filterToDate, 1, limit);
     } catch (error) {
       const message = error.response?.data?.message || `Failed to ${editingDeviceId ? 'update' : 'add'} device. Please try again.`;
       showToast('error', message);
@@ -331,7 +338,12 @@ const AddDevice = () => {
       try {
         const res = await api.delete(`/devices/${deviceId}`);
         showToast('success', res.data.message || 'Device deleted successfully.');
-        await fetchDevices(debouncedSearch);
+        let newPage = page;
+        if (devices.length === 1 && page > 1) {
+          newPage = page - 1;
+          setPage(newPage);
+        }
+        await fetchDevices(debouncedSearch, filterFromDate, filterToDate, newPage, limit);
       } catch (error) {
         showToast('error', error.response?.data?.message || 'Failed to delete device.');
       }
@@ -372,7 +384,38 @@ const AddDevice = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const totalPages = Math.ceil(totalDevices / limit);
 
+  const getPageNumbers = () => {
+    const pages = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      pages.push(1);
+      let start = Math.max(2, page - 2);
+      let end = Math.min(totalPages - 1, page + 2);
+      
+      if (page <= 4) {
+        end = 5;
+      } else if (page >= totalPages - 3) {
+        start = totalPages - 4;
+      }
+      
+      if (start > 2) {
+        pages.push('...');
+      }
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      if (end < totalPages - 1) {
+        pages.push('...');
+      }
+      pages.push(totalPages);
+    }
+    return pages;
+  };
 
   return (
     <div className="add-device-container">
@@ -660,37 +703,57 @@ const AddDevice = () => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', padding: '16px 24px 0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <label style={{ fontSize: '12.5px', fontWeight: '700', color: 'var(--text-dark)' }}>Activation Date:</label>
-            <select 
-              value={filterDateMode} 
-              onChange={(e) => handleDateModeChange(e.target.value)}
-              style={{ padding: '6px 10px', fontSize: '12.5px', border: '1.5px solid var(--border-color)', borderRadius: '6px', background: '#ffffff', color: 'var(--text-dark)', outline: 'none' }}
-            >
-              <option value="all">All Time</option>
-              <option value="today">Today</option>
-              <option value="yesterday">Yesterday</option>
-              <option value="custom">Custom Range</option>
-            </select>
-            {filterDateMode === 'custom' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <input 
-                  type="date" 
-                  value={filterFromDate} 
-                  onChange={(e) => setFilterFromDate(e.target.value)}
-                  style={{ padding: '5px 8px', fontSize: '12.5px', border: '1.5px solid var(--border-color)', borderRadius: '6px', outline: 'none' }}
-                />
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>to</span>
-                <input 
-                  type="date" 
-                  value={filterToDate} 
-                  onChange={(e) => setFilterToDate(e.target.value)}
-                  style={{ padding: '5px 8px', fontSize: '12.5px', border: '1.5px solid var(--border-color)', borderRadius: '6px', outline: 'none' }}
-                />
-              </div>
-            )}
-            <span style={{ marginLeft: '12px', padding: '4px 12px', background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)', color: '#ffffff', borderRadius: '20px', fontSize: '11px', fontWeight: '800', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-              {devices.length} Devices
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label style={{ fontSize: '12.5px', fontWeight: '700', color: 'var(--text-dark)' }}>Show:</label>
+              <select
+                value={limit}
+                onChange={(e) => {
+                  setLimit(Number(e.target.value));
+                  setPage(1);
+                }}
+                style={{ padding: '6px 10px', fontSize: '12.5px', border: '1.5px solid var(--border-color)', borderRadius: '6px', background: '#ffffff', color: 'var(--text-dark)', outline: 'none', cursor: 'pointer' }}
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label style={{ fontSize: '12.5px', fontWeight: '700', color: 'var(--text-dark)' }}>Activation Date:</label>
+              <select 
+                value={filterDateMode} 
+                onChange={(e) => handleDateModeChange(e.target.value)}
+                style={{ padding: '6px 10px', fontSize: '12.5px', border: '1.5px solid var(--border-color)', borderRadius: '6px', background: '#ffffff', color: 'var(--text-dark)', outline: 'none', cursor: 'pointer' }}
+              >
+                <option value="all">All Time</option>
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="custom">Custom Range</option>
+              </select>
+              {filterDateMode === 'custom' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <input 
+                    type="date" 
+                    value={filterFromDate} 
+                    onChange={(e) => { setFilterFromDate(e.target.value); setPage(1); }}
+                    style={{ padding: '5px 8px', fontSize: '12.5px', border: '1.5px solid var(--border-color)', borderRadius: '6px', outline: 'none' }}
+                  />
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>to</span>
+                  <input 
+                    type="date" 
+                    value={filterToDate} 
+                    onChange={(e) => { setFilterToDate(e.target.value); setPage(1); }}
+                    style={{ padding: '5px 8px', fontSize: '12.5px', border: '1.5px solid var(--border-color)', borderRadius: '6px', outline: 'none' }}
+                  />
+                </div>
+              )}
+            </div>
+
+            <span style={{ padding: '4px 12px', background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)', color: '#ffffff', borderRadius: '20px', fontSize: '11px', fontWeight: '800', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+              {totalDevices} Devices
             </span>
           </div>
           <div className="device-table-meta" style={{ padding: 0 }}>
@@ -772,12 +835,61 @@ const AddDevice = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Row */}
+        <div className="table-pagination-row">
+          <div className="pagination-info">
+            Showing {totalDevices > 0 ? ((page - 1) * limit) + 1 : 0} to {Math.min(page * limit, totalDevices)} of {totalDevices} records
+          </div>
+          
+          {totalPages > 1 && (
+            <div className="pagination-controls">
+              <button 
+                type="button"
+                disabled={page === 1} 
+                onClick={() => setPage(page - 1)}
+                className="btn-page-arrow"
+              >
+                &lt;
+              </button>
+              
+              {getPageNumbers().map((p, idx) => (
+                p === '...' ? (
+                  <span key={`ell-${idx}`} className="pagination-ellipsis">
+                    ...
+                  </span>
+                ) : (
+                  <button 
+                    type="button"
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={`btn-page-number ${page === p ? 'active' : ''}`}
+                  >
+                    {p}
+                  </button>
+                )
+              ))}
+              
+              <button 
+                type="button"
+                disabled={page === totalPages} 
+                onClick={() => setPage(page + 1)}
+                className="btn-page-arrow"
+              >
+                &gt;
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <BulkUploadDevices
         isOpen={bulkModalOpen}
         onClose={() => setBulkModalOpen(false)}
-        onUploadSuccess={() => fetchDevices(debouncedSearch, filterFromDate, filterToDate)}
+        onUploadSuccess={() => {
+          setPage(1);
+          fetchDevices(debouncedSearch, filterFromDate, filterToDate, 1, limit);
+        }}
         dealers={dealers}
         subDealers={subDealers}
         role={role}

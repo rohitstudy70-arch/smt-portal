@@ -330,7 +330,7 @@ const buildRenewalRows = async (req, { paginate = true } = {}) => {
   }
 
   const total = rows.length;
-  const parsedLimit = Math.min(parseInt(limit, 10) || 10, 500);
+  const parsedLimit = Math.min(parseInt(limit, 10) || 10, 100000);
   const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
 
   return {
@@ -978,7 +978,7 @@ router.get('/payments', async (req, res) => {
     const query = paymentMatchForScope(userIds, req.query);
 
     const { limit = 100, page = 1 } = req.query;
-    const parsedLimit = Math.min(parseInt(limit, 10) || 100, 500);
+    const parsedLimit = Math.min(parseInt(limit, 10) || 100, 100000);
     const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
 
     const [payments, total] = await Promise.all([
@@ -1027,7 +1027,7 @@ router.get('/dealers', async (req, res) => {
       ];
     }
 
-    const parsedLimit = Math.min(parseInt(limit, 10) || 10, 500);
+    const parsedLimit = Math.min(parseInt(limit, 10) || 10, 100000);
     const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
     const [dues, total] = await Promise.all([
       DealerDue.find(query)

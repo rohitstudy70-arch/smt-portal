@@ -402,7 +402,7 @@ router.get('/', async (req, res) => {
     const assigneeQuery = assignedTo ? { assignedTo } : {};
     const query = combineQueries(scopeQuery, filterQuery, assigneeQuery);
 
-    const parsedLimit = Math.min(parseInt(limit, 10) || 10, 500);
+    const parsedLimit = Math.min(parseInt(limit, 10) || 10, 100000);
     const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
 
     const [devices, total] = await Promise.all([

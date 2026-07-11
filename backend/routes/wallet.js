@@ -255,7 +255,7 @@ router.get('/ledger-dashboard', requireRoles(...operationsRoles), async (req, re
       ];
     }
 
-    const parsedLimit = Math.min(parseInt(limit, 10) || 10, 500);
+    const parsedLimit = Math.min(parseInt(limit, 10) || 10, 100000);
     const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
 
     const [transactions, total] = await Promise.all([

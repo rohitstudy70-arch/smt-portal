@@ -1,623 +1,369 @@
-import { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import { FaFileInvoiceDollar, FaSearch, FaTimes, FaCoins, FaDownload, FaPrint, FaEdit } from 'react-icons/fa';
+import { useCallback, useEffect, useState } from 'react';
+import { FaSearch, FaFilter, FaCalendarAlt, FaTimesCircle, FaCheckCircle } from 'react-icons/fa';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
+import './RenewalDueManagement.css';
 
 const RenewalDueManagement = () => {
   const { user } = useAuth();
-  const location = useLocation();
-  const params = new URLSearchParams(location.search);
-  const initialImei = params.get('search') || '';
   
+  // Table Loading & Error States
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
-  
-  // Data State
-  const [dealersDue, setDealersDue] = useState([]);
-  const [dealersList, setDealersList] = useState([]);
-  
+  const [toast, setToast] = useState({ show: false, type: '', message: '' });
+
+  // Data States
+  const [devicesList, setDevicesList] = useState([]);
+  const [totalDevices, setTotalDevices] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
   // Filters State
   const [filters, setFilters] = useState({
-    dealerId: '',
-    paymentStatus: '',
-    fromDate: '',
-    toDate: '',
-    requestId: '',
-    imei: initialImei,
-    vehicleNumber: '',
+    search: '',
+    dealer: '',
+    customer: '',
+    expiryMonth: '',
+    deviceStatus: 'all',
   });
 
-  // Modal State
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedDealerRow, setSelectedDealerRow] = useState(null);
-  const [dealerRequests, setDealerRequests] = useState([]);
-  const [selectedRequestId, setSelectedRequestId] = useState('');
-  const [selectedRequest, setSelectedRequest] = useState(null);
+  // Modal State for Renew
+  const [renewDevice, setRenewDevice] = useState(null);
+  const [renewValidity, setRenewValidity] = useState('1 Year');
+  const [renewing, setRenewing] = useState(false);
 
-  // Form State
-  const [paymentForm, setPaymentForm] = useState({
-    receivedAmount: '',
-    paymentMode: 'Cash',
-    transactionId: '',
-    paymentDate: new Date().toISOString().split('T')[0],
-    remarks: '',
-  });
+  const showToast = (type, message) => {
+    setToast({ show: true, type, message });
+    window.setTimeout(() => setToast({ show: false, type: '', message: '' }), 4000);
+  };
 
-  const loadDashboardData = async () => {
+  const fetchRenewals = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
-      const [dueDashboardRes, dealersRes] = await Promise.all([
-        api.get('/portal/renewals/admin-due-dashboard', { params: filters }),
-        api.get('/portal/users', { params: { type: 'dealer' } }),
-      ]);
-      setDealersDue(dueDashboardRes.data || []);
-      setDealersList(dealersRes.data || []);
+      const res = await api.get('/due-dashboard/renewal-due-devices', {
+        params: {
+          page,
+          limit: 10,
+          search: filters.search,
+          dealer: filters.dealer,
+          customer: filters.customer,
+          expiryMonth: filters.expiryMonth,
+          deviceStatus: filters.deviceStatus,
+        },
+      });
+      setDevicesList(res.data.devices || []);
+      setTotalDevices(res.data.total || 0);
+      setTotalPages(res.data.pages || 1);
     } catch (err) {
-      console.error(err);
-      setError(err.response?.data?.message || 'Failed to load Renewal Due dashboard.');
+      console.error('Error fetching renewal due list:', err);
+      setError(err.response?.data?.message || 'Failed to load renewal due devices.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, filters]);
 
+  // Refetch when filters or page changes
   useEffect(() => {
-    loadDashboardData();
-  }, [filters]);
+    fetchRenewals();
+  }, [page, fetchRenewals]);
 
-  const handleResetFilters = () => {
-    setFilters({
-      dealerId: '',
-      paymentStatus: '',
-      fromDate: '',
-      toDate: '',
-      requestId: '',
-      imei: '',
-      vehicleNumber: '',
-    });
+  const handleFilterChange = (field, value) => {
+    setFilters((prev) => ({ ...prev, [field]: value }));
+    setPage(1);
   };
 
-  const handleOpenPaymentModal = async (dealerRow) => {
-    setSelectedDealerRow(dealerRow);
-    setPaymentForm({
-      receivedAmount: '',
-      paymentMode: 'Cash',
-      transactionId: '',
-      paymentDate: new Date().toISOString().split('T')[0],
-      remarks: '',
-    });
-    setSelectedRequestId('');
-    setSelectedRequest(null);
-    setIsModalOpen(true);
-
-    try {
-      // Find all unpaid or partially paid requests for this dealer
-      if (dealerRow.rawRequests) {
-        // Filter out fully paid or rejected
-        const activeRequests = dealerRow.rawRequests.filter(
-          r => r.paymentStatus !== 'Paid' && r.status !== 'Rejected'
-        );
-        setDealerRequests(activeRequests);
-      }
-    } catch (err) {
-      console.error('Error fetching dealer requests:', err);
-    }
-  };
-
-  const handleRequestChange = (reqId) => {
-    setSelectedRequestId(reqId);
-    const foundReq = dealerRequests.find(r => r._id === reqId);
-    setSelectedRequest(foundReq || null);
-    if (foundReq) {
-      setPaymentForm(current => ({
-        ...current,
-        receivedAmount: foundReq.receivedAmount || '',
-        transactionId: foundReq.transactionId || '',
-        paymentMode: foundReq.paymentMode || 'Cash',
-        paymentDate: foundReq.paymentDate ? new Date(foundReq.paymentDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-        remarks: foundReq.remarks || '',
-      }));
-    }
-  };
-
-  const handleSavePayment = async (e) => {
+  const handleRenewSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedRequestId) {
-      alert('Please select a Request ID.');
-      return;
-    }
-    if (paymentForm.receivedAmount === '' || Number(paymentForm.receivedAmount) < 0) {
-      alert('Please enter a valid Received Amount.');
-      return;
-    }
-    if (Number(paymentForm.receivedAmount) > (selectedRequest.billAmount || 0)) {
-      alert(`Received Amount cannot be greater than Bill Amount (₹${selectedRequest.billAmount}).`);
-      return;
-    }
-
+    if (!renewDevice) return;
     try {
-      await api.put(`/portal/renewals/${selectedRequestId}`, {
-        receivedAmount: Number(paymentForm.receivedAmount),
-        paymentMode: paymentForm.paymentMode,
-        transactionId: paymentForm.transactionId,
-        paymentDate: paymentForm.paymentDate,
-        remarks: paymentForm.remarks,
+      setRenewing(true);
+      const res = await api.post('/due-dashboard/renew-device', {
+        deviceId: renewDevice._id,
+        validity: renewValidity,
       });
-
-      setNotice('Payment updated successfully.');
-      setIsModalOpen(false);
-      loadDashboardData();
-      setTimeout(() => setNotice(''), 3000);
+      showToast('success', res.data.message || 'Device renewed successfully.');
+      setRenewDevice(null);
+      fetchRenewals();
     } catch (err) {
-      console.error(err);
-      alert(err.response?.data?.message || 'Failed to update payment.');
+      console.error('Error renewing device:', err);
+      showToast('error', err.response?.data?.message || 'Failed to renew device.');
+    } finally {
+      setRenewing(false);
     }
   };
 
-  // Export functions
-  const handleExportCSV = () => {
-    const headers = [
-      'Dealer Name',
-      'Dealer Code',
-      'Pending Requests',
-      'Total Amount (INR)',
-      'Received Amount (INR)',
-      'Remaining Due (INR)',
-      'Last Payment Date',
-      'Payment Status',
-    ];
-    const rows = dealersDue.map(d => [
-      d.dealerName,
-      d.dealerCode,
-      d.pendingRequestsCount,
-      d.totalRenewalAmount,
-      d.receivedAmount,
-      d.remainingDue,
-      d.lastPaymentDate ? new Date(d.lastPaymentDate).toLocaleDateString() : '-',
-      d.paymentStatus,
-    ]);
-    const csv = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `Renewal_Due_Report_${new Date().toISOString().split('T')[0]}.csv`);
-    link.click();
-  };
-
-  const handlePrint = () => {
-    const printWindow = window.open('', '_blank');
-    const rowsHtml = dealersDue.map(d => `
-      <tr>
-        <td>${d.dealerName}</td>
-        <td>${d.dealerCode}</td>
-        <td style="text-align: center;">${d.pendingRequestsCount}</td>
-        <td style="text-align: right;">₹${d.totalRenewalAmount}</td>
-        <td style="text-align: right;">₹${d.receivedAmount}</td>
-        <td style="text-align: right; font-weight: bold; color: ${d.remainingDue > 0 ? '#ef4444' : '#10b981'};">₹${d.remainingDue}</td>
-        <td style="text-align: center;">${d.lastPaymentDate ? new Date(d.lastPaymentDate).toLocaleDateString() : '-'}</td>
-        <td style="text-align: center; font-weight: bold;">${d.paymentStatus}</td>
-      </tr>
-    `).join('');
-
-    const htmlContent = `
-      <html>
-      <head>
-        <title>Renewal Due Management Report</title>
-        <style>
-          body { font-family: 'Segoe UI', Arial, sans-serif; color: #333; margin: 30px; }
-          h2 { color: #1e3a8a; border-bottom: 2px solid #3b82f6; padding-bottom: 10px; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          th { background: #f1f5f9; color: #475569; padding: 12px 10px; font-weight: 600; border-bottom: 2px solid #cbd5e1; font-size: 13px; text-align: left; }
-          td { padding: 12px 10px; border-bottom: 1px solid #e2e8f0; font-size: 13px; }
-          .footer { text-align: center; font-size: 11px; color: #94a3b8; margin-top: 40px; }
-          @media print {
-            body { margin: 0; }
-          }
-        </style>
-      </head>
-      <body>
-        <h2>Renewal Due Management Report</h2>
-        <p><strong>Generated Date:</strong> ${new Date().toLocaleString()}</p>
-        <table>
-          <thead>
-            <tr>
-              <th>Dealer Name</th>
-              <th>Dealer Code</th>
-              <th style="text-align: center;">Pending Requests</th>
-              <th style="text-align: right;">Total Amount</th>
-              <th style="text-align: right;">Received Amount</th>
-              <th style="text-align: right;">Remaining Due</th>
-              <th style="text-align: center;">Last Payment Date</th>
-              <th style="text-align: center;">Payment Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rowsHtml}
-          </tbody>
-        </table>
-        <div class="footer">
-          <p>ARSHI ENTERPRISES - Confidential Report</p>
-        </div>
-        <script>
-          window.onload = function() {
-            window.print();
-          }
-        </script>
-      </body>
-      </html>
-    `;
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-  };
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleDateString('en-IN', {
-      day: '2-digit', month: 'short', year: 'numeric'
+  const formatDate = (dateValue) => {
+    if (!dateValue) return '-';
+    const date = new Date(dateValue);
+    if (isNaN(date.getTime())) return '-';
+    return date.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
     });
+  };
+
+  const getStatusClass = (statusStr) => {
+    const s = String(statusStr || '').toLowerCase();
+    if (s === 'expired') return 'expired';
+    if (s === 'expiring soon') return 'expiring';
+    return 'active';
   };
 
   return (
-    <div className="portal-page">
-      <div className="portal-titlebar">
-        <div>
-          <span className="portal-kicker">Administration</span>
-          <h1>Renewal Due Management</h1>
-        </div>
-        <div className="portal-title-actions">
-          <button onClick={handleExportCSV} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }} className="portal-link-button">
-            <FaDownload /> Export CSV
-          </button>
-          <button onClick={handlePrint} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }} className="portal-link-button">
-            <FaPrint /> Print Report
-          </button>
-        </div>
-      </div>
-
-      {notice && (
-        <div style={{ background: '#d1fae5', color: '#065f46', padding: '12px 18px', borderRadius: '8px', border: '1px solid #a7f3d0', fontSize: '13px', fontWeight: '600' }}>
-          {notice}
+    <div className="renewal-due-container">
+      {toast.show && (
+        <div className={`toast-notification ${toast.type}`} style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 11000, display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 20px', borderRadius: '6px', color: '#fff', background: toast.type === 'success' ? '#10b981' : '#ef4444', fontWeight: 'bold', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+          {toast.type === 'success' ? <FaCheckCircle /> : <FaTimesCircle />}
+          <span>{toast.message}</span>
         </div>
       )}
 
-      {/* Filters Section */}
-      <section className="portal-panel" style={{ borderTop: '4px solid #3b82f6', background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.02)', borderRadius: '12px', marginBottom: '20px' }}>
-        <div className="portal-panel-header" style={{ background: 'transparent', borderBottom: '1px solid #e2e8f0', padding: '18px 24px' }}>
-          <div>
-            <h2 style={{ fontSize: '16px', fontWeight: '700', color: '#0f172a', margin: '0 0 4px' }}>Filters & Search</h2>
-            <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '500' }}>Filter ledger records</span>
-          </div>
-          <FaSearch style={{ width: '18px', height: '18px', color: '#3b82f6' }} />
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', padding: '24px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#475569', letterSpacing: '0.05em', marginBottom: '8px' }}>Dealer</span>
-            <select 
-              value={filters.dealerId}
-              onChange={(e) => setFilters(current => ({ ...current, dealerId: e.target.value }))}
-              className="fancy-filter-input"
-            >
-              <option value="">All Dealers</option>
-              {dealersList.map(d => (
-                <option key={d._id} value={d._id}>{d.displayName || d.companyName || d.username}</option>
-              ))}
-            </select>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#475569', letterSpacing: '0.05em', marginBottom: '8px' }}>Payment Status</span>
-            <select 
-              value={filters.paymentStatus}
-              onChange={(e) => setFilters(current => ({ ...current, paymentStatus: e.target.value }))}
-              className="fancy-filter-input"
-            >
-              <option value="">All Statuses</option>
-              <option value="Pending">Pending</option>
-              <option value="Partially Paid">Partially Paid</option>
-              <option value="Paid">Paid</option>
-              <option value="Cancelled">Cancelled</option>
-            </select>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#475569', letterSpacing: '0.05em', marginBottom: '8px' }}>Request ID</span>
-            <input 
-              type="text" 
-              value={filters.requestId}
-              onChange={(e) => setFilters(current => ({ ...current, requestId: e.target.value }))}
-              placeholder="Search Request ID..."
-              className="fancy-filter-input"
-            />
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#475569', letterSpacing: '0.05em', marginBottom: '8px' }}>IMEI</span>
-            <input 
-              type="text" 
-              value={filters.imei}
-              onChange={(e) => setFilters(current => ({ ...current, imei: e.target.value }))}
-              placeholder="Search IMEI..."
-              className="fancy-filter-input"
-            />
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#475569', letterSpacing: '0.05em', marginBottom: '8px' }}>Vehicle Number</span>
-            <input 
-              type="text" 
-              value={filters.vehicleNumber}
-              onChange={(e) => setFilters(current => ({ ...current, vehicleNumber: e.target.value }))}
-              placeholder="Search Vehicle..."
-              className="fancy-filter-input"
-            />
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#475569', letterSpacing: '0.05em', marginBottom: '8px' }}>From Date</span>
-            <input 
-              type="date" 
-              value={filters.fromDate}
-              onChange={(e) => setFilters(current => ({ ...current, fromDate: e.target.value }))}
-              className="fancy-filter-input"
-            />
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#475569', letterSpacing: '0.05em', marginBottom: '8px' }}>To Date</span>
-            <input 
-              type="date" 
-              value={filters.toDate}
-              onChange={(e) => setFilters(current => ({ ...current, toDate: e.target.value }))}
-              className="fancy-filter-input"
-            />
-          </div>
-        </div>
-        <div style={{ padding: '0 24px 24px 24px' }}>
-          <button 
-            type="button" 
-            onClick={handleResetFilters}
-            style={{ 
-              background: '#ffffff', 
-              border: '1px solid #cbd5e1', 
-              color: '#475569', 
-              padding: '10px 20px', 
-              fontWeight: '600', 
-              borderRadius: '8px', 
-              fontSize: '13px', 
-              display: 'inline-flex', 
-              alignItems: 'center', 
-              gap: '8px', 
-              transition: 'all 0.2s ease', 
-              cursor: 'pointer',
-              boxShadow: '0 1px 2px 0 rgba(0,0,0,0.05)'
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.background = '#f8fafc';
-              e.currentTarget.style.color = '#0f172a';
-              e.currentTarget.style.borderColor = '#94a3b8';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.background = '#ffffff';
-              e.currentTarget.style.color = '#475569';
-              e.currentTarget.style.borderColor = '#cbd5e1';
-            }}
-          >
-            <FaTimes /> Reset Filters
-          </button>
-        </div>
-      </section>
-
-      {/* Due Ledger Table */}
-      <section className="portal-panel">
-        <div className="portal-panel-header">
-          <div>
-            <h2>Renewal Due Ledgers</h2>
-            <span>Summary of dealer renewal outstanding dues</span>
-          </div>
-          <FaCoins className="portal-panel-icon" />
-        </div>
+      {/* Header Row with Title & Filters */}
+      <div className="renewal-due-header-row">
+        <h1 className="renewal-due-title">Renewal Due Devices</h1>
         
-        {loading ? (
-          <div style={{ padding: '40px', textAlignment: 'center', color: '#64748b' }}>Loading ledgers...</div>
-        ) : (
-          <div className="portal-table-wrap">
-            <table className="portal-table">
-              <thead>
+        <div className="renewal-filters-group">
+          {/* Search Box */}
+          <div className="renewal-search-input-wrapper">
+            <FaSearch className="renewal-search-icon" />
+            <input
+              type="text"
+              placeholder="Search IMEI/Device Name..."
+              value={filters.search}
+              onChange={(e) => handleFilterChange('search', e.target.value)}
+              className="renewal-filter-field"
+            />
+          </div>
+
+          {/* Dealer Filter */}
+          <div className="renewal-search-input-wrapper">
+            <input
+              type="text"
+              placeholder="Dealer Name..."
+              value={filters.dealer}
+              onChange={(e) => handleFilterChange('dealer', e.target.value)}
+              style={{ paddingLeft: '12px' }}
+              className="renewal-filter-field"
+            />
+          </div>
+
+          {/* Customer Filter */}
+          <div className="renewal-search-input-wrapper">
+            <input
+              type="text"
+              placeholder="Customer Name..."
+              value={filters.customer}
+              onChange={(e) => handleFilterChange('customer', e.target.value)}
+              style={{ paddingLeft: '12px' }}
+              className="renewal-filter-field"
+            />
+          </div>
+
+          {/* Expiry Month Filter */}
+          <div className="renewal-search-input-wrapper">
+            <input
+              type="month"
+              value={filters.expiryMonth}
+              onChange={(e) => handleFilterChange('expiryMonth', e.target.value)}
+              className="renewal-date-field"
+            />
+          </div>
+
+          {/* Status Dropdown */}
+          <div className="renewal-filter-select-wrapper">
+            <FaFilter className="renewal-search-icon" />
+            <select
+              value={filters.deviceStatus}
+              onChange={(e) => handleFilterChange('deviceStatus', e.target.value)}
+              className="renewal-filter-select"
+            >
+              <option value="all">All Status</option>
+              <option value="Active">Active</option>
+              <option value="Expiring Soon">Expiring Soon</option>
+              <option value="Expired">Expired</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Table Card */}
+      <div className="renewal-table-card">
+        {error && (
+          <div style={{ color: '#b91c1c', background: '#fef2f2', padding: '12px 18px', borderBottom: '1px solid #fee2e2', fontSize: '13px', fontWeight: 'bold' }}>
+            {error}
+          </div>
+        )}
+
+        <div className="renewal-table-wrapper">
+          <table className="renewal-devices-table">
+            <thead>
+              <tr>
+                <th>IMEI</th>
+                <th>Device Name</th>
+                <th>Customer Name</th>
+                <th>Dealer Name</th>
+                <th>Activation Date</th>
+                <th>Expiry Date</th>
+                <th>Remaining Days</th>
+                <th>Renewal Amount</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
                 <tr>
-                  <th>Dealer Name</th>
-                  <th>Dealer Code</th>
-                  <th style={{ textAlign: 'center' }}>Pending Requests</th>
-                  <th style={{ textAlign: 'right' }}>Total Amount</th>
-                  <th style={{ textAlign: 'right' }}>Received Amount</th>
-                  <th style={{ textAlign: 'right' }}>Remaining Due</th>
-                  <th style={{ textAlign: 'center' }}>Last Payment Date</th>
-                  <th style={{ textAlign: 'center' }}>Payment Status</th>
-                  <th style={{ textAlign: 'center' }}>Actions</th>
+                  <td colSpan={10} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
+                    Loading renewal due list...
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {dealersDue.map((row) => (
-                  <tr key={row.dealerId || row.dealerName}>
-                    <td className="strong">{row.dealerName}</td>
-                    <td>{row.dealerCode}</td>
-                    <td style={{ textAlign: 'center' }}>{row.pendingRequestsCount}</td>
-                    <td style={{ textAlign: 'right' }}>₹{row.totalRenewalAmount.toLocaleString()}</td>
-                    <td style={{ textAlign: 'right' }}>₹{row.receivedAmount.toLocaleString()}</td>
-                    <td style={{ textAlign: 'right', fontWeight: '700', color: row.remainingDue > 0 ? '#ef4444' : '#10b981' }}>
-                      ₹{row.remainingDue.toLocaleString()}
+              ) : devicesList.length > 0 ? (
+                devicesList.map((device) => (
+                  <tr key={device._id}>
+                    <td className="imei-cell">{device.imei}</td>
+                    <td>{device.deviceName}{device.vehicleNumber ? ` (${device.vehicleNumber})` : ''}</td>
+                    <td>{device.customerName || '-'}</td>
+                    <td>{device.dealerName || '-'}</td>
+                    <td>{formatDate(device.activationDate)}</td>
+                    <td>{formatDate(device.expiryDate)}</td>
+                    <td className={`remaining-days-cell ${getStatusClass(device.status)}`}>
+                      {device.remainingDays} days
                     </td>
-                    <td style={{ textAlign: 'center' }}>{formatDate(row.lastPaymentDate)}</td>
-                    <td style={{ textAlign: 'center' }}>
-                      <span style={{
-                        display: 'inline-block',
-                        padding: '4px 8px',
-                        borderRadius: '4px',
-                        fontSize: '11px',
-                        fontWeight: '700',
-                        textTransform: 'uppercase',
-                        background: row.paymentStatus === 'Paid' ? '#d1fae5' : row.paymentStatus === 'Partially Paid' ? '#fef3c7' : '#fee2e2',
-                        color: row.paymentStatus === 'Paid' ? '#065f46' : row.paymentStatus === 'Partially Paid' ? '#92400e' : '#991b1b',
-                      }}>
-                        {row.paymentStatus}
+                    <td className="amount-cell">₹{(device.renewalAmount || 0).toLocaleString()}</td>
+                    <td>
+                      <span className={`renewal-status-badge ${getStatusClass(device.status)}`}>
+                        {device.status}
                       </span>
                     </td>
-                    <td style={{ textAlign: 'center' }}>
+                    <td>
                       <button
-                        onClick={() => handleOpenPaymentModal(row)}
-                        disabled={row.pendingRequestsCount === 0}
-                        style={{
-                          background: row.pendingRequestsCount === 0 ? '#cbd5e1' : '#3b82f6',
-                          color: '#fff',
-                          border: 'none',
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          fontSize: '12px',
-                          fontWeight: '600',
-                          cursor: row.pendingRequestsCount === 0 ? 'not-allowed' : 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px'
+                        type="button"
+                        className="btn-renew-action"
+                        onClick={() => {
+                          setRenewDevice(device);
+                          setRenewValidity('1 Year');
                         }}
                       >
-                        <FaEdit /> Update Payment
+                        Renew
                       </button>
                     </td>
                   </tr>
-                ))}
-                {dealersDue.length === 0 && (
-                  <tr>
-                    <td colSpan={9} className="portal-empty">No renewal due records found.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={10} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
+                    No renewal due devices found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination Row */}
+        {!loading && totalPages > 1 && (
+          <div className="renewal-pagination-row">
+            <button
+              disabled={page === 1}
+              onClick={() => setPage((p) => Math.max(p - 1, 1))}
+              className="btn-renewal-page"
+            >
+              &lt; Prev
+            </button>
+            <span className="renewal-page-info">
+              Page {page} of {totalPages}
+            </span>
+            <button
+              disabled={page === totalPages}
+              onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+              className="btn-renewal-page"
+            >
+              Next &gt;
+            </button>
           </div>
         )}
-      </section>
+      </div>
 
-      {/* Update Payment Modal */}
-      {isModalOpen && selectedDealerRow && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0, 0, 0, 0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#fff', padding: '24px', borderRadius: '12px', width: '90%', maxWidth: '500px', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #cbd5e1', paddingBottom: '10px', marginBottom: '15px' }}>
-              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>Update Payment</h3>
-              <button 
-                type="button" 
-                onClick={() => setIsModalOpen(false)} 
-                style={{ background: 'none', border: 'none', fontSize: '24px', lineHeight: '1', cursor: 'pointer', color: '#64748b' }}
+      {/* Renew Modal Dialog */}
+      {renewDevice && (
+        <div className="renew-modal-overlay">
+          <div className="renew-modal-card">
+            <div className="renew-modal-header">
+              <span>Device Renewal</span>
+              <button
+                type="button"
+                className="renew-modal-close"
+                onClick={() => setRenewDevice(null)}
               >
                 &times;
               </button>
             </div>
-            <form onSubmit={handleSavePayment} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>Dealer Name</span>
-                <input type="text" value={selectedDealerRow.dealerName} readOnly style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 12px', fontSize: '13px' }} />
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>Select Request ID *</span>
-                <select 
-                  value={selectedRequestId} 
-                  onChange={(e) => handleRequestChange(e.target.value)}
-                  style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 12px', fontSize: '13px' }}
-                  required
-                >
-                  <option value="">Select Request</option>
-                  {dealerRequests.map(r => (
-                    <option key={r._id} value={r._id}>
-                      {r.requestId} (IMEI: {r.imei} - Vehicle: {r.vehicleNumber})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {selectedRequest && (
-                <>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>Bill Amount</span>
-                      <strong style={{ fontSize: '16px', color: '#0f172a' }}>₹{(selectedRequest.billAmount || 0).toLocaleString()}</strong>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>Remaining Due</span>
-                      <strong style={{ fontSize: '16px', color: '#ef4444' }}>
-                        ₹{(Math.max((selectedRequest.billAmount || 0) - (Number(paymentForm.receivedAmount) || 0), 0)).toLocaleString()}
-                      </strong>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>Received Amount *</span>
-                    <input 
-                      type="number" 
-                      value={paymentForm.receivedAmount} 
-                      onChange={(e) => setPaymentForm(current => ({ ...current, receivedAmount: e.target.value }))}
-                      placeholder="Enter amount received..."
-                      style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 12px', fontSize: '13px' }}
-                      required
-                    />
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>Payment Mode</span>
-                    <select 
-                      value={paymentForm.paymentMode} 
-                      onChange={(e) => setPaymentForm(current => ({ ...current, paymentMode: e.target.value }))}
-                      style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 12px', fontSize: '13px' }}
-                    >
-                      <option value="Cash">Cash</option>
-                      <option value="UPI">UPI</option>
-                      <option value="Bank Transfer">Bank Transfer</option>
-                      <option value="Cheque">Cheque</option>
-                    </select>
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>Transaction ID</span>
-                    <input 
-                      type="text" 
-                      value={paymentForm.transactionId} 
-                      onChange={(e) => setPaymentForm(current => ({ ...current, transactionId: e.target.value }))}
-                      placeholder="Enter transaction ref..."
-                      style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 12px', fontSize: '13px' }}
-                    />
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>Payment Date</span>
-                    <input 
-                      type="date" 
-                      max={new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]}
-                      value={paymentForm.paymentDate} 
-                      onChange={(e) => setPaymentForm(current => ({ ...current, paymentDate: e.target.value }))}
-                      style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 12px', fontSize: '13px' }}
-                      required
-                    />
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>Remarks</span>
-                    <textarea 
-                      value={paymentForm.remarks} 
-                      onChange={(e) => setPaymentForm(current => ({ ...current, remarks: e.target.value }))}
-                      placeholder="Add payment notes..."
-                      style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 12px', fontSize: '13px', minHeight: '60px' }}
-                    />
-                  </div>
-                </>
-              )}
-
-              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                <button type="submit" style={{ flex: 1, background: '#10b981', color: '#fff', border: 'none', padding: '10px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>
-                  Save Payment
-                </button>
-                <button type="button" onClick={() => setIsModalOpen(false)} style={{ flex: 1, background: '#64748b', color: '#fff', border: 'none', padding: '10px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>
-                  Cancel
-                </button>
+            <form onSubmit={handleRenewSubmit}>
+              <div className="renew-modal-body">
+                <div className="renew-modal-row">
+                  <label>IMEI</label>
+                  <input
+                    type="text"
+                    value={renewDevice.imei}
+                    readOnly
+                    style={{ background: '#f1f5f9', cursor: 'not-allowed' }}
+                  />
+                </div>
+                <div className="renew-modal-row">
+                  <label>Device Name</label>
+                  <input
+                    type="text"
+                    value={renewDevice.deviceName}
+                    readOnly
+                    style={{ background: '#f1f5f9', cursor: 'not-allowed' }}
+                  />
+                </div>
+                <div className="renew-modal-row">
+                  <label>Customer Name</label>
+                  <input
+                    type="text"
+                    value={renewDevice.customerName || 'N/A'}
+                    readOnly
+                    style={{ background: '#f1f5f9', cursor: 'not-allowed' }}
+                  />
+                </div>
+                <div className="renew-modal-row">
+                  <label>Current Expiry Date</label>
+                  <input
+                    type="text"
+                    value={formatDate(renewDevice.expiryDate)}
+                    readOnly
+                    style={{ background: '#f1f5f9', cursor: 'not-allowed' }}
+                  />
+                </div>
+                <div className="renew-modal-row">
+                  <label>Renewal Period</label>
+                  <select
+                    value={renewValidity}
+                    onChange={(e) => setRenewValidity(e.target.value)}
+                  >
+                    <option value="1 Year">1 Year</option>
+                    <option value="2 Years">2 Years</option>
+                  </select>
+                </div>
+                <div className="renew-modal-actions">
+                  <button
+                    type="button"
+                    className="btn-renew-cancel"
+                    onClick={() => setRenewDevice(null)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-renew-submit"
+                    disabled={renewing}
+                  >
+                    {renewing ? 'Renewing...' : 'Confirm Renewal'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

@@ -744,7 +744,7 @@ router.get('/devices', protect, async (req, res) => {
       query.$and.push(searchQuery);
     }
 
-    const parsedLimit = Math.min(parseInt(limit, 10) || 100, 500);
+    const parsedLimit = Math.min(parseInt(limit, 10) || 100, 100000);
     const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
     const [devices, total] = await Promise.all([
       Device.find(query)
