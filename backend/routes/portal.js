@@ -344,7 +344,7 @@ router.get('/summary', protect, async (req, res) => {
             },
           ],
         }),
-        RenewalRequest.distinct('imei', unpaidRenewalQuery),
+        RenewalRequest.distinct('imei', { dealerId: selfId, status: { $ne: 'Rejected' }, paymentStatus: { $ne: 'Cancelled' } }),
         RenewalRequest.aggregate([
           {
             $match: {
@@ -1923,7 +1923,7 @@ router.get('/dealer-dashboard-summary', protect, async (req, res) => {
           { expiryDate: { $gte: monthStart, $lte: monthEnd } },
         ],
       }),
-      RenewalRequest.distinct('imei', unpaidRenewalQuery),
+      RenewalRequest.distinct('imei', renewalQuery),
       RenewalRequest.aggregate([
         {
           $match: {
