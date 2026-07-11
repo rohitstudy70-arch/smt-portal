@@ -96,15 +96,15 @@ const statCatalog = {
   activeDevices: { label: 'Active Devices', icon: FaCheck, tone: 'green' },
   expiredDevices: { label: 'Expired Devices', icon: FaTimes, tone: 'red' },
   devicesAddedToday: { label: 'Devices Added Today', icon: FaPlus, tone: 'amber' },
-  renewalDueDevices: { label: 'Total Renewal Devices', icon: FaCalendarAlt, tone: 'red' },
+  renewalDueDevices: { label: 'Total Renewal', icon: FaCalendarAlt, tone: 'red' },
   assignedDevices: { label: 'Assigned Devices', icon: FaExchangeAlt, tone: 'blue' },
-  availableDevices: { label: 'Total Purchase Devices', icon: FaSimCard, tone: 'amber' },
+  availableDevices: { label: 'Total Purchase', icon: FaSimCard, tone: 'amber' },
   activeCustomers: { label: 'Active Customers', icon: FaUsers, tone: 'green' },
   pendingRenewals: { label: 'Pending Renewals', icon: FaRedo, tone: 'violet' },
   totalProducts: { label: 'Total Products', icon: FaBoxOpen, tone: 'blue' },
   expiringThisMonth: { label: 'Expiring This Month', icon: FaCalendarAlt, tone: 'violet' },
-  totalDues: { label: 'Total Purchase', icon: FaRupeeSign, tone: 'red' },
-  totalRenewalDues: { label: 'Total Renewal', icon: FaRupeeSign, tone: 'orange' },
+  totalDues: { label: 'Total Purchase Revenue', icon: FaRupeeSign, tone: 'red' },
+  totalRenewalDues: { label: 'Total Renewal Revenue', icon: FaRupeeSign, tone: 'orange' },
 };
 
 const statKeysByRole = {
