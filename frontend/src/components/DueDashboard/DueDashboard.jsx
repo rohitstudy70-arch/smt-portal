@@ -898,8 +898,8 @@ const DueDashboard = () => {
                         <th>Type</th>
                         <th>Devices Assigned</th>
                         <th>Total Bill Amount</th>
-                        <th>Total Paid Amount</th>
-                        <th>Total Outstanding</th>
+                        <th>Total Paid</th>
+                        <th>Remaining Dues</th>
                         <th>Current Due (Over 30 Days)</th>
                         <th>Last Payment Date</th>
                         <th>Status</th>
@@ -1030,16 +1030,12 @@ const DueDashboard = () => {
                         <strong>₹{(detailsData.due?.totalBillAmount || 0).toLocaleString()}</strong>
                       </div>
                       <div className="stat-row">
-                        <span>Total Paid Amount:</span>
+                        <span>Total Paid:</span>
                         <strong className="text-green">₹{(detailsData.due?.totalPaidAmount || 0).toLocaleString()}</strong>
                       </div>
                       <div className="stat-row highlight">
-                        <span>Total Outstanding:</span>
+                        <span>Remaining Dues:</span>
                         <strong>₹{(detailsData.due?.totalOutstanding || 0).toLocaleString()}</strong>
-                      </div>
-                      <div className="stat-row highlight">
-                        <span>Current Due Amount (Over 30 Days):</span>
-                        <strong className="text-red">₹{(detailsData.due?.currentDue || 0).toLocaleString()}</strong>
                       </div>
                       <div className="stat-row">
                         <span>Status:</span>
@@ -1902,16 +1898,12 @@ const DueDashboard = () => {
                         <strong>₹{(detailsData.due?.totalBillAmount || 0).toLocaleString()}</strong>
                       </div>
                       <div className="stat-flex">
-                        <span>Total Paid Amount:</span>
+                        <span>Total Paid:</span>
                         <strong className="text-green">₹{(detailsData.due?.totalPaidAmount || 0).toLocaleString()}</strong>
                       </div>
                        <div className="stat-flex border-top">
-                         <span>Total Outstanding:</span>
+                         <span>Remaining Dues:</span>
                          <strong>₹{(detailsData.due?.totalOutstanding || 0).toLocaleString()}</strong>
-                       </div>
-                       <div className="stat-flex border-top">
-                         <span>Current Due Amount (Over 30 Days):</span>
-                         <strong className="text-red">₹{(detailsData.due?.currentDue || 0).toLocaleString()}</strong>
                        </div>
                     </div>
 
