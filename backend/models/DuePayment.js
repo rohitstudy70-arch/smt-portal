@@ -16,6 +16,10 @@ const duePaymentSchema = new mongoose.Schema({
     required: true,
     min: 0,
   },
+  renewalAmountApplied: {
+    type: Number,
+    default: 0,
+  },
   paymentDate: {
     type: Date,
     default: Date.now,

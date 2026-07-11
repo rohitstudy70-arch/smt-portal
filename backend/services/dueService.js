@@ -117,7 +117,14 @@ const syncDueForUser = async (userId) => {
     {
       $group: {
         _id: null,
-        totalPaidAmount: { $sum: '$amount' },
+        totalPaidAmount: {
+          $sum: {
+            $subtract: [
+              { $ifNull: ['$amount', 0] },
+              { $ifNull: ['$renewalAmountApplied', 0] }
+            ]
+          }
+        },
         lastPaymentDate: { $max: '$paymentDate' },
       },
     },

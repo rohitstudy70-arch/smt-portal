@@ -229,20 +229,19 @@ router.put('/:id/verify', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => 
         remainingAmount -= appliedAmount;
       }
 
-      // 3. Create DuePayment (only if there is remainingAmount left)
-      if (remainingAmount > 0) {
-        await DuePayment.create({
-          dealerDueId: due._id,
-          userId: request.userId,
-          amount: remainingAmount,
-          paymentDate: verifiedAtDate,
-          paymentMode: mappedMode,
-          referenceNumber: request.referenceNumber,
-          remarks: request.remarks ? `Reported: ${request.remarks}` : 'Approved payment verification request',
-          screenshotUrl: request.screenshotUrl,
-          updatedBy: req.user._id,
-        });
-      }
+      // 3. Create DuePayment with the full amount and store renewalAmountApplied
+      await DuePayment.create({
+        dealerDueId: due._id,
+        userId: request.userId,
+        amount: request.amount,
+        renewalAmountApplied: request.amount - remainingAmount,
+        paymentDate: verifiedAtDate,
+        paymentMode: mappedMode,
+        referenceNumber: request.referenceNumber,
+        remarks: request.remarks ? `Reported: ${request.remarks}` : 'Approved payment verification request',
+        screenshotUrl: request.screenshotUrl,
+        updatedBy: req.user._id,
+      });
 
       // 4. Sync outstanding dues
       await syncDueForUser(request.userId);

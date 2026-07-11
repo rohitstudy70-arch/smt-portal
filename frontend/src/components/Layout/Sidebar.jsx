@@ -158,7 +158,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           </li>
         )}
 
-        {/*
         {canShow(['ADMIN']) && (
           <li className={`sidebar-menu-item ${location.pathname === '/renewal-due-management' ? 'active' : ''}`}>
             <NavLink to="/renewal-due-management">
@@ -167,7 +166,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             </NavLink>
           </li>
         )}
-        */}
 
         {canShow(['ADMIN', 'DEALER']) && (
           <li className={`sidebar-menu-item ${location.pathname === '/due-dashboard' && new URLSearchParams(location.search).get('tab') !== 'renewals' ? 'active' : ''}`}>
