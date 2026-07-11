@@ -120,8 +120,8 @@ const statKeysByRole = {
   DEALER: [
     'assignedDevices',
     'totalSubDealers',
-    'renewalDueDevices',
     'availableDevices',
+    'renewalDueDevices',
     'totalDevices',
     'expiringThisMonth',
     'totalDues',
