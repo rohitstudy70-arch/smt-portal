@@ -1792,6 +1792,7 @@ const DueDashboard = () => {
                     <input
                       type="date"
                       required
+                      max={getLocalDatetimeString().split('T')[0]}
                       value={paymentForm.paymentDate}
                       onChange={(e) => setPaymentForm(prev => ({ ...prev, paymentDate: e.target.value }))}
                     />
@@ -2033,6 +2034,7 @@ const DueDashboard = () => {
                   <input
                     type="datetime-local"
                     required
+                    max={getLocalDatetimeString()}
                     value={reportForm.paymentDate}
                     onChange={(e) => setReportForm(prev => ({ ...prev, paymentDate: e.target.value }))}
                   />

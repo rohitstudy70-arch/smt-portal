@@ -591,6 +591,7 @@ const RenewalDueManagement = () => {
                     <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>Payment Date</span>
                     <input 
                       type="date" 
+                      max={new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]}
                       value={paymentForm.paymentDate} 
                       onChange={(e) => setPaymentForm(current => ({ ...current, paymentDate: e.target.value }))}
                       style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 12px', fontSize: '13px' }}
