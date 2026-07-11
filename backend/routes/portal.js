@@ -356,7 +356,7 @@ router.get('/summary', protect, async (req, res) => {
           {
             $group: {
               _id: null,
-              total: { $sum: { $ifNull: ['$remainingDue', 0] } },
+              total: { $sum: { $ifNull: ['$billAmount', 0] } },
             },
           },
         ]),
@@ -1932,7 +1932,7 @@ router.get('/dealer-dashboard-summary', protect, async (req, res) => {
             paymentStatus: { $ne: 'Cancelled' },
           },
         },
-        { $group: { _id: null, total: { $sum: { $ifNull: ['$remainingDue', 0] } } } },
+        { $group: { _id: null, total: { $sum: { $ifNull: ['$billAmount', 0] } } } },
       ]),
       RenewalRequest.aggregate([
         {
