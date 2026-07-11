@@ -312,18 +312,23 @@ router.get('/summary', protect, async (req, res) => {
     let expiringThisMonth = expiringThisMonthCount;
     let totalDues = 0;
     let totalRenewalDues = 0;
-    let totalPurchase = 0;
-    let totalRenewal = 0;
 
     if (scope.role === 'DEALER') {
       const selfId = req.user._id;
 
       const dealerDeviceQuery = deviceScopeQuery;
 
+      const unpaidRenewalQuery = {
+        dealerId: selfId,
+        status: { $ne: 'Rejected' },
+        paymentStatus: { $in: ['Pending', 'Partially Paid'] },
+      };
+
       const [
         dealerAssignedCount,
         dealerActivatedCount,
-        renewalStats,
+        renewalDueDeviceImeis,
+        renewalDueSummary,
         dueRecord,
       ] = await Promise.all([
         Device.countDocuments(dealerDeviceQuery),
@@ -339,6 +344,7 @@ router.get('/summary', protect, async (req, res) => {
             },
           ],
         }),
+        RenewalRequest.distinct('imei', unpaidRenewalQuery),
         RenewalRequest.aggregate([
           {
             $match: {
@@ -350,27 +356,20 @@ router.get('/summary', protect, async (req, res) => {
           {
             $group: {
               _id: null,
-              totalBill: { $sum: { $ifNull: ['$billAmount', 0] } },
-              totalPaid: { $sum: { $ifNull: ['$receivedAmount', 0] } },
-              count: { $sum: 1 },
+              total: { $sum: { $ifNull: ['$remainingDue', 0] } },
             },
           },
         ]),
         syncDueForUser(selfId),
       ]);
 
-      const totalRenewalCount = renewalStats[0]?.count || 0;
-      const totalRenewalBillAmount = renewalStats[0]?.totalBill || 0;
-
       dashboardTotalDevices = dealerAssignedCount;
       dashboardAssignedDevices = dealerAssignedCount;
       dashboardActiveDevices = dealerActivatedCount;
       dashboardAvailableDevices = Math.max(dealerAssignedCount - dealerActivatedCount, 0);
-      dashboardRenewalDueDevices = totalRenewalCount;
-      totalDues = Number(dueRecord?.totalBillAmount) || 0;
-      totalRenewalDues = Number(totalRenewalBillAmount) || 0;
-      totalPurchase = Math.max(dealerAssignedCount - totalRenewalCount, 0);
-      totalRenewal = totalRenewalCount;
+      dashboardRenewalDueDevices = renewalDueDeviceImeis.length;
+      totalDues = Number(dueRecord?.totalOutstanding) || 0;
+      totalRenewalDues = Number(renewalDueSummary[0]?.total) || 0;
     }
 
     res.json({
@@ -392,8 +391,6 @@ router.get('/summary', protect, async (req, res) => {
       expiringThisMonth,
       totalDues,
       totalRenewalDues,
-      totalPurchase,
-      totalRenewal,
     });
   } catch (error) {
     console.error('Portal summary error:', error.message);
@@ -1960,8 +1957,31 @@ router.get('/dealer-dashboard-summary', protect, async (req, res) => {
       ['DEALER', 'SUB_DEALER'].includes(role) ? syncDueForUser(req.user._id) : Promise.resolve(null),
     ]);
 
-    const totalDues = Number(dueRecord?.totalOutstanding) || 0;
-    const totalRenewalDues = Number(renewalDueSummary[0]?.total) || 0;
+    // Get total renewal paid amount
+    const renewalPaidSummary = await RenewalRequest.aggregate([
+      {
+        $match: {
+          dealerId: req.user._id,
+          status: { $ne: 'Rejected' },
+          paymentStatus: { $ne: 'Cancelled' },
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalPaid: { $sum: { $ifNull: ['$receivedAmount', 0] } }
+        }
+      }
+    ]);
+    const totalRenewalPaid = renewalPaidSummary[0]?.totalPaid || 0;
+
+    const deviceTotalBillAmount = dueRecord ? dueRecord.totalBillAmount || 0 : 0;
+    const deviceTotalPaidAmount = dueRecord ? dueRecord.totalPaidAmount || 0 : 0;
+
+    const totalBillAmount = deviceTotalBillAmount + totalRenewalDues;
+    const totalPaidAmount = deviceTotalPaidAmount + totalRenewalPaid;
+    const remainingDues = Math.max(totalBillAmount - totalPaidAmount, 0);
+
     const todaysDeviceRevenue = ['DEALER', 'SUB_DEALER'].includes(role)
       ? await DuePayment.aggregate([
         {
@@ -1990,9 +2010,12 @@ router.get('/dealer-dashboard-summary', protect, async (req, res) => {
       totalDues,
       totalRenewalDues,
       totalRenewalDue: totalRenewalDues,
-      myTotalOutstanding: totalDues + totalRenewalDues,
-      myCurrentDue: (Number(dueRecord?.currentDue) || 0) + (Number(overdueRenewalSummary[0]?.total) || 0),
+      myTotalOutstanding: remainingDues,
+      myCurrentDue: remainingDues,
       todaysRevenue: todaysDeviceRevenue + (Number(todaysRenewalSummary[0]?.total) || 0),
+      totalBillAmount,
+      totalPaidAmount,
+      remainingDues,
       latestRenewals,
     });
   } catch (error) {

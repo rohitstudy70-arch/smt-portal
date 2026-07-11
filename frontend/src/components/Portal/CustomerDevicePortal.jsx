@@ -1468,9 +1468,9 @@ const CustomerDevicePortal = () => {
                     style={{ cursor: 'pointer', position: 'relative' }}
                   >
                     <div>
-                      <span className="portal-stat-value">₹{(dueSummary.totalOutstandingAmount || 0).toLocaleString()}</span>
-                      <span className="portal-stat-label">My Total Outstanding</span>
-                      {dueSummary.totalOutstandingAmount > 0 && (
+                      <span className="portal-stat-value">₹{(dueSummary.totalBillAmount || 0).toLocaleString()}</span>
+                      <span className="portal-stat-label">Total Bill Amount</span>
+                      {(dueSummary.remainingDues || 0) > 0 && (
                         <button
                           type="button"
                           className="portal-primary"
@@ -1503,20 +1503,20 @@ const CustomerDevicePortal = () => {
                     style={{ cursor: 'pointer' }}
                   >
                     <div>
-                      <span className="portal-stat-value">₹{(dueSummary.totalDueAmount || 0).toLocaleString()}</span>
-                      <span className="portal-stat-label">My Current Due (Over 30 Days)</span>
+                      <span className="portal-stat-value">₹{(dueSummary.totalPaidAmount || 0).toLocaleString()}</span>
+                      <span className="portal-stat-label">Total Paid</span>
                     </div>
                     <FaRupeeSign className="portal-stat-icon" />
                   </div>
 
                   <div 
                     className="portal-stat stat-violet" 
-                    onClick={() => { setRevenueModalTab('today'); setIsRevenueModalOpen(true); }}
+                    onClick={() => navigate('/due-dashboard?tab=dues&filter=PendingDues')} 
                     style={{ cursor: 'pointer' }}
                   >
                     <div>
-                      <span className="portal-stat-value">₹{(dueSummary.todaysRevenue || 0).toLocaleString()}</span>
-                      <span className="portal-stat-label">Today's Revenue</span>
+                      <span className="portal-stat-value">₹{(dueSummary.remainingDues || 0).toLocaleString()}</span>
+                      <span className="portal-stat-label">REMAINING DUES</span>
                     </div>
                     <FaChartLine className="portal-stat-icon" />
                   </div>

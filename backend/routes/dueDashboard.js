@@ -868,16 +868,38 @@ router.get('/summary', async (req, res) => {
       const todaysRenewalRevenue = todaysRenewalPayments[0]?.total || 0;
       const todaysTotalRevenue = todaysDevicePayments + todaysRenewalRevenue;
 
-      // My Total Outstanding = Total Dues (Available Devices Dues) + Total Renewal Dues
-      const myTotalOutstanding = deviceTotalOutstanding + totalRenewalDues;
+      // Calculate total renewal paid amount
+      const renewalPaidSummary = await RenewalRequest.aggregate([
+        {
+          $match: {
+            dealerId: selfId,
+            status: { $ne: 'Rejected' },
+            paymentStatus: { $ne: 'Cancelled' },
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalPaid: { $sum: { $ifNull: ['$receivedAmount', 0] } }
+          }
+        }
+      ]);
+      const totalRenewalPaid = renewalPaidSummary[0]?.totalPaid || 0;
 
-      // My Current Due (Over 30 Days) = deviceCurrentDue (Available Devices Dues) + overdueRenewalDues
-      const myCurrentDue = deviceCurrentDue + overdueRenewalDues;
+      const deviceTotalBillAmount = dueRecord ? dueRecord.totalBillAmount || 0 : 0;
+      const deviceTotalPaidAmount = dueRecord ? dueRecord.totalPaidAmount || 0 : 0;
+
+      const totalBillAmount = deviceTotalBillAmount + totalRenewalDues;
+      const totalPaidAmount = deviceTotalPaidAmount + totalRenewalPaid;
+      const remainingDues = Math.max(totalBillAmount - totalPaidAmount, 0);
 
       return res.json({
-        totalOutstandingAmount: myTotalOutstanding,
-        totalDueAmount: myCurrentDue,
-        todaysRevenue: todaysTotalRevenue,
+        totalOutstandingAmount: remainingDues, // Backward compatibility
+        totalDueAmount: remainingDues, // Backward compatibility
+        todaysRevenue: todaysTotalRevenue, // Backward compatibility
+        totalBillAmount,
+        totalPaidAmount,
+        remainingDues,
         totalDealers: 0,
         totalSubDealers: 0,
         totalPendingDevices: 0,
