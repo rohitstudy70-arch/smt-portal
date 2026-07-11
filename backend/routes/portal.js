@@ -1959,7 +1959,7 @@ router.get('/dealer-dashboard-summary', protect, async (req, res) => {
     const deviceTotalBillAmount = dueRecord ? dueRecord.totalBillAmount || 0 : 0;
     const deviceTotalPaidAmount = dueRecord ? dueRecord.totalPaidAmount || 0 : 0;
 
-    const totalBillAmount = deviceTotalBillAmount;
+    const totalBillAmount = deviceTotalBillAmount + totalRenewalDues;
     const totalPaidAmount = deviceTotalPaidAmount;
     const remainingDues = Math.max(totalBillAmount - totalPaidAmount, 0);
 

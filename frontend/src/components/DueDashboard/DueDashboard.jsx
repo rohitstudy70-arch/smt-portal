@@ -706,12 +706,6 @@ const DueDashboard = () => {
           >
             {isListView ? (isAdmin ? 'Dealer Dues' : 'Dealer & Sub Dealer Dues') : 'My Dues'}
           </button>
-          <button
-            className={`due-tab-btn ${activeTab === 'renewals' ? 'active' : ''}`}
-            onClick={() => handleTabChange('renewals')}
-          >
-            Renewal Due Devices
-          </button>
           {isAdmin && (
             <>
               <button
@@ -766,18 +760,7 @@ const DueDashboard = () => {
             <FaRupeeSign className="card-icon" />
           </div>
 
-          {renewalSummary && (
-            <div 
-              className="due-summary-card tone-violet clickable" 
-              onClick={() => navigate(isAdmin ? '/due-dashboard?tab=renewals' : '/dashboard?view=renewals')}
-            >
-              <div className="card-info">
-                <span className="card-value">₹{(renewalSummary.totalDue || 0).toLocaleString()}</span>
-                <span className="card-label">Renewal Due</span>
-              </div>
-              <FaFileInvoiceDollar className="card-icon" />
-            </div>
-          )}
+
 
           {isListView && (
             <>

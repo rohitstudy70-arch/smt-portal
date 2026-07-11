@@ -149,14 +149,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           </li>
         )}
 
-        {canShow(['ADMIN', 'DEALER']) && (
-          <li className={`sidebar-menu-item ${location.pathname === '/due-dashboard' && new URLSearchParams(location.search).get('tab') === 'renewals' ? 'active' : ''}`}>
-            <NavLink to="/due-dashboard?tab=renewals">
-              <FaCalendarAlt className="menu-icon" />
-              <span className="menu-text">Renewal Due Devices</span>
-            </NavLink>
-          </li>
-        )}
+
 
 
 
