@@ -287,6 +287,7 @@ const CustomerDevicePortal = () => {
   const [deviceTab, setDeviceTab] = useState('list'); // 'list' or 'history'
   const [deviceListPage, setDeviceListPage] = useState(1);
   const [deviceHistoryPage, setDeviceHistoryPage] = useState(1);
+  const [assignedDevicesPage, setAssignedDevicesPage] = useState(1);
 
   // Revenue Breakdown Modal State
   const [isRevenueModalOpen, setIsRevenueModalOpen] = useState(false);
@@ -439,6 +440,11 @@ const CustomerDevicePortal = () => {
     const start = (deviceListPage - 1) * 100;
     return filteredDevices.slice(start, start + 100);
   }, [filteredDevices, deviceListPage]);
+
+  const paginatedDashboardDevices = useMemo(() => {
+    const start = (assignedDevicesPage - 1) * 100;
+    return devices.slice(start, start + 100);
+  }, [devices, assignedDevicesPage]);
 
   const paginatedAssignments = useMemo(() => {
     const start = (deviceHistoryPage - 1) * 100;
@@ -1561,7 +1567,7 @@ const CustomerDevicePortal = () => {
                 </tr>
               </thead>
               <tbody>
-                {devices.map((device) => (
+                {paginatedDashboardDevices.map((device) => (
                   <tr key={device._id}>
                     <td className="strong">{device.imei}</td>
                     <td>{device.iccid || '-'}</td>
@@ -1570,13 +1576,14 @@ const CustomerDevicePortal = () => {
                     <td>{renderStatus(device.status)}</td>
                   </tr>
                 ))}
-                {devices.length === 0 && (
+                {paginatedDashboardDevices.length === 0 && (
                   <tr>
                     <td colSpan={5} className="portal-empty">No devices found.</td>
                   </tr>
                 )}
               </tbody>
             </table>
+            {renderPagination(assignedDevicesPage, devices.length, setAssignedDevicesPage)}
           </div>
         </section>
 
