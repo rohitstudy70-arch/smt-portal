@@ -596,8 +596,12 @@ const CustomerDevicePortal = () => {
     }
   }, [deviceDealerOptions, deviceForm.dealerId]);
 
-  const openView = (view) => {
-    navigate(`/dashboard?view=${view}`);
+  const openView = (view, searchVal = '') => {
+    if (searchVal) {
+      navigate(`/dashboard?view=${view}&search=${searchVal}`);
+    } else {
+      navigate(`/dashboard?view=${view}`);
+    }
   };
 
   const updateUserForm = (field, value) => {
@@ -1157,12 +1161,10 @@ const CustomerDevicePortal = () => {
         openView('devices');
         break;
       case 'activeDevices':
-        openView('devices');
-        setSearch('active');
+        openView('devices', 'active');
         break;
       case 'expiredDevices':
-        openView('devices');
-        setSearch('inactive');
+        openView('devices', 'inactive');
         break;
       case 'devicesAddedToday':
         openView('devices');
