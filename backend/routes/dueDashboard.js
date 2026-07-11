@@ -261,6 +261,9 @@ const buildRenewalRows = async (req, { paginate = true } = {}) => {
     query.$and = [...(query.$and || []), ...andConditions];
   }
 
+  // Only include activated devices that have an expiry date
+  query.$and = [...(query.$and || []), { expiryDate: { $ne: null, $exists: true } }];
+
   const devices = await Device.find(query)
     .populate('assignedTo', 'displayName companyName username userType')
     .populate('dealerId', 'displayName companyName username userType')
