@@ -880,6 +880,8 @@ const DueDashboard = () => {
                         <th>Dealer ID</th>
                         <th>Type</th>
                         <th>Devices Assigned</th>
+                        <th>Total Purchase Revenue</th>
+                        <th>Total Renewal Revenue</th>
                         <th>Total Bill Amount</th>
                         <th>Total Paid</th>
                         <th>Remaining Dues</th>
@@ -904,6 +906,8 @@ const DueDashboard = () => {
                           <td className="strong">{due.dealerCode}</td>
                           <td>{due.accountType}</td>
                           <td className="center">{due.totalDevicesAssigned}</td>
+                          <td className="amount">₹{(due.totalPurchaseRevenue || 0).toLocaleString()}</td>
+                          <td className="amount">₹{(due.totalRenewalRevenue || 0).toLocaleString()}</td>
                           <td className="amount">₹{(due.totalBillAmount || 0).toLocaleString()}</td>
                           <td className="amount">₹{(due.totalPaidAmount || 0).toLocaleString()}</td>
                           <td className="amount" style={{ fontWeight: '500' }}>₹{(due.totalOutstanding || 0).toLocaleString()}</td>
@@ -1007,6 +1011,14 @@ const DueDashboard = () => {
                       <div className="stat-row">
                         <span>Total Devices Assigned:</span>
                         <strong>{detailsData.due?.totalDevicesAssigned || 0}</strong>
+                      </div>
+                      <div className="stat-row">
+                        <span>Total Purchase Revenue:</span>
+                        <strong>₹{(detailsData.due?.totalPurchaseRevenue || 0).toLocaleString()}</strong>
+                      </div>
+                      <div className="stat-row">
+                        <span>Total Renewal Revenue:</span>
+                        <strong>₹{(detailsData.due?.totalRenewalRevenue || 0).toLocaleString()}</strong>
                       </div>
                       <div className="stat-row">
                         <span>Total Bill Amount:</span>
@@ -1860,6 +1872,14 @@ const DueDashboard = () => {
                       <div className="stat-flex">
                         <span>Total Devices Assigned:</span>
                         <strong>{detailsData.due?.totalDevicesAssigned || 0}</strong>
+                      </div>
+                      <div className="stat-flex">
+                        <span>Total Purchase Revenue:</span>
+                        <strong>₹{(detailsData.due?.totalPurchaseRevenue || 0).toLocaleString()}</strong>
+                      </div>
+                      <div className="stat-flex">
+                        <span>Total Renewal Revenue:</span>
+                        <strong>₹{(detailsData.due?.totalRenewalRevenue || 0).toLocaleString()}</strong>
                       </div>
                       <div className="stat-flex">
                         <span>Total Bill Amount:</span>

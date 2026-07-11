@@ -1076,6 +1076,8 @@ router.get('/dealers', async (req, res) => {
       const deviceTotalBillAmount = dObj.totalBillAmount || 0;
       const deviceTotalPaidAmount = dObj.totalPaidAmount || 0;
 
+      dObj.totalPurchaseRevenue = deviceTotalBillAmount;
+      dObj.totalRenewalRevenue = rSummary.totalOutstanding;
       dObj.totalBillAmount = deviceTotalBillAmount + rSummary.totalOutstanding;
       dObj.totalPaidAmount = deviceTotalPaidAmount;
       dObj.totalOutstanding = Math.max(dObj.totalBillAmount - dObj.totalPaidAmount, 0);
@@ -1144,6 +1146,8 @@ router.get('/dealers/:userId', async (req, res) => {
       const deviceTotalBillAmount = dueObj.totalBillAmount || 0;
       const deviceTotalPaidAmount = dueObj.totalPaidAmount || 0;
 
+      dueObj.totalPurchaseRevenue = deviceTotalBillAmount;
+      dueObj.totalRenewalRevenue = totalRenewalOutstanding;
       dueObj.totalBillAmount = deviceTotalBillAmount + totalRenewalOutstanding;
       dueObj.totalPaidAmount = deviceTotalPaidAmount;
       dueObj.totalOutstanding = Math.max(dueObj.totalBillAmount - dueObj.totalPaidAmount, 0);
