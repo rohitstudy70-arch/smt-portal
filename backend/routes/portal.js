@@ -368,7 +368,7 @@ router.get('/summary', protect, async (req, res) => {
       dashboardActiveDevices = dealerActivatedCount;
       dashboardAvailableDevices = Math.max(dealerAssignedCount - dealerActivatedCount, 0);
       dashboardRenewalDueDevices = renewalDueDeviceImeis.length;
-      totalDues = Number(dueRecord?.totalOutstanding) || 0;
+      totalDues = Number(dueRecord?.totalBillAmount) || 0;
       totalRenewalDues = Number(renewalDueSummary[0]?.total) || 0;
     }
 
