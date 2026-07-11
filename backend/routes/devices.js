@@ -968,7 +968,6 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
     const oldBillAmount = device.billAmount || 0;
     const newBillAmount = Number(input.billAmount) || 0;
     const oldUserId = device.userId;
-    const newUserId = ownership.ownerId;
     const oldDueOwnerIds = getDueOwnerIdsFromDevice(device);
 
     if (!input.vendor) {
@@ -987,6 +986,8 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
     if (ownership.error) {
       return res.status(ownership.error.status).json({ message: ownership.error.message });
     }
+
+    const newUserId = ownership.ownerId;
 
     const duplicate = await Device.findOne({
       _id: { $ne: device._id },
