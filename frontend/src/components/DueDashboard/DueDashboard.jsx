@@ -124,6 +124,7 @@ const DueDashboard = () => {
   const [verificationSubTab, setVerificationSubTab] = useState('requests'); // 'requests' or 'collections'
   const [adminPayments, setAdminPayments] = useState([]);
   const [loadingPayments, setLoadingPayments] = useState(false);
+  const [collectionsSearch, setCollectionsSearch] = useState('');
   const [verificationFilters, setVerificationFilters] = useState({
     status: 'all',
     dateRange: 'all',
@@ -648,6 +649,20 @@ const DueDashboard = () => {
       }
       return true;
     });
+  };
+
+  const getFilteredCollections = () => {
+    if (!collectionsSearch) return adminPayments;
+    const query = collectionsSearch.toLowerCase();
+    return adminPayments.filter((p) => {
+      const dealerName = (p.userId?.displayName || '').toLowerCase();
+      const dealerCode = (p.userId?.username || '').toLowerCase();
+      return dealerName.includes(query) || dealerCode.includes(query);
+    });
+  };
+
+  const getFilteredCollectionsTotal = () => {
+    return getFilteredCollections().reduce((sum, p) => sum + (p.amount || 0), 0);
   };
 
   const handleCardClick = (cardType) => {
@@ -1599,6 +1614,27 @@ const DueDashboard = () => {
               </button>
             </div>
 
+            {verificationSubTab === 'collections' && (
+              <div className="due-filters-row" style={{ display: 'flex', gap: '15px', alignItems: 'center', margin: '0 24px 20px 24px', flexWrap: 'wrap', background: '#f8fafc', padding: '12px 20px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FaSearch style={{ color: '#64748b', fontSize: '14px' }} />
+                  <input
+                    type="text"
+                    placeholder="Search Dealer Name or ID..."
+                    value={collectionsSearch}
+                    onChange={(e) => setCollectionsSearch(e.target.value)}
+                    style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '13px', minWidth: '220px' }}
+                  />
+                </div>
+                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: '600', color: '#0f172a' }}>
+                  <span>Total Payments Received:</span>
+                  <span style={{ color: '#10b981', background: '#ecfdf5', padding: '4px 10px', borderRadius: '6px', border: '1px solid #a7f3d0' }}>
+                    ₹{getFilteredCollectionsTotal().toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            )}
+
             {verificationSubTab === 'requests' ? (
               <div className="due-table-wrap">
                 {loadingRequests ? (
@@ -1697,7 +1733,7 @@ const DueDashboard = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {adminPayments.map((p) => (
+                      {getFilteredCollections().map((p) => (
                         <tr key={p._id}>
                           <td>{new Date(p.paymentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
                           <td>{p.userId?.displayName || p.userId?.username || '—'}</td>
@@ -1723,9 +1759,9 @@ const DueDashboard = () => {
                           <td>{p.updatedBy?.displayName || p.updatedBy?.username || '—'}</td>
                         </tr>
                       ))}
-                      {adminPayments.length === 0 && (
+                      {getFilteredCollections().length === 0 && (
                         <tr>
-                          <td colSpan={8} className="table-empty">No payment collections found for the selected period.</td>
+                          <td colSpan={8} className="table-empty">No payment collections found matching the filter criteria.</td>
                         </tr>
                       )}
                     </tbody>
