@@ -1073,10 +1073,13 @@ router.get('/dealers', async (req, res) => {
       const dId = String(d.userId?._id || d.userId);
       const rSummary = renewalsByDealer[dId] || { totalBill: 0, totalPaid: 0, totalOutstanding: 0, overdue: 0 };
 
-      dObj.totalBillAmount = (dObj.totalBillAmount || 0) + rSummary.totalBill;
-      dObj.totalPaidAmount = (dObj.totalPaidAmount || 0) + rSummary.totalPaid;
-      dObj.totalOutstanding = (dObj.totalOutstanding || 0) + rSummary.totalOutstanding;
-      dObj.currentDue = (dObj.currentDue || 0) + rSummary.overdue;
+      const deviceTotalBillAmount = dObj.totalBillAmount || 0;
+      const deviceTotalPaidAmount = dObj.totalPaidAmount || 0;
+
+      dObj.totalBillAmount = deviceTotalBillAmount + rSummary.totalOutstanding;
+      dObj.totalPaidAmount = deviceTotalPaidAmount + rSummary.totalPaid;
+      dObj.totalOutstanding = Math.max(dObj.totalBillAmount - dObj.totalPaidAmount, 0);
+      dObj.currentDue = Math.max(dObj.totalBillAmount - dObj.totalPaidAmount, 0);
 
       return dObj;
     });
@@ -1138,10 +1141,13 @@ router.get('/dealers/:userId', async (req, res) => {
         }
       });
 
-      dueObj.totalBillAmount = (dueObj.totalBillAmount || 0) + totalRenewalBill;
-      dueObj.totalPaidAmount = (dueObj.totalPaidAmount || 0) + totalRenewalPaid;
-      dueObj.totalOutstanding = (dueObj.totalOutstanding || 0) + totalRenewalOutstanding;
-      dueObj.currentDue = (dueObj.currentDue || 0) + overdueRenewalDues;
+      const deviceTotalBillAmount = dueObj.totalBillAmount || 0;
+      const deviceTotalPaidAmount = dueObj.totalPaidAmount || 0;
+
+      dueObj.totalBillAmount = deviceTotalBillAmount + totalRenewalOutstanding;
+      dueObj.totalPaidAmount = deviceTotalPaidAmount + totalRenewalPaid;
+      dueObj.totalOutstanding = Math.max(dueObj.totalBillAmount - dueObj.totalPaidAmount, 0);
+      dueObj.currentDue = Math.max(dueObj.totalBillAmount - dueObj.totalPaidAmount, 0);
     }
 
     res.json({ user, due: dueObj, devices, payments });
