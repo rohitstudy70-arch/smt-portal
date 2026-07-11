@@ -1953,6 +1953,7 @@ router.get('/dealer-dashboard-summary', protect, async (req, res) => {
           },
         },
         { $group: { _id: null, total: { $sum: { $ifNull: ['$receivedAmount', 0] } } } },
+      ]),
       ['DEALER', 'SUB_DEALER'].includes(role) ? syncDueForUser(req.user._id) : Promise.resolve(null),
     ]);
     const deviceTotalBillAmount = dueRecord ? dueRecord.totalBillAmount || 0 : 0;
