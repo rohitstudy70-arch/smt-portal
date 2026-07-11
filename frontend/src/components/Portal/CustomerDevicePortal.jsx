@@ -1168,6 +1168,7 @@ const CustomerDevicePortal = () => {
         openView('devices');
         break;
       case 'renewalDueDevices':
+      case 'totalRenewalDues':
       case 'pendingRenewals':
         openView('renewals');
         break;
@@ -1181,7 +1182,6 @@ const CustomerDevicePortal = () => {
         navigate('/add-product');
         break;
       case 'totalDues':
-      case 'totalRenewalDues':
         navigate('/due-dashboard');
         break;
       case 'expiringThisMonth':
