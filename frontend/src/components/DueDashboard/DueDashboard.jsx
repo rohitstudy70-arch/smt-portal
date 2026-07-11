@@ -769,7 +769,7 @@ const DueDashboard = () => {
           {renewalSummary && (
             <div 
               className="due-summary-card tone-violet clickable" 
-              onClick={() => navigate(isAdmin ? '/renewal-due-management' : '/dashboard?view=renewals')}
+              onClick={() => navigate(isAdmin ? '/due-dashboard?tab=renewals' : '/dashboard?view=renewals')}
             >
               <div className="card-info">
                 <span className="card-value">₹{(renewalSummary.totalDue || 0).toLocaleString()}</span>
@@ -1364,21 +1364,6 @@ const DueDashboard = () => {
                         <td>
                           {isAdmin ? (
                             <div style={{ display: 'flex', gap: '5px' }}>
-                              <button
-                                onClick={() => navigate(`/renewal-due-management?search=${device.imei}`)}
-                                style={{
-                                  background: '#3b82f6',
-                                  color: 'white',
-                                  border: 'none',
-                                  borderRadius: '4px',
-                                  padding: '4px 8px',
-                                  fontSize: '11px',
-                                  fontWeight: '700',
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                Verify
-                              </button>
                               <button
                                 onClick={() => {
                                   setRenewDevice(device);

@@ -1376,7 +1376,7 @@ const CustomerDevicePortal = () => {
                   <div className="portal-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '15px' }}>
                     <div 
                       className="portal-stat stat-red" 
-                      onClick={() => navigate('/renewal-due-management')} 
+                      onClick={() => openView('renewals')} 
                       style={{ cursor: 'pointer' }}
                     >
                       <div>
@@ -1388,7 +1388,7 @@ const CustomerDevicePortal = () => {
 
                     <div 
                       className="portal-stat stat-blue" 
-                      onClick={() => navigate('/renewal-due-management')} 
+                      onClick={() => openView('renewals')} 
                       style={{ cursor: 'pointer' }}
                     >
                       <div>
@@ -1400,7 +1400,7 @@ const CustomerDevicePortal = () => {
 
                     <div 
                       className="portal-stat stat-green" 
-                      onClick={() => navigate('/renewal-due-management')} 
+                      onClick={() => openView('renewals')} 
                       style={{ cursor: 'pointer' }}
                     >
                       <div>
@@ -1412,7 +1412,7 @@ const CustomerDevicePortal = () => {
 
                     <div 
                       className="portal-stat stat-violet" 
-                      onClick={() => navigate('/renewal-due-management')} 
+                      onClick={() => openView('renewals')} 
                       style={{ cursor: 'pointer' }}
                     >
                       <div>
@@ -1424,7 +1424,7 @@ const CustomerDevicePortal = () => {
 
                     <div 
                       className="portal-stat stat-amber" 
-                      onClick={() => navigate('/renewal-due-management')} 
+                      onClick={() => openView('renewals')} 
                       style={{ cursor: 'pointer' }}
                     >
                       <div>
@@ -1436,7 +1436,7 @@ const CustomerDevicePortal = () => {
 
                     <div 
                       className="portal-stat stat-green" 
-                      onClick={() => navigate('/renewal-due-management')} 
+                      onClick={() => openView('renewals')} 
                       style={{ cursor: 'pointer' }}
                     >
                       <div>
