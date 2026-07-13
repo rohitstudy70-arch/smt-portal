@@ -767,14 +767,6 @@ const DueDashboard = () => {
             <FaRupeeSign className="card-icon" />
           </div>
 
-          <div className={`due-summary-card tone-amber ${isListView ? 'clickable' : ''}`} onClick={() => handleCardClick('totalDue')}>
-            <div className="card-info">
-              <span className="card-value">₹{(summary.totalDueAmount || 0).toLocaleString()}</span>
-              <span className="card-label">{isListView ? 'Total Due Amount (Over 30 Days)' : 'My Current Due (Over 30 Days)'}</span>
-            </div>
-            <FaRupeeSign className="card-icon" />
-          </div>
-
 
 
           {isListView && (
@@ -900,7 +892,6 @@ const DueDashboard = () => {
                         <th>Total Bill Amount</th>
                         <th>Total Paid</th>
                         <th>Remaining Dues</th>
-                        <th>Current Due (Over 30 Days)</th>
                         <th>Last Payment Date</th>
                         <th>Status</th>
                         <th>Actions</th>
@@ -926,7 +917,6 @@ const DueDashboard = () => {
                           <td className="amount">₹{(due.totalBillAmount || 0).toLocaleString()}</td>
                           <td className="amount">₹{(due.totalPaidAmount || 0).toLocaleString()}</td>
                           <td className="amount" style={{ fontWeight: '500' }}>₹{(due.totalOutstanding || 0).toLocaleString()}</td>
-                          <td className="amount current-due-col">₹{(due.currentDue || 0).toLocaleString()}</td>
                           <td>{formatDate(due.lastPaymentDate)}</td>
                           <td>
                             <span className={`due-status-badge ${getStatusClass(due.status)}`}>
@@ -1792,10 +1782,6 @@ const DueDashboard = () => {
                 <div className="form-group">
                   <label>Total Outstanding Due</label>
                   <div className="highlight-amount red">₹{(selectedDealerDue.totalOutstanding || 0).toLocaleString()}</div>
-                </div>
-                <div className="form-group">
-                  <label>Current Due (Over 30 Days)</label>
-                  <div className="highlight-amount" style={{ color: '#f59e0b', fontSize: '18px', fontWeight: 'bold' }}>₹{(selectedDealerDue.currentDue || 0).toLocaleString()}</div>
                 </div>
                 <div className="form-row">
                   <div className="form-group">
