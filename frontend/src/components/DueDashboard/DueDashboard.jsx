@@ -916,7 +916,7 @@ const DueDashboard = () => {
                           <td className="amount">₹{(due.totalRenewalRevenue || 0).toLocaleString()}</td>
                           <td className="amount">₹{(due.totalBillAmount || 0).toLocaleString()}</td>
                           <td className="amount">₹{(due.totalPaidAmount || 0).toLocaleString()}</td>
-                          <td className="amount" style={{ fontWeight: '500' }}>₹{(due.totalOutstanding || 0).toLocaleString()}</td>
+                          <td className="amount text-red" style={{ fontWeight: '600', color: '#ef4444' }}>₹{(due.totalOutstanding || 0).toLocaleString()}</td>
                           <td>{formatDate(due.lastPaymentDate)}</td>
                           <td>
                             <span className={`due-status-badge ${getStatusClass(due.status)}`}>
@@ -1035,7 +1035,7 @@ const DueDashboard = () => {
                       </div>
                       <div className="stat-row highlight">
                         <span>Remaining Dues:</span>
-                        <strong>₹{(detailsData.due?.totalOutstanding || 0).toLocaleString()}</strong>
+                        <strong style={{ color: '#ef4444' }}>₹{(detailsData.due?.totalOutstanding || 0).toLocaleString()}</strong>
                       </div>
                       <div className="stat-row">
                         <span>Status:</span>
@@ -1914,7 +1914,7 @@ const DueDashboard = () => {
                       </div>
                        <div className="stat-flex border-top">
                          <span>Remaining Dues:</span>
-                         <strong>₹{(detailsData.due?.totalOutstanding || 0).toLocaleString()}</strong>
+                         <strong style={{ color: '#ef4444' }}>₹{(detailsData.due?.totalOutstanding || 0).toLocaleString()}</strong>
                        </div>
                     </div>
 
