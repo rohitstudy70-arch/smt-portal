@@ -614,7 +614,6 @@ const DueDashboard = () => {
       case 'Clear': return 'due-status-clear';
       case 'Partial': return 'due-status-partial';
       case 'Overdue': return 'due-status-overdue';
-      case 'Dues': return 'due-status-overdue';
       case 'Active': return 'due-status-clear';
       case 'Expiring Soon': return 'due-status-partial';
       case 'Expired': return 'due-status-overdue';
@@ -870,7 +869,7 @@ const DueDashboard = () => {
                       <option value="all">All Status</option>
                       <option value="Clear">Clear</option>
                       <option value="Partial">Partial</option>
-                      <option value="Dues">Dues</option>
+                      <option value="Overdue">Overdue</option>
                       <option value="PendingDues">Pending Dues</option>
                     </select>
                   </div>
