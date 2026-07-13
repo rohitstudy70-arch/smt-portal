@@ -13,6 +13,20 @@ const IccidSearch = () => {
   const [latestRequest, setLatestRequest] = useState(null);
   const [latestRenewal, setLatestRenewal] = useState(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  
+  // Document Management States
+  const [documentsList, setDocumentsList] = useState([]);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState(''); // 'idle', 'uploading', 'success', 'failed'
+  const [uploadError, setUploadError] = useState('');
+  const [selectedDocType, setSelectedDocType] = useState('Vehicle Image');
+  const [isReplacingDocId, setIsReplacingDocId] = useState(null);
+  
+  // Preview Modals State
+  const [previewImage, setPreviewImage] = useState(null);
+  const [previewPdf, setPreviewPdf] = useState(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [isFullScreen, setIsFullScreen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -46,6 +60,7 @@ const IccidSearch = () => {
         setDevice(null);
         setLatestRequest(null);
         setLatestRenewal(null);
+        setDocumentsList([]);
 
         // 1. Fetch device details
         const res = await api.get('/devices', {
@@ -59,6 +74,7 @@ const IccidSearch = () => {
           foundDevice = res.data.devices[0];
           targetImei = foundDevice.imei;
           setDevice(foundDevice);
+          setDocumentsList(foundDevice.documents || []);
         }
 
         // 2. Fetch history and renewals in parallel using targetImei
@@ -87,12 +103,26 @@ const IccidSearch = () => {
           setLatestRenewal(fetchedRenewal);
         }
 
+        const realImei = fetchedRenewal?.imei || fetchedRequest?.imei || (foundDevice ? foundDevice.imei : null);
+
+        if (realImei && (!foundDevice || foundDevice.imei !== realImei)) {
+          const devRes = await api.get('/devices', {
+            params: { search: realImei, limit: 1 }
+          }).catch(() => null);
+
+          if (devRes && devRes.data.devices && devRes.data.devices.length > 0) {
+            foundDevice = devRes.data.devices[0];
+            setDevice(foundDevice);
+            setDocumentsList(foundDevice.documents || []);
+          }
+        }
+
         // If no device was found in Device table, but we have renewal or activation records, create a mock device!
         if (!foundDevice) {
           if (fetchedRenewal || fetchedRequest) {
             const mockDevice = {
               _id: fetchedRenewal?._id || fetchedRequest?._id,
-              imei: targetImei,
+              imei: realImei || targetImei,
               serialNo: fetchedRenewal?.serialNo || fetchedRequest?.serialNo || '—',
               iccid: fetchedRenewal?.iccid || fetchedRequest?.iccid || '—',
               vendor: fetchedRenewal?.deviceModel || fetchedRequest?.vendor || '—',
@@ -101,8 +131,23 @@ const IccidSearch = () => {
               presentDate: fetchedRequest?.installationDate || fetchedRenewal?.createdAt || null,
               expiryDate: fetchedRenewal?.newExpiryDate || fetchedRequest?.expiryDate || null,
               status: fetchedRenewal?.status || fetchedRequest?.status || 'Active',
+              documents: []
             };
+
+            if (realImei && /^\d{15}$/.test(realImei)) {
+              const docRes = await api.get(`/devices/${realImei}/documents`).catch(() => null);
+              if (docRes && docRes.data && docRes.data.documents) {
+                mockDevice.documents = docRes.data.documents;
+              } else {
+                const searchRes = await api.get(`/portal/renewals/search-imei/${realImei}`).catch(() => null);
+                if (searchRes && searchRes.data && searchRes.data.documents) {
+                  mockDevice.documents = searchRes.data.documents;
+                }
+              }
+            }
+
             setDevice(mockDevice);
+            setDocumentsList(mockDevice.documents || []);
           } else {
             setError('No device found matching the search term.');
           }
@@ -242,6 +287,117 @@ State: ${latestRequest?.userId?.state || device.dealerId?.state || '—'}`;
       }
     }
     return 'none';
+  };
+
+  const handleFileUpload = async (event, replaceDocId = null) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    // Validation
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+    for (const file of files) {
+      if (!allowedTypes.includes(file.type)) {
+        alert(`File "${file.name}" has an unsupported format. Only JPG, JPEG, PNG, and PDF are allowed.`);
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        alert(`File "${file.name}" exceeds the maximum limit of 10MB.`);
+        return;
+      }
+    }
+
+    const formData = new FormData();
+    if (replaceDocId) {
+      formData.append('file', files[0]);
+    } else {
+      for (const file of files) {
+        formData.append('files', file);
+      }
+      formData.append('documentType', selectedDocType);
+    }
+
+    try {
+      setUploadProgress(0);
+      setUploadStatus('uploading');
+      setUploadError('');
+
+      const url = replaceDocId 
+        ? `/devices/${device.imei}/documents/${replaceDocId}`
+        : `/devices/${device.imei}/documents`;
+
+      const method = replaceDocId ? 'put' : 'post';
+
+      const res = await api({
+        method,
+        url,
+        data: formData,
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(percentCompleted);
+        }
+      });
+
+      setUploadStatus('success');
+      setDocumentsList(res.data.documents || []);
+      setIsReplacingDocId(null);
+      
+      setTimeout(() => {
+        setUploadStatus('idle');
+        setUploadProgress(0);
+      }, 3000);
+    } catch (err) {
+      console.error('File upload failed:', err);
+      setUploadStatus('failed');
+      setUploadError(err.response?.data?.message || 'Failed to upload files. Please try again.');
+    }
+  };
+
+  const handleFileDelete = async (docId) => {
+    if (!window.confirm('Are you sure you want to delete this document?')) {
+      return;
+    }
+
+    try {
+      const res = await api.delete(`/devices/${device.imei}/documents/${docId}`);
+      setDocumentsList(res.data.documents || []);
+      alert('Document deleted successfully.');
+    } catch (err) {
+      console.error('Failed to delete document:', err);
+      alert(err.response?.data?.message || 'Failed to delete document. Please try again.');
+    }
+  };
+
+  const handleFileDownload = async (doc) => {
+    try {
+      const res = await api.get(`/devices/${device.imei}/documents/${doc._id}/download`, {
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', doc.originalName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to download document:', err);
+      alert('Failed to download document.');
+    }
+  };
+
+  const handleViewFile = (doc) => {
+    const isImage = ['image/jpeg', 'image/jpg', 'image/png'].includes(doc.mimeType);
+    const previewUrl = `${(api.defaults.baseURL || '').replace(/\/api$/, '')}/api/devices/${device.imei}/documents/${doc._id}/preview`;
+    
+    if (isImage) {
+      setPreviewImage({ ...doc, url: previewUrl });
+      setZoomLevel(1);
+      setIsFullScreen(false);
+    } else if (doc.mimeType === 'application/pdf') {
+      setPreviewPdf({ ...doc, url: previewUrl });
+    }
   };
 
   const activationStatus = getActivationStatus();
@@ -478,6 +634,224 @@ State: ${latestRequest?.userId?.state || device.dealerId?.state || '—'}`;
               </table>
             </div>
           </div>
+
+          {/* 4. Uploaded Documents Section */}
+          <div className="search-section-card">
+            <div className="section-header-teal">Uploaded Documents</div>
+            
+            {/* Admin Upload Control Section */}
+            {role === 'ADMIN' && (
+              <div className="upload-controls-box">
+                <div className="upload-fields-row">
+                  <div className="upload-field-group">
+                    <label>Document Type</label>
+                    <select 
+                      value={selectedDocType} 
+                      onChange={(e) => setSelectedDocType(e.target.value)}
+                      className="doc-type-select"
+                    >
+                      <option value="Vehicle Image">Vehicle Image</option>
+                      <option value="RC">RC</option>
+                      <option value="Insurance">Insurance</option>
+                      <option value="Activation Paper">Activation Paper</option>
+                      <option value="Customer ID">Customer ID</option>
+                      <option value="Invoice">Invoice</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  
+                  <div className="upload-button-wrapper">
+                    <input 
+                      type="file" 
+                      id="doc-files-upload"
+                      multiple
+                      onChange={(e) => handleFileUpload(e)}
+                      style={{ display: 'none' }}
+                      accept=".jpg,.jpeg,.png,.pdf"
+                    />
+                    <label htmlFor="doc-files-upload" className="btn-upload-label">
+                      Choose & Upload File(s)
+                    </label>
+                  </div>
+                </div>
+
+                {/* Upload Status / Progress Bar */}
+                {uploadStatus === 'uploading' && (
+                  <div className="progress-bar-container">
+                    <div className="progress-bar-label">Uploading... {uploadProgress}%</div>
+                    <div className="progress-bar-track">
+                      <div className="progress-bar-fill" style={{ width: `${uploadProgress}%` }}></div>
+                    </div>
+                  </div>
+                )}
+                {uploadStatus === 'success' && (
+                  <div className="upload-status-alert success-alert">
+                    Success: Document(s) uploaded successfully!
+                  </div>
+                )}
+                {uploadStatus === 'failed' && (
+                  <div className="upload-status-alert danger-alert">
+                    Failed: {uploadError}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Documents List Table */}
+            <div className="card-body-table" style={{ marginTop: '15px' }}>
+              <table className="portal-table wide">
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>File Name</th>
+                    <th>Uploaded By</th>
+                    <th>Upload Time</th>
+                    <th style={{ textAlign: 'center' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {documentsList.map((doc) => {
+                    const isImg = ['image/jpeg', 'image/jpg', 'image/png'].includes(doc.mimeType);
+                    const previewUrl = `${(api.defaults.baseURL || '').replace(/\/api$/, '')}/api/devices/${device.imei}/documents/${doc._id}/preview`;
+                    return (
+                      <tr key={doc._id}>
+                        <td className="strong">{doc.documentType}</td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            {isImg ? (
+                              <img 
+                                src={previewUrl} 
+                                alt={doc.originalName} 
+                                className="doc-thumbnail"
+                                onError={(e) => { e.target.src = 'https://placehold.co/40x40?text=Doc' }}
+                              />
+                            ) : (
+                              <div className="pdf-thumbnail-placeholder">PDF</div>
+                            )}
+                            <span className="doc-file-name" title={doc.originalName}>
+                              {doc.originalName.length > 25 ? doc.originalName.substring(0, 22) + '...' : doc.originalName}
+                            </span>
+                          </div>
+                        </td>
+                        <td>{doc.uploadedBy?.username || doc.uploadedBy?.displayName || 'Admin'}</td>
+                        <td>{new Date(doc.uploadedAt).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
+                            <button 
+                              type="button" 
+                              className="btn-action-view"
+                              onClick={() => handleViewFile(doc)}
+                            >
+                              View
+                            </button>
+                            <button 
+                              type="button" 
+                              className="btn-action-download"
+                              onClick={() => handleFileDownload(doc)}
+                            >
+                              Download
+                            </button>
+                            {role === 'ADMIN' && (
+                              <>
+                                <input 
+                                  type="file" 
+                                  id={`replace-upload-${doc._id}`}
+                                  onChange={(e) => handleFileUpload(e, doc._id)}
+                                  style={{ display: 'none' }}
+                                  accept=".jpg,.jpeg,.png,.pdf"
+                                />
+                                <label 
+                                  htmlFor={`replace-upload-${doc._id}`} 
+                                  className="btn-action-replace"
+                                  onClick={() => setIsReplacingDocId(doc._id)}
+                                >
+                                  Replace
+                                </label>
+                                <button 
+                                  type="button" 
+                                  className="btn-action-delete"
+                                  onClick={() => handleFileDelete(doc._id)}
+                                >
+                                  Delete
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {documentsList.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="portal-empty" style={{ padding: '24px' }}>
+                        No documents uploaded for this device.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Image Preview Modal */}
+          {previewImage && (
+            <div className={`preview-modal-overlay ${isFullScreen ? 'fullscreen' : ''}`}>
+              <div className="preview-modal-container image-modal">
+                <div className="preview-modal-header">
+                  <h3>{previewImage.documentType} - {previewImage.originalName}</h3>
+                  <div className="preview-header-controls">
+                    <button type="button" onClick={() => setZoomLevel(prev => Math.max(0.5, prev - 0.25))} title="Zoom Out">-</button>
+                    <span className="zoom-text">{Math.round(zoomLevel * 100)}%</span>
+                    <button type="button" onClick={() => setZoomLevel(prev => Math.min(3, prev + 0.25))} title="Zoom In">+</button>
+                    <button type="button" onClick={() => setIsFullScreen(!isFullScreen)} title="Full Screen">
+                      {isFullScreen ? 'Exit Fullscreen' : 'Fullscreen'}
+                    </button>
+                    <button type="button" onClick={() => handleFileDownload(previewImage)} title="Download">Download</button>
+                    <button type="button" className="close-btn" onClick={() => { setPreviewImage(null); setZoomLevel(1); setIsFullScreen(false); }}>Close</button>
+                  </div>
+                </div>
+                <div className="preview-modal-body">
+                  <div className="image-zoom-wrapper" style={{ overflow: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', height: '100%' }}>
+                    <img 
+                      src={previewImage.url} 
+                      alt={previewImage.originalName} 
+                      style={{ 
+                        transform: `scale(${zoomLevel})`, 
+                        transition: 'transform 0.1s ease',
+                        maxWidth: '100%', 
+                        maxHeight: '100%',
+                        objectFit: 'contain'
+                      }} 
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* PDF Preview Modal */}
+          {previewPdf && (
+            <div className="preview-modal-overlay">
+              <div className="preview-modal-container pdf-modal">
+                <div className="preview-modal-header">
+                  <h3>{previewPdf.documentType} - {previewPdf.originalName}</h3>
+                  <div className="preview-header-controls">
+                    <button type="button" onClick={() => handleFileDownload(previewPdf)} title="Download">Download</button>
+                    <button type="button" className="close-btn" onClick={() => setPreviewPdf(null)}>Close</button>
+                  </div>
+                </div>
+                <div className="preview-modal-body">
+                  <iframe 
+                    src={`${previewPdf.url}#toolbar=0`} 
+                    title={previewPdf.originalName}
+                    width="100%"
+                    height="100%"
+                    style={{ border: 'none' }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
         </div>
       ) : (

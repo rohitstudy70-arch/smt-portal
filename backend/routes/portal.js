@@ -1232,6 +1232,7 @@ router.get('/renewals/search-imei/:imei', protect, async (req, res) => {
       validity,
       renewalDate,
       billAmount,
+      documents: device?.documents || []
     });
   } catch (error) {
     console.error('Search IMEI error:', error.message);
