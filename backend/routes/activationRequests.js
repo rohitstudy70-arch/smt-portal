@@ -57,6 +57,7 @@ router.get('/', async (req, res) => {
         { remarks: { $regex: search, $options: 'i' } },
         { subDealerName: { $regex: search, $options: 'i' } },
         { imei: { $regex: search, $options: 'i' } },
+        { vehicleNo: { $regex: search, $options: 'i' } },
       ];
     }
 

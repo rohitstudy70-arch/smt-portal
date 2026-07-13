@@ -19,7 +19,7 @@ const IccidSearch = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState(''); // 'idle', 'uploading', 'success', 'failed'
   const [uploadError, setUploadError] = useState('');
-  const [selectedDocType, setSelectedDocType] = useState('Vehicle Image');
+  const [selectedDocType, setSelectedDocType] = useState('Fitment Letter');
   const [isReplacingDocId, setIsReplacingDocId] = useState(null);
   
   // Preview Modals State
@@ -75,6 +75,29 @@ const IccidSearch = () => {
           targetImei = foundDevice.imei;
           setDevice(foundDevice);
           setDocumentsList(foundDevice.documents || []);
+        }
+
+        // 1b. If no device found by IMEI/ICCID/Serial, try searching by Vehicle Number via activation-requests
+        if (!foundDevice) {
+          const vehicleSearchRes = await api.get('/activation-requests', {
+            params: { search: searchQuery, limit: 1 }
+          }).catch(() => null);
+          const vehicleRequests = vehicleSearchRes?.data?.requests || [];
+          if (vehicleRequests.length > 0) {
+            const vehicleImei = vehicleRequests[0].imei;
+            if (vehicleImei) {
+              targetImei = vehicleImei;
+              const devByImei = await api.get('/devices', {
+                params: { search: vehicleImei, limit: 1 }
+              }).catch(() => null);
+              if (devByImei?.data?.devices?.length > 0) {
+                foundDevice = devByImei.data.devices[0];
+                targetImei = foundDevice.imei;
+                setDevice(foundDevice);
+                setDocumentsList(foundDevice.documents || []);
+              }
+            }
+          }
         }
 
         // 2. Fetch history and renewals in parallel using targetImei
@@ -643,23 +666,6 @@ State: ${latestRequest?.userId?.state || device.dealerId?.state || '—'}`;
             {role === 'ADMIN' && (
               <div className="upload-controls-box">
                 <div className="upload-fields-row">
-                  <div className="upload-field-group">
-                    <label>Document Type</label>
-                    <select 
-                      value={selectedDocType} 
-                      onChange={(e) => setSelectedDocType(e.target.value)}
-                      className="doc-type-select"
-                    >
-                      <option value="Vehicle Image">Vehicle Image</option>
-                      <option value="RC">RC</option>
-                      <option value="Insurance">Insurance</option>
-                      <option value="Activation Paper">Activation Paper</option>
-                      <option value="Customer ID">Customer ID</option>
-                      <option value="Invoice">Invoice</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                  
                   <div className="upload-button-wrapper">
                     <input 
                       type="file" 
@@ -670,7 +676,7 @@ State: ${latestRequest?.userId?.state || device.dealerId?.state || '—'}`;
                       accept=".jpg,.jpeg,.png,.pdf"
                     />
                     <label htmlFor="doc-files-upload" className="btn-upload-label">
-                      Choose & Upload File(s)
+                      Upload Fitment Letter
                     </label>
                   </div>
                 </div>
@@ -686,7 +692,7 @@ State: ${latestRequest?.userId?.state || device.dealerId?.state || '—'}`;
                 )}
                 {uploadStatus === 'success' && (
                   <div className="upload-status-alert success-alert">
-                    Success: Document(s) uploaded successfully!
+                    Success: Fitment Letter uploaded successfully!
                   </div>
                 )}
                 {uploadStatus === 'failed' && (
@@ -856,7 +862,7 @@ State: ${latestRequest?.userId?.state || device.dealerId?.state || '—'}`;
         </div>
       ) : (
         <div className="search-prompt-msg">
-          Please enter an IMEI, ICCID or Serial number in the top search bar to view device details.
+          Please enter an IMEI, ICCID, Serial Number or Vehicle No in the top search bar to view device details.
         </div>
       )}
     </div>

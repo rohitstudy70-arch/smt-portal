@@ -64,6 +64,26 @@ const buildDeviceDueQuery = (user) => {
   return null;
 };
 
+// Query for ALL devices (no status filter) — used for totalBillAmount / totalDevicesAssigned
+const buildAllDeviceQuery = (user) => {
+  const role = getPortalRole(user);
+
+  if (role === PORTAL_ROLES.SUB_DEALER) {
+    return { _id: null };
+  }
+
+  if (role === PORTAL_ROLES.DEALER) {
+    return {
+      $or: [
+        { dealerId: user._id },
+        { userId: user._id, dealerId: null },
+      ],
+    };
+  }
+
+  return null;
+};
+
 const syncDueForUser = async (userId) => {
   const user = await User.findById(userId).select('-password');
   if (!user) return null;
@@ -75,14 +95,26 @@ const syncDueForUser = async (userId) => {
 
   const thirtyDaysAgo = new Date(Date.now() - 30 * DAY_MS);
 
+  // --- 1. ALL devices query: totalBillAmount (Purchase Revenue) + totalDevicesAssigned ---
+  const allDeviceQuery = buildAllDeviceQuery(user);
+  const [allDeviceSummary] = await Device.aggregate([
+    { $match: allDeviceQuery },
+    {
+      $group: {
+        _id: null,
+        totalDevicesAssigned: { $sum: 1 },
+        totalBillAmount: { $sum: { $ifNull: ['$billAmount', 0] } },
+      },
+    },
+  ]);
+
+  // --- 2. DUE devices query: only non-Activated devices for due calculation ---
   const dueQuery = buildDeviceDueQuery(user);
   const [deviceSummary] = await Device.aggregate([
     { $match: dueQuery },
     {
       $group: {
         _id: null,
-        totalDevicesAssigned: { $sum: 1 },
-        totalBillAmount: { $sum: { $ifNull: ['$billAmount', 0] } },
         dueBillAmount: {
           $sum: {
             $cond: [
@@ -125,8 +157,8 @@ const syncDueForUser = async (userId) => {
     },
   ]);
 
-  const totalDevicesAssigned = deviceSummary?.totalDevicesAssigned || 0;
-  const totalBillAmount = deviceSummary?.totalBillAmount || 0;
+  const totalDevicesAssigned = allDeviceSummary?.totalDevicesAssigned || 0;
+  const totalBillAmount = allDeviceSummary?.totalBillAmount || 0;
   const dueBillAmount = deviceSummary?.dueBillAmount || 0;
   const totalPaidAmount = paymentSummary?.totalPaidAmount || 0;
 
@@ -200,6 +232,7 @@ const syncDueForScope = async (scope, currentUser) => {
 };
 
 module.exports = {
+  buildAllDeviceQuery,
   buildDeviceDueQuery,
   getDueOwnerIdsFromDevice,
   getDueUsersForScope,

@@ -50,6 +50,7 @@ const {
   requireRoles,
 } = require('../middleware/hierarchy');
 const {
+  buildAllDeviceQuery,
   buildDeviceDueQuery,
   getDueUsersForScope,
   syncDueForScope,
@@ -1191,9 +1192,10 @@ router.get('/dealers/:userId', async (req, res) => {
     if (!user) return res.status(404).json({ message: 'Due account not found or access denied.' });
 
     const due = await syncDueForUser(user._id);
-    const deviceQuery = buildDeviceDueQuery(user);
+    // Show ALL devices in detail view (Activated + non-Activated)
+    const allDeviceQuery = buildAllDeviceQuery(user);
     const [devices, payments] = await Promise.all([
-      Device.find(deviceQuery)
+      Device.find(allDeviceQuery)
         .populate('assignedTo', 'displayName companyName username userType')
         .sort({ presentDate: -1, createdAt: -1 }),
       DuePayment.find({ userId: user._id })

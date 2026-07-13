@@ -163,7 +163,7 @@ const Header = ({ toggleSidebar }) => {
           <form className="search-box" onSubmit={handleGlobalSearchSubmit}>
             <input 
               type="text" 
-              placeholder="Customer / IMEI / ICCID / Serial No" 
+              placeholder="Customer / IMEI / ICCID / Serial No / Vehicle No" 
               value={globalSearch}
               onChange={(e) => setGlobalSearch(e.target.value)}
             />
