@@ -893,8 +893,8 @@ router.get('/summary', async (req, res) => {
       const deviceTotalPaidAmount = dueRecord ? dueRecord.totalPaidAmount || 0 : 0;
 
       const totalBillAmount = deviceTotalBillAmount + totalRenewalDues;
-      const totalPaidAmount = deviceTotalPaidAmount + totalRenewalPaid;
-      const remainingDues = Math.max(totalBillAmount - totalPaidAmount, 0);
+      const totalPaidAmount = deviceTotalPaidAmount;
+      const remainingDues = Math.max(deviceTotalBillAmount - deviceTotalPaidAmount, 0);
 
       return res.json({
         totalOutstandingAmount: remainingDues, // Backward compatibility
@@ -1083,9 +1083,9 @@ router.get('/dealers', async (req, res) => {
       dObj.totalPurchaseRevenue = deviceTotalBillAmount;
       dObj.totalRenewalRevenue = rSummary.totalBill;
       dObj.totalBillAmount = deviceTotalBillAmount + rSummary.totalBill;
-      dObj.totalPaidAmount = deviceTotalPaidAmount + rSummary.totalPaid;
-      dObj.totalOutstanding = Math.max(dObj.totalBillAmount - dObj.totalPaidAmount, 0);
-      dObj.currentDue = Math.max(dObj.totalBillAmount - dObj.totalPaidAmount, 0);
+      dObj.totalPaidAmount = deviceTotalPaidAmount;
+      dObj.totalOutstanding = Math.max(deviceTotalBillAmount - deviceTotalPaidAmount, 0);
+      dObj.currentDue = Math.max(deviceTotalBillAmount - deviceTotalPaidAmount, 0);
 
       return dObj;
     });
@@ -1153,9 +1153,9 @@ router.get('/dealers/:userId', async (req, res) => {
       dueObj.totalPurchaseRevenue = deviceTotalBillAmount;
       dueObj.totalRenewalRevenue = totalRenewalBill;
       dueObj.totalBillAmount = deviceTotalBillAmount + totalRenewalBill;
-      dueObj.totalPaidAmount = deviceTotalPaidAmount + totalRenewalPaid;
-      dueObj.totalOutstanding = Math.max(dueObj.totalBillAmount - dueObj.totalPaidAmount, 0);
-      dueObj.currentDue = Math.max(dueObj.totalBillAmount - dueObj.totalPaidAmount, 0);
+      dueObj.totalPaidAmount = deviceTotalPaidAmount;
+      dueObj.totalOutstanding = Math.max(deviceTotalBillAmount - deviceTotalPaidAmount, 0);
+      dueObj.currentDue = Math.max(deviceTotalBillAmount - deviceTotalPaidAmount, 0);
     }
 
     res.json({ user, due: dueObj, devices, payments });
@@ -1210,21 +1210,7 @@ router.post('/dealers/:userId/payments', requireRoles(PORTAL_ROLES.ADMIN), uploa
       return res.status(400).json({ message: 'Due account not found.' });
     }
 
-    const renewals = await RenewalRequest.find({
-      dealerId: user._id,
-      status: { $ne: 'Rejected' },
-      paymentStatus: { $ne: 'Cancelled' },
-    }).lean();
-
-    let totalRenewalDues = 0;
-    renewals.forEach((r) => {
-      const remaining = Number(r.remainingDue) || 0;
-      if (remaining > 0) {
-        totalRenewalDues += remaining;
-      }
-    });
-
-    const totalOutstandingLimit = (due.totalOutstanding || 0) + totalRenewalDues;
+    const totalOutstandingLimit = due.totalOutstanding || 0;
 
     if (totalOutstandingLimit <= 0) {
       return res.status(400).json({ message: 'This account has no pending outstanding balance.' });
@@ -1242,40 +1228,7 @@ router.post('/dealers/:userId/payments', requireRoles(PORTAL_ROLES.ADMIN), uploa
       return res.status(400).json({ message: 'UPI screenshot receipt is required.' });
     }
 
-    const unpaidRenewals = await RenewalRequest.find({
-      dealerId: user._id,
-      status: { $ne: 'Rejected' },
-      paymentStatus: { $ne: 'Paid' },
-    }).sort({ renewalDate: 1 });
-
-    let remainingAmount = amount;
-    for (const renewal of unpaidRenewals) {
-      if (remainingAmount <= 0) break;
-
-      const billAmt = Number(renewal.billAmount) || 0;
-      const currentReceived = Number(renewal.receivedAmount) || 0;
-      const currentRemaining = Math.max(billAmt - currentReceived, 0);
-
-      if (currentRemaining <= 0) continue;
-
-      const appliedAmount = Math.min(remainingAmount, currentRemaining);
-
-      renewal.receivedAmount = currentReceived + appliedAmount;
-      if (renewal.receivedAmount >= billAmt) {
-        renewal.paymentStatus = 'Paid';
-        renewal.status = 'Approved';
-      } else {
-        renewal.paymentStatus = 'Partially Paid';
-      }
-      renewal.paymentDate = paymentDate;
-      renewal.transactionId = referenceNumber;
-      renewal.remarks = (renewal.remarks ? `${renewal.remarks} | ` : '') + (remarks ? `Manual payment: ${remarks}` : `Manual payment Ref: ${referenceNumber}`);
-
-      await renewal.save();
-      remainingAmount -= appliedAmount;
-    }
-
-    const renewalAmountApplied = amount - remainingAmount;
+    const renewalAmountApplied = 0;
 
     const payment = await DuePayment.create({
       dealerDueId: due._id,

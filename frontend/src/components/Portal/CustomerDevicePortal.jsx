@@ -347,6 +347,19 @@ const CustomerDevicePortal = () => {
     const query = search.trim().toLowerCase();
     let result = devices;
 
+    if (query === 'expired') {
+      const now = new Date();
+      result = result.filter((device) => device.expiryDate && new Date(device.expiryDate) < now);
+    } else if (query === 'active') {
+      result = result.filter((device) => ['Active', 'Activated'].includes(device.status));
+    } else if (query === 'inactive') {
+      result = result.filter((device) => device.status === 'Inactive');
+    } else if (query === 'assigned') {
+      result = result.filter((device) => device.assignedTo !== null);
+    } else if (query === 'available') {
+      result = result.filter((device) => device.assignedTo === null);
+    }
+
     if (selectedDealerFilter) {
       result = result.filter((device) => {
         const dealerId = device.dealerId?._id || device.dealerId;
@@ -372,7 +385,7 @@ const CustomerDevicePortal = () => {
       });
     }
 
-    if (!query) return result;
+    if (!query || ['expired', 'active', 'inactive', 'assigned', 'available'].includes(query)) return result;
     return result.filter((device) => (
       device.imei?.toLowerCase().includes(query)
       || device.iccid?.toLowerCase().includes(query)
@@ -443,8 +456,8 @@ const CustomerDevicePortal = () => {
 
   const paginatedDashboardDevices = useMemo(() => {
     const start = (assignedDevicesPage - 1) * 100;
-    return devices.slice(start, start + 100);
-  }, [devices, assignedDevicesPage]);
+    return filteredDevices.slice(start, start + 100);
+  }, [filteredDevices, assignedDevicesPage]);
 
   const paginatedAssignments = useMemo(() => {
     const start = (deviceHistoryPage - 1) * 100;
@@ -1170,7 +1183,7 @@ const CustomerDevicePortal = () => {
         openView('devices', 'active');
         break;
       case 'expiredDevices':
-        openView('devices', 'inactive');
+        openView('devices', 'expired');
         break;
       case 'devicesAddedToday':
         openView('devices');
@@ -1181,10 +1194,10 @@ const CustomerDevicePortal = () => {
         openView('renewals');
         break;
       case 'assignedDevices':
-        openView('devices');
+        openView('devices', 'assigned');
         break;
       case 'availableDevices':
-        openView('devices');
+        openView('devices', 'available');
         break;
       case 'totalProducts':
         navigate('/add-product');
@@ -1208,7 +1221,23 @@ const CustomerDevicePortal = () => {
           const item = statCatalog[key];
           const Icon = item.icon;
           const isCurrency = ['totalDues', 'totalRenewalDues'].includes(key);
-          const rawValue = summary?.[key] ?? 0;
+          let rawValue = summary?.[key] ?? 0;
+          if (portalDateMode !== 'all') {
+            if (key === 'totalDevices') {
+              rawValue = filteredDevices.length;
+            } else if (key === 'activeDevices') {
+              rawValue = filteredDevices.filter(d => ['Active', 'Activated'].includes(d.status)).length;
+            } else if (key === 'expiredDevices') {
+              const now = new Date();
+              rawValue = filteredDevices.filter(d => d.expiryDate && new Date(d.expiryDate) < now).length;
+            } else if (key === 'assignedDevices') {
+              rawValue = filteredDevices.filter(d => d.assignedTo !== null).length;
+            } else if (key === 'availableDevices') {
+              rawValue = filteredDevices.filter(d => d.assignedTo === null).length;
+            } else if (key === 'devicesAddedToday') {
+              rawValue = filteredDevices.length;
+            }
+          }
           const displayValue = isCurrency 
             ? `₹${Number(rawValue).toLocaleString('en-IN')}` 
             : rawValue;
@@ -1235,6 +1264,77 @@ const CustomerDevicePortal = () => {
     const isOps = ['ADMIN', 'DEALER', 'SUB_DEALER'].includes(role);
     return (
       <div className="portal-stack" key="view-dashboard">
+        <div style={{
+          background: '#ffffff',
+          borderRadius: '8px',
+          padding: '12px 20px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px',
+          marginBottom: '15px'
+        }}>
+          <div>
+            <h1 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: 0 }}>Dashboard Overview</h1>
+            <span style={{ fontSize: '12px', color: '#64748b' }}>Filter dashboard data by date range</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <select 
+              value={portalDateMode} 
+              onChange={(e) => handlePortalDateModeChange(e.target.value)}
+              style={{
+                padding: '8px 12px',
+                fontSize: '13px',
+                fontWeight: '600',
+                border: '1px solid #cbd5e1',
+                borderRadius: '6px',
+                outline: 'none',
+                cursor: 'pointer',
+                background: '#ffffff',
+                color: '#334155'
+              }}
+            >
+              <option value="all">All Time</option>
+              <option value="today">Today</option>
+              <option value="yesterday">Yesterday</option>
+              <option value="custom">Custom Range</option>
+            </select>
+            {portalDateMode === 'custom' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input 
+                  type="date" 
+                  value={portalFromDate} 
+                  onChange={(e) => setPortalFromDate(e.target.value)}
+                  style={{
+                    padding: '6px 10px',
+                    fontSize: '13px',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '6px',
+                    outline: 'none',
+                    color: '#334155'
+                  }}
+                />
+                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>to</span>
+                <input 
+                  type="date" 
+                  value={portalToDate} 
+                  onChange={(e) => setPortalToDate(e.target.value)}
+                  style={{
+                    padding: '6px 10px',
+                    fontSize: '13px',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '6px',
+                    outline: 'none',
+                    color: '#334155'
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
         {renderStats()}
 
         {isAdmin ? (
@@ -1371,92 +1471,6 @@ const CustomerDevicePortal = () => {
               </div>
             )}
 
-            {renewalDueSummary && (
-              <div className="portal-panel" style={{ marginTop: '20px' }} key="renewal-due-summary-panel">
-                <div className="portal-panel-header" style={{ borderTop: '4px solid #8b5cf6' }}>
-                  <div>
-                    <h2>Renewal Due Overview</h2>
-                    <span>Outstanding renewal dues and collection records</span>
-                  </div>
-                  <FaFileInvoiceDollar className="portal-panel-icon" style={{ color: '#8b5cf6' }} />
-                </div>
-                <div style={{ padding: '16px' }}>
-                  <div className="portal-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '15px' }}>
-                    <div 
-                      className="portal-stat stat-red" 
-                      onClick={() => openView('renewals')} 
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <div>
-                        <span className="portal-stat-value">₹{(renewalDueSummary.totalDue || 0).toLocaleString()}</span>
-                        <span className="portal-stat-label">Total Renewal Due</span>
-                      </div>
-                      <FaRupeeSign className="portal-stat-icon" />
-                    </div>
-
-                    <div 
-                      className="portal-stat stat-blue" 
-                      onClick={() => openView('renewals')} 
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <div>
-                        <span className="portal-stat-value">{(renewalDueSummary.pendingRequestsCount || 0)}</span>
-                        <span className="portal-stat-label">Pending Renewal Requests</span>
-                      </div>
-                      <FaFileInvoiceDollar className="portal-stat-icon" />
-                    </div>
-
-                    <div 
-                      className="portal-stat stat-green" 
-                      onClick={() => openView('renewals')} 
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <div>
-                        <span className="portal-stat-value">{(renewalDueSummary.paidRequestsCount || 0)}</span>
-                        <span className="portal-stat-label">Paid Renewal Requests</span>
-                      </div>
-                      <FaFileInvoiceDollar className="portal-stat-icon" />
-                    </div>
-
-                    <div 
-                      className="portal-stat stat-violet" 
-                      onClick={() => openView('renewals')} 
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <div>
-                        <span className="portal-stat-value">{(renewalDueSummary.overdueRequestsCount || 0)}</span>
-                        <span className="portal-stat-label">Overdue Requests</span>
-                      </div>
-                      <FaFileInvoiceDollar className="portal-stat-icon" />
-                    </div>
-
-                    <div 
-                      className="portal-stat stat-amber" 
-                      onClick={() => openView('renewals')} 
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <div>
-                        <span className="portal-stat-value">₹{(renewalDueSummary.pendingDue || 0).toLocaleString()}</span>
-                        <span className="portal-stat-label">Pending Renewal Amount</span>
-                      </div>
-                      <FaRupeeSign className="portal-stat-icon" />
-                    </div>
-
-                    <div 
-                      className="portal-stat stat-green" 
-                      onClick={() => openView('renewals')} 
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <div>
-                        <span className="portal-stat-value">₹{(renewalDueSummary.paidAmount || 0).toLocaleString()}</span>
-                        <span className="portal-stat-label">Paid Renewal Amount</span>
-                      </div>
-                      <FaRupeeSign className="portal-stat-icon" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </>
         ) : (
           isOps && dueSummary ? (
@@ -2901,20 +2915,6 @@ const CustomerDevicePortal = () => {
                   {userRole === 'ADMIN' && <td>{renewal.productDescription}</td>}
                   <td>{renewal.validity}</td>
                   {userRole !== 'SUB_DEALER' && <td className="strong">₹{(renewal.billAmount || 0).toLocaleString()}</td>}
-                  <td>
-                    <span style={{
-                      display: 'inline-block',
-                      padding: '4px 8px',
-                      borderRadius: '4px',
-                      fontSize: '11px',
-                      fontWeight: '700',
-                      textTransform: 'uppercase',
-                      background: renewal.status === 'Completed' || renewal.status === 'Activated' || renewal.status === 'Approved' ? '#d1fae5' : renewal.status === 'Rejected' || renewal.status === 'Cancelled' ? '#f3f4f6' : '#fee2e2',
-                      color: renewal.status === 'Completed' || renewal.status === 'Activated' || renewal.status === 'Approved' ? '#065f46' : renewal.status === 'Rejected' || renewal.status === 'Cancelled' ? '#4b5563' : '#991b1b',
-                    }}>
-                      {renewal.status}
-                    </span>
-                  </td>
                   <td>
                     {userRole === 'ADMIN' && renewal.status !== 'Activated' && renewal.status !== 'Completed' ? (
                       <select 
