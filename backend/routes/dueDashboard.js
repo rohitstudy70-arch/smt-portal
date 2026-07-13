@@ -125,6 +125,14 @@ const ensureDueUserAccess = async (req, targetUserId) => {
 
 const paymentMatchForScope = (userIds, query = {}) => {
   const match = { userId: { $in: userIds } };
+
+  const selectedUserId = query.userId || query.dealerId;
+  if (selectedUserId) {
+    const isAllowed = userIds.map(id => id.toString()).includes(selectedUserId.toString());
+    if (isAllowed) {
+      match.userId = selectedUserId;
+    }
+  }
   const fromDate = toDateOrNull(query.fromDate);
   const toDate = toDateOrNull(query.toDate);
 

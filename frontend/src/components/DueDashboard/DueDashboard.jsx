@@ -107,7 +107,10 @@ const DueDashboard = () => {
     fromDate: '',
     toDate: '',
     paymentMode: '',
+    userId: '',
   });
+
+  const [allDealers, setAllDealers] = useState([]);
 
   // Dealer Report Payment States
   const [reportPaymentModalOpen, setReportPaymentModalOpen] = useState(false);
@@ -366,6 +369,17 @@ const DueDashboard = () => {
       }
     }
   }, [activeTab, fetchSummary, fetchDues, fetchRenewals, fetchSelfDetails, fetchVerificationRequests, fetchAdminVerificationRequests, fetchAdminPayments, isListView, isAdmin]);
+
+  // Fetch all dealers for export dropdown
+  useEffect(() => {
+    if (activeTab === 'exports' && isAdmin) {
+      api.get('/due-dashboard/dealers', { params: { limit: 1000 } })
+        .then(res => {
+          setAllDealers(res.data?.dues || []);
+        })
+        .catch(err => console.error('Error fetching all dealers for export:', err));
+    }
+  }, [activeTab, isAdmin]);
 
   // Open Tab handler
   const handleTabChange = (tabName) => {
@@ -1532,6 +1546,20 @@ const DueDashboard = () => {
                       <option value="Cash">Cash</option>
                       <option value="UPI">UPI</option>
                       <option value="Bank Transfer">Bank Transfer</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>Dealer</span>
+                    <select
+                      value={exportFilters.userId || ''}
+                      onChange={(e) => setExportFilters(prev => ({ ...prev, userId: e.target.value }))}
+                    >
+                      <option value="">All Dealers</option>
+                      {allDealers.map((d) => (
+                        <option key={d.userId?._id} value={d.userId?._id}>
+                          {d.dealerName} ({d.dealerCode || 'N/A'})
+                        </option>
+                      ))}
                     </select>
                   </label>
                 </div>
