@@ -793,7 +793,7 @@ const sendPdf = (res, filename, title, headersOrSections, rows, totalsColumns) =
 
     // Draw header banner
     doc.rect(30, 15, 780, 20).fill('#1F4E78');
-    doc.font('Helvetica-Bold').fontSize(9).fillColor('#FFFFFF').text('SMT CUSTOMER PORTAL - SYSTEM REPORTS', 38, 21);
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('#FFFFFF').text('CDB COUSTOMER PORTAL - SYSTEM REPORT', 38, 21);
     doc.font('Helvetica').fontSize(9).fillColor('#FFFFFF').text(title.toUpperCase(), 30, 21, { align: 'right', width: 772 });
 
     // Draw footer page info
