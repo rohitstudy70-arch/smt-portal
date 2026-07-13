@@ -1020,7 +1020,14 @@ router.put('/payments/:paymentId', requireRoles(PORTAL_ROLES.ADMIN), async (req,
     const originalAmount = payment.amount;
 
     if (paymentDate) {
-      payment.paymentDate = new Date(paymentDate);
+      const parsedDate = new Date(paymentDate);
+      const today = new Date();
+      const checkDate = new Date(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate());
+      const checkToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      if (checkDate > checkToday) {
+        return res.status(400).json({ message: 'Payment date cannot be in the future.' });
+      }
+      payment.paymentDate = parsedDate;
     }
     if (amount !== undefined) {
       const numAmount = Number(amount);
@@ -1256,6 +1263,12 @@ router.post('/dealers/:userId/payments', requireRoles(PORTAL_ROLES.ADMIN), uploa
     const amount = Number(req.body.amount);
     const paymentMode = String(req.body.paymentMode || '').trim();
     const paymentDate = toDateOrNull(req.body.paymentDate) || new Date();
+    const checkDate = new Date(paymentDate.getFullYear(), paymentDate.getMonth(), paymentDate.getDate());
+    const today = new Date();
+    const checkToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    if (checkDate > checkToday) {
+      return res.status(400).json({ message: 'Payment date cannot be in the future.' });
+    }
     const remarks = String(req.body.remarks || '').trim();
     const referenceNumber = String(req.body.referenceNumber || `DUE-${Date.now()}`).trim();
 

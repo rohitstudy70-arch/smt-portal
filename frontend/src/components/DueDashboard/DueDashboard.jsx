@@ -435,7 +435,7 @@ const DueDashboard = () => {
   const openEditPaymentModal = (p) => {
     setSelectedPayment(p);
     setEditPaymentForm({
-      paymentDate: p.paymentDate ? new Date(p.paymentDate).toISOString().split('T')[0] : '',
+      paymentDate: p.paymentDate ? getLocalDatetimeString(p.paymentDate).split('T')[0] : '',
       amount: p.amount || '',
       paymentMode: p.paymentMode || 'Cash',
       referenceNumber: p.referenceNumber || '',
@@ -1870,6 +1870,7 @@ const DueDashboard = () => {
                     <input
                       type="date"
                       required
+                      max={getLocalDatetimeString().split('T')[0]}
                       value={editPaymentForm.paymentDate}
                       onChange={(e) => setEditPaymentForm(prev => ({ ...prev, paymentDate: e.target.value }))}
                     />
