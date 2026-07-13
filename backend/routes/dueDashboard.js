@@ -240,15 +240,7 @@ const buildRenewalRows = async (req, { paginate = true } = {}) => {
     if (year && month) {
       const start = new Date(year, month - 1, 1);
       const end = endOfMonth(start);
-      
-      const now = new Date();
-      const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-      
-      if (end <= currentMonthEnd) {
-        andConditions.push({ expiryDate: { $lte: end, $ne: null } });
-      } else {
-        andConditions.push({ expiryDate: { $gte: start, $lte: end } });
-      }
+      andConditions.push({ expiryDate: { $gte: start, $lte: end } });
     }
   }
 
