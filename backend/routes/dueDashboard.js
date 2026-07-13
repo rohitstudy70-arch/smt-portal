@@ -1003,6 +1003,74 @@ router.get('/payments', async (req, res) => {
   }
 });
 
+// @route   PUT /api/due-dashboard/payments/:paymentId
+// @desc    Edit a payment record
+// @access  Protected (Admin only)
+router.put('/payments/:paymentId', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+    const { paymentDate, amount, paymentMode, referenceNumber, remarks } = req.body;
+
+    const payment = await DuePayment.findById(paymentId);
+    if (!payment) {
+      return res.status(404).json({ message: 'Payment record not found.' });
+    }
+
+    const originalDate = payment.paymentDate;
+    const originalAmount = payment.amount;
+
+    if (paymentDate) {
+      payment.paymentDate = new Date(paymentDate);
+    }
+    if (amount !== undefined) {
+      const numAmount = Number(amount);
+      if (Number.isNaN(numAmount) || numAmount <= 0) {
+        return res.status(400).json({ message: 'Valid payment amount is required.' });
+      }
+      payment.amount = numAmount;
+    }
+    if (paymentMode) {
+      if (!['Cash', 'UPI', 'Bank Transfer'].includes(paymentMode)) {
+        return res.status(400).json({ message: 'Valid payment mode is required.' });
+      }
+      payment.paymentMode = paymentMode;
+    }
+    if (referenceNumber !== undefined) {
+      payment.referenceNumber = String(referenceNumber || '').trim();
+    }
+    if (remarks !== undefined) {
+      payment.remarks = String(remarks || '').trim();
+    }
+
+    payment.updatedBy = req.user._id;
+    await payment.save();
+
+    // Recalculate dues for this dealer/user
+    const updatedDue = await syncDueForUser(payment.userId);
+
+    // Audit Log
+    await AuditLog.create({
+      userId: req.user._id,
+      action: 'DUE_PAYMENT_EDITED',
+      ipAddress: req.ip || '',
+      details: {
+        paymentId,
+        userId: payment.userId,
+        originalDate,
+        newDate: payment.paymentDate,
+        originalAmount,
+        newAmount: payment.amount,
+        referenceNumber: payment.referenceNumber
+      }
+    }).catch((error) => console.error('Failed to log due payment edit audit event:', error.message));
+
+    res.json({ message: 'Payment record updated successfully.', payment, due: updatedDue });
+  } catch (error) {
+    console.error('Edit payment error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 router.get('/dealers', async (req, res) => {
   try {
     const userIds = await getScopedDueUserIds(req);

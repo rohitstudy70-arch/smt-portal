@@ -86,6 +86,17 @@ const DueDashboard = () => {
   });
   const [submittingPayment, setSubmittingPayment] = useState(false);
 
+  // Edit Payment Modal State
+  const [editPaymentModalOpen, setEditPaymentModalOpen] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState(null);
+  const [editPaymentForm, setEditPaymentForm] = useState({
+    paymentDate: '',
+    amount: '',
+    paymentMode: 'Cash',
+    referenceNumber: '',
+    remarks: '',
+  });
+
   // Dealer Details View Modal
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [detailsData, setDetailsData] = useState(null);
@@ -418,6 +429,38 @@ const DueDashboard = () => {
       alert(err.response?.data?.message || 'Error occurred while recording payment.');
     } finally {
       setSubmittingPayment(false);
+    }
+  };
+
+  const openEditPaymentModal = (p) => {
+    setSelectedPayment(p);
+    setEditPaymentForm({
+      paymentDate: p.paymentDate ? new Date(p.paymentDate).toISOString().split('T')[0] : '',
+      amount: p.amount || '',
+      paymentMode: p.paymentMode || 'Cash',
+      referenceNumber: p.referenceNumber || '',
+      remarks: p.remarks || '',
+    });
+    setEditPaymentModalOpen(true);
+  };
+
+  const handleEditPaymentSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      await api.put(`/due-dashboard/payments/${selectedPayment._id}`, editPaymentForm);
+      alert('Payment record updated successfully!');
+      setEditPaymentModalOpen(false);
+      
+      // Refresh views
+      fetchSummary();
+      fetchDues();
+      fetchAdminPayments();
+    } catch (err) {
+      console.error('Error updating payment:', err);
+      alert(err.response?.data?.message || 'Failed to update payment record.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1720,6 +1763,7 @@ const DueDashboard = () => {
                         <th>Reference No</th>
                         <th>Remarks</th>
                         <th>Recorded By</th>
+                        {isAdmin && <th style={{ textAlign: 'center' }}>Actions</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -1747,11 +1791,23 @@ const DueDashboard = () => {
                           </td>
                           <td>{p.remarks || '—'}</td>
                           <td>{p.updatedBy?.displayName || p.updatedBy?.username || '—'}</td>
+                          {isAdmin && (
+                            <td style={{ textAlign: 'center' }}>
+                              <button
+                                type="button"
+                                className="due-action-btn primary"
+                                style={{ padding: '4px 10px', fontSize: '11px' }}
+                                onClick={() => openEditPaymentModal(p)}
+                              >
+                                Edit
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       ))}
                       {getFilteredCollections().length === 0 && (
                         <tr>
-                          <td colSpan={8} className="table-empty">No payment collections found matching the filter criteria.</td>
+                          <td colSpan={isAdmin ? 9 : 8} className="table-empty">No payment collections found matching the filter criteria.</td>
                         </tr>
                       )}
                     </tbody>
@@ -1762,6 +1818,95 @@ const DueDashboard = () => {
           </div>
         )}
       </div>
+
+      {/* POPUP MODAL: EDIT PAYMENT */}
+      {editPaymentModalOpen && selectedPayment && (
+        <div className="due-modal-backdrop">
+          <div className="due-modal">
+            <div className="due-modal-header">
+              <h4>Edit Payment Record</h4>
+              <button className="due-close-btn" onClick={() => setEditPaymentModalOpen(false)}>
+                <FaTimes />
+              </button>
+            </div>
+            <form onSubmit={handleEditPaymentSubmit}>
+              <div className="due-modal-body">
+                <div className="form-group">
+                  <label>Dealer Name</label>
+                  <input 
+                    type="text" 
+                    value={selectedPayment.userId?.displayName || selectedPayment.userId?.username || '—'} 
+                    readOnly 
+                    className="readonly-input" 
+                  />
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Amount (₹)</label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      placeholder="Enter amount..."
+                      value={editPaymentForm.amount}
+                      onChange={(e) => setEditPaymentForm(prev => ({ ...prev, amount: e.target.value }))}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Payment Mode</label>
+                    <select
+                      value={editPaymentForm.paymentMode}
+                      onChange={(e) => setEditPaymentForm(prev => ({ ...prev, paymentMode: e.target.value }))}
+                    >
+                      <option value="Cash">Cash</option>
+                      <option value="UPI">UPI</option>
+                      <option value="Bank Transfer">Bank Transfer</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Payment Date</label>
+                    <input
+                      type="date"
+                      required
+                      value={editPaymentForm.paymentDate}
+                      onChange={(e) => setEditPaymentForm(prev => ({ ...prev, paymentDate: e.target.value }))}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Reference / UTR No</label>
+                    <input
+                      type="text"
+                      placeholder="Enter UTR/Reference No..."
+                      value={editPaymentForm.referenceNumber}
+                      onChange={(e) => setEditPaymentForm(prev => ({ ...prev, referenceNumber: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>Remarks</label>
+                  <textarea
+                    placeholder="Enter remarks..."
+                    value={editPaymentForm.remarks}
+                    onChange={(e) => setEditPaymentForm(prev => ({ ...prev, remarks: e.target.value }))}
+                    rows="2"
+                    style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '13px', outline: 'none' }}
+                  />
+                </div>
+              </div>
+              <div className="due-modal-footer">
+                <button type="button" className="due-action-btn secondary" onClick={() => setEditPaymentModalOpen(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="due-action-btn primary" disabled={loading}>
+                  {loading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* POPUP MODAL: RECEIVE PAYMENT */}
       {paymentModalOpen && selectedDealerDue && (
