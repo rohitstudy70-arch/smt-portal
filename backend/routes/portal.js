@@ -1961,7 +1961,7 @@ router.get('/dealer-dashboard-summary', protect, async (req, res) => {
 
     const totalBillAmount = deviceTotalBillAmount + totalRenewalDues;
     const totalPaidAmount = deviceTotalPaidAmount;
-    const remainingDues = Math.max(deviceTotalBillAmount - deviceTotalPaidAmount, 0);
+    const remainingDues = Math.max(totalBillAmount - totalPaidAmount, 0);
 
     const todaysDeviceRevenue = ['DEALER', 'SUB_DEALER'].includes(role)
       ? await DuePayment.aggregate([
