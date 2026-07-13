@@ -35,12 +35,9 @@ const getAccountType = (user) => (
   getPortalRole(user) === PORTAL_ROLES.SUB_DEALER ? 'Sub Dealer' : 'Dealer'
 );
 
-const getStatus = ({ totalOutstanding, currentDue, totalPaidAmount }) => {
+const getStatus = ({ totalOutstanding, totalPaidAmount }) => {
   if (totalOutstanding <= 0) return 'Clear';
-  if (currentDue > 0) {
-    return totalPaidAmount > 0 ? 'Partial' : 'Overdue';
-  }
-  return 'Clear';
+  return totalPaidAmount > 0 ? 'Partial' : 'Dues';
 };
 
 const buildDeviceDueQuery = (user) => {
@@ -147,7 +144,7 @@ const syncDueForUser = async (userId) => {
   dueRecord.currentDue = currentDue;
   dueRecord.lastPaymentDate = paymentSummary?.lastPaymentDate || null;
   dueRecord.oldestPendingDate = oldestPendingDate;
-  dueRecord.status = getStatus({ totalOutstanding, currentDue, totalPaidAmount });
+  dueRecord.status = getStatus({ totalOutstanding, totalPaidAmount });
   dueRecord.lastSyncedAt = new Date();
 
   await dueRecord.save();

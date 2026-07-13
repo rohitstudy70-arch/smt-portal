@@ -1086,6 +1086,12 @@ router.get('/dealers', async (req, res) => {
       dObj.totalPaidAmount = deviceTotalPaidAmount;
       dObj.totalOutstanding = Math.max(dObj.totalBillAmount - dObj.totalPaidAmount, 0);
       dObj.currentDue = Math.max(dObj.totalBillAmount - dObj.totalPaidAmount, 0);
+      
+      if (dObj.totalOutstanding <= 0) {
+        dObj.status = 'Clear';
+      } else {
+        dObj.status = dObj.totalPaidAmount > 0 ? 'Partial' : 'Dues';
+      }
 
       return dObj;
     });
@@ -1156,6 +1162,12 @@ router.get('/dealers/:userId', async (req, res) => {
       dueObj.totalPaidAmount = deviceTotalPaidAmount;
       dueObj.totalOutstanding = Math.max(dueObj.totalBillAmount - dueObj.totalPaidAmount, 0);
       dueObj.currentDue = Math.max(dueObj.totalBillAmount - dueObj.totalPaidAmount, 0);
+
+      if (dueObj.totalOutstanding <= 0) {
+        dueObj.status = 'Clear';
+      } else {
+        dueObj.status = dueObj.totalPaidAmount > 0 ? 'Partial' : 'Dues';
+      }
     }
 
     res.json({ user, due: dueObj, devices, payments });
