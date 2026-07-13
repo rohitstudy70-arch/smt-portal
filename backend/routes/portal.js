@@ -370,6 +370,23 @@ router.get('/summary', protect, async (req, res) => {
       dashboardRenewalDueDevices = renewalDueDeviceImeis.length;
       totalDues = Number(dueRecord?.totalBillAmount) || 0;
       totalRenewalDues = Number(renewalDueSummary[0]?.total) || 0;
+    } else {
+      const adminRenewalDueSummary = await RenewalRequest.aggregate([
+        {
+          $match: {
+            ...requestScopeQuery,
+            status: { $ne: 'Rejected' },
+            paymentStatus: { $ne: 'Cancelled' },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: { $ifNull: ['$billAmount', 0] } },
+          },
+        },
+      ]);
+      totalRenewalDues = Number(adminRenewalDueSummary[0]?.total) || 0;
     }
 
     res.json({

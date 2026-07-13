@@ -105,6 +105,7 @@ const statCatalog = {
   expiringThisMonth: { label: 'Expiring This Month', icon: FaCalendarAlt, tone: 'violet' },
   totalDues: { label: 'Total Purchase Revenue', icon: FaRupeeSign, tone: 'red' },
   totalRenewalDues: { label: 'Total Renewal Revenue', icon: FaRupeeSign, tone: 'orange' },
+  totalRenewals: { label: 'Total Renewal Requests', icon: FaRedo, tone: 'blue' },
 };
 
 const statKeysByRole = {
@@ -116,6 +117,8 @@ const statKeysByRole = {
     'expiredDevices',
     'devicesAddedToday',
     'renewalDueDevices',
+    'totalRenewals',
+    'totalRenewalDues',
   ],
   DEALER: [
     'assignedDevices',
@@ -1190,6 +1193,7 @@ const CustomerDevicePortal = () => {
         break;
       case 'renewalDueDevices':
       case 'totalRenewalDues':
+      case 'totalRenewals':
       case 'pendingRenewals':
         openView('renewals');
         break;
