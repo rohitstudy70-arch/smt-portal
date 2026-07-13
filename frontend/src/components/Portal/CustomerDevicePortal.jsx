@@ -1227,19 +1227,65 @@ const CustomerDevicePortal = () => {
           const isCurrency = ['totalDues', 'totalRenewalDues'].includes(key);
           let rawValue = summary?.[key] ?? 0;
           if (portalDateMode !== 'all') {
+            const fromD = portalFromDate ? new Date(portalFromDate) : null;
+            if (fromD) fromD.setHours(0, 0, 0, 0);
+            const toD = portalToDate ? new Date(portalToDate) : null;
+            if (toD) toD.setHours(23, 59, 59, 999);
+
             if (key === 'totalDevices') {
-              rawValue = filteredDevices.length;
+              rawValue = devices.filter(d => {
+                if (!d.presentDate) return false;
+                const dDate = new Date(d.presentDate);
+                return (!fromD || dDate >= fromD) && (!toD || dDate <= toD);
+              }).length;
             } else if (key === 'activeDevices') {
-              rawValue = filteredDevices.filter(d => ['Active', 'Activated'].includes(d.status)).length;
+              rawValue = devices.filter(d => {
+                if (!d.presentDate || !['Active', 'Activated'].includes(d.status)) return false;
+                const dDate = new Date(d.presentDate);
+                return (!fromD || dDate >= fromD) && (!toD || dDate <= toD);
+              }).length;
             } else if (key === 'expiredDevices') {
               const now = new Date();
-              rawValue = filteredDevices.filter(d => d.expiryDate && new Date(d.expiryDate) < now).length;
+              rawValue = devices.filter(d => {
+                if (!d.presentDate || !d.expiryDate || new Date(d.expiryDate) >= now) return false;
+                const dDate = new Date(d.presentDate);
+                return (!fromD || dDate >= fromD) && (!toD || dDate <= toD);
+              }).length;
             } else if (key === 'assignedDevices') {
-              rawValue = filteredDevices.filter(d => d.assignedTo !== null).length;
+              rawValue = devices.filter(d => {
+                if (!d.presentDate || d.assignedTo === null) return false;
+                const dDate = new Date(d.presentDate);
+                return (!fromD || dDate >= fromD) && (!toD || dDate <= toD);
+              }).length;
             } else if (key === 'availableDevices') {
-              rawValue = filteredDevices.filter(d => d.assignedTo === null).length;
+              rawValue = devices.filter(d => {
+                if (!d.presentDate || d.assignedTo !== null) return false;
+                const dDate = new Date(d.presentDate);
+                return (!fromD || dDate >= fromD) && (!toD || dDate <= toD);
+              }).length;
+            } else if (key === 'renewalDueDevices') {
+              rawValue = devices.filter(d => {
+                if (!d.expiryDate) return false;
+                const expDate = new Date(d.expiryDate);
+                return (!fromD || expDate >= fromD) && (!toD || expDate <= toD);
+              }).length;
+            } else if (key === 'totalDues') {
+              rawValue = devices.filter(d => {
+                if (!d.presentDate) return false;
+                const dDate = new Date(d.presentDate);
+                return (!fromD || dDate >= fromD) && (!toD || dDate <= toD);
+              }).reduce((sum, d) => sum + (d.billAmount || 0), 0);
+            } else if (key === 'totalRenewalDues') {
+              rawValue = renewals.filter(r => {
+                const rDate = r.renewalDate ? new Date(r.renewalDate) : new Date(r.createdAt);
+                return (!fromD || rDate >= fromD) && (!toD || rDate <= toD);
+              }).reduce((sum, r) => sum + (r.billAmount || 0), 0);
             } else if (key === 'devicesAddedToday') {
-              rawValue = filteredDevices.length;
+              rawValue = devices.filter(d => {
+                if (!d.presentDate) return false;
+                const dDate = new Date(d.presentDate);
+                return (!fromD || dDate >= fromD) && (!toD || dDate <= toD);
+              }).length;
             }
           }
           const displayValue = isCurrency 
