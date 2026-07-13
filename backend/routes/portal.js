@@ -301,7 +301,7 @@ router.get('/summary', protect, async (req, res) => {
 
     const expiringThisMonthCount = await Device.countDocuments({
       ...deviceScopeQuery,
-      expiryDate: { $gte: monthStart, $lte: monthEnd },
+      expiryDate: { $lte: monthEnd, $ne: null },
     });
 
     let dashboardTotalDevices = totalDevices;
@@ -1921,7 +1921,7 @@ router.get('/dealer-dashboard-summary', protect, async (req, res) => {
       Device.countDocuments({
         $and: [
           deviceQuery,
-          { expiryDate: { $gte: monthStart, $lte: monthEnd } },
+          { expiryDate: { $lte: monthEnd, $ne: null } },
         ],
       }),
       RenewalRequest.distinct('imei', renewalQuery),
