@@ -374,14 +374,14 @@ const DueDashboard = () => {
 
   // Fetch all dealers for export dropdown
   useEffect(() => {
-    if (activeTab === 'exports' && isAdmin) {
+    if (activeTab === 'exports' && (isAdmin || userRole === 'DEALER')) {
       api.get('/due-dashboard/dealers', { params: { limit: 1000 } })
         .then(res => {
           setAllDealers(res.data?.dues || []);
         })
         .catch(err => console.error('Error fetching all dealers for export:', err));
     }
-  }, [activeTab, isAdmin]);
+  }, [activeTab, isAdmin, userRole]);
 
   // Open Tab handler
   const handleTabChange = (tabName) => {
@@ -781,20 +781,20 @@ const DueDashboard = () => {
             {isListView ? (isAdmin ? 'Dealer Dues' : 'Dealer & Sub Dealer Dues') : 'My Dues'}
           </button>
           {isAdmin && (
-            <>
-              <button
-                className={`due-tab-btn ${activeTab === 'verifications' ? 'active' : ''}`}
-                onClick={() => handleTabChange('verifications')}
-              >
-                Payment Verifications
-              </button>
-              <button
-                className={`due-tab-btn ${activeTab === 'exports' ? 'active' : ''}`}
-                onClick={() => handleTabChange('exports')}
-              >
-                Export Reports
-              </button>
-            </>
+            <button
+              className={`due-tab-btn ${activeTab === 'verifications' ? 'active' : ''}`}
+              onClick={() => handleTabChange('verifications')}
+            >
+              Payment Verifications
+            </button>
+          )}
+          {(isAdmin || userRole === 'DEALER') && (
+            <button
+              className={`due-tab-btn ${activeTab === 'exports' ? 'active' : ''}`}
+              onClick={() => handleTabChange('exports')}
+            >
+              Export Reports
+            </button>
           )}
         </div>
       </div>
@@ -1512,7 +1512,7 @@ const DueDashboard = () => {
         )}
 
         {/* TAB 3: EXPORTS PANEL */}
-        {activeTab === 'exports' && isAdmin && (
+        {activeTab === 'exports' && (isAdmin || userRole === 'DEALER') && (
           <div className="due-panel">
             <div className="due-panel-header">
               <h3>Export Management Reports</h3>
@@ -1520,19 +1520,21 @@ const DueDashboard = () => {
             
             <div className="due-exports-grid">
               {/* Report 1: Dealer Dues */}
-              <div className="due-export-card">
-                <FaRupeeSign className="export-icon text-red" />
-                <h4>Dealer Due Report</h4>
-                <p>Generates details of total devices, paid amounts, and currently outstanding dues for all Dealers & Sub Dealers.</p>
-                <div className="export-actions">
-                  <button className="due-action-btn primary" onClick={() => triggerExport('dealer-due', 'excel')}>
-                    <FaDownload /> Excel
-                  </button>
-                  <button className="due-action-btn" onClick={() => triggerExport('dealer-due', 'pdf')}>
-                    <FaDownload /> PDF
-                  </button>
+              {isAdmin && (
+                <div className="due-export-card">
+                  <FaRupeeSign className="export-icon text-red" />
+                  <h4>Dealer Due Report</h4>
+                  <p>Generates details of total devices, paid amounts, and currently outstanding dues for all Dealers & Sub Dealers.</p>
+                  <div className="export-actions">
+                    <button className="due-action-btn primary" onClick={() => triggerExport('dealer-due', 'excel')}>
+                      <FaDownload /> Excel
+                    </button>
+                    <button className="due-action-btn" onClick={() => triggerExport('dealer-due', 'pdf')}>
+                      <FaDownload /> PDF
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Report 2: Collection Report */}
               <div className="due-export-card">
@@ -1574,9 +1576,9 @@ const DueDashboard = () => {
                       value={exportFilters.userId || ''}
                       onChange={(e) => setExportFilters(prev => ({ ...prev, userId: e.target.value }))}
                     >
-                      <option value="">All Dealers</option>
+                      {isAdmin ? <option value="">All Dealers</option> : null}
                       {allDealers.map((d) => (
-                        <option key={d.userId?._id} value={d.userId?._id}>
+                        <option key={d.userId?._id || d.userId} value={d.userId?._id || d.userId}>
                           {d.dealerName} ({d.dealerCode || 'N/A'})
                         </option>
                       ))}
@@ -1594,19 +1596,21 @@ const DueDashboard = () => {
               </div>
 
               {/* Report 3: Renewal Due Report */}
-              <div className="due-export-card">
-                <FaCalendarAlt className="export-icon text-amber" />
-                <h4>Renewal Due Report</h4>
-                <p>Generates evolutionary conservation lists of devices that are expiring soon or already expired with respective remaining days.</p>
-                <div className="export-actions">
-                  <button className="due-action-btn primary" onClick={() => triggerExport('renewal-due', 'excel')}>
-                    <FaDownload /> Excel
-                  </button>
-                  <button className="due-action-btn" onClick={() => triggerExport('renewal-due', 'pdf')}>
-                    <FaDownload /> PDF
-                  </button>
+              {isAdmin && (
+                <div className="due-export-card">
+                  <FaCalendarAlt className="export-icon text-amber" />
+                  <h4>Renewal Due Report</h4>
+                  <p>Generates evolutionary conservation lists of devices that are expiring soon or already expired with respective remaining days.</p>
+                  <div className="export-actions">
+                    <button className="due-action-btn primary" onClick={() => triggerExport('renewal-due', 'excel')}>
+                      <FaDownload /> Excel
+                    </button>
+                    <button className="due-action-btn" onClick={() => triggerExport('renewal-due', 'pdf')}>
+                      <FaDownload /> PDF
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         )}
