@@ -121,11 +121,9 @@ const statKeysByRole = {
     'totalRenewalDues',
   ],
   DEALER: [
-    'assignedDevices',
     'totalSubDealers',
     'availableDevices',
     'renewalDueDevices',
-    'totalDevices',
     'expiringThisMonth',
     'totalDues',
     'totalRenewalDues',
@@ -3251,6 +3249,12 @@ const CustomerDevicePortal = () => {
             <button type="button" className={activeView === 'devices' ? 'active' : ''} onClick={() => openView('devices')}>Devices</button>
           )}
           <button type="button" className={activeView === 'renewals' ? 'active' : ''} onClick={() => openView('renewals')}>Renewals</button>
+          {role === 'ADMIN' && (
+            <button type="button" className={activeView === 'dealers' ? 'active' : ''} onClick={() => openView('dealers')}>Dealers</button>
+          )}
+          {role === 'DEALER' && (
+            <button type="button" className={activeView === 'subdealers' ? 'active' : ''} onClick={() => openView('subdealers')}>Sub Dealers</button>
+          )}
         </div>
       </div>
 
