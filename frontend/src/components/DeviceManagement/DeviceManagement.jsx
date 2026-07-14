@@ -264,151 +264,153 @@ const DeviceManagement = () => {
   return (
     <div className="device-management-container">
       {/* Top Card: Assign Devices */}
-      <div className="card-panel">
-        <div className="card-panel-header">
-          <FaMobileAlt className="panel-icon" />
-          <span className="panel-title">ASSIGN DEVICES</span>
-          <button className="btn-si-partner" onClick={() => alert('Opening SI Partner Details...')}>
-            SI Partner
-          </button>
-        </div>
+      true && (
+        <div className="card-panel">
+          <div className="card-panel-header">
+            <FaMobileAlt className="panel-icon" />
+            <span className="panel-title">ASSIGN DEVICES</span>
+            <button className="btn-si-partner" onClick={() => alert('Opening SI Partner Details...')}>
+              SI Partner
+            </button>
+          </div>
 
-        <div className="card-panel-body">
-          {error && <div className="alert-message error">{error}</div>}
-          {success && <div className="alert-message success">{success}</div>}
+          <div className="card-panel-body">
+            {error && <div className="alert-message error">{error}</div>}
+            {success && <div className="alert-message success">{success}</div>}
 
-          <form onSubmit={handleAssignSubmit} className="form-assign">
-            <div className="form-row">
-              <div className="form-group-horizontal">
-                <label>User *</label>
-                <div className="input-wrapper">
-                  <select 
-                    value={selectedUser} 
-                    onChange={(e) => setSelectedUser(e.target.value)}
-                    required
-                  >
-                    <option value="">-Select User-</option>
-                    {role === 'ADMIN' ? (
-                      // For Admin: show Dealers and Sub Dealers in separate groups
-                      // so Admin can directly assign to any Sub Dealer without choosing Dealer first
-                      <>
-                        {subUsers.filter(u => u.userType !== 'Sub Dealer' && u.userType !== 'Administration' && u.role !== 'partner').length > 0 && (
-                          <optgroup label="── Dealers ──">
-                            {subUsers
-                              .filter(u => u.userType !== 'Sub Dealer' && u.userType !== 'Administration' && u.role !== 'partner')
-                              .map(u => (
-                                <option key={u._id} value={u._id}>
-                                  {u.displayName || u.username}
-                                </option>
-                              ))}
-                          </optgroup>
-                        )}
-                        {subUsers.filter(u => u.userType === 'Sub Dealer').length > 0 && (
-                          <optgroup label="── Sub Dealers ──">
-                            {subUsers
-                              .filter(u => u.userType === 'Sub Dealer')
-                              .map(u => {
-                                const parentDealer = u.parentId ? allUsersMap[u.parentId] : null;
-                                const parentLabel = parentDealer ? ` [${parentDealer.displayName || parentDealer.username}]` : '';
-                                return (
+            <form onSubmit={handleAssignSubmit} className="form-assign">
+              <div className="form-row">
+                <div className="form-group-horizontal">
+                  <label>User *</label>
+                  <div className="input-wrapper">
+                    <select 
+                      value={selectedUser} 
+                      onChange={(e) => setSelectedUser(e.target.value)}
+                      required
+                    >
+                      <option value="">-Select User-</option>
+                      {role === 'ADMIN' ? (
+                        // For Admin: show Dealers and Sub Dealers in separate groups
+                        // so Admin can directly assign to any Sub Dealer without choosing Dealer first
+                        <>
+                          {subUsers.filter(u => u.userType !== 'Sub Dealer' && u.userType !== 'Administration' && u.role !== 'partner').length > 0 && (
+                            <optgroup label="── Dealers ──">
+                              {subUsers
+                                .filter(u => u.userType !== 'Sub Dealer' && u.userType !== 'Administration' && u.role !== 'partner')
+                                .map(u => (
                                   <option key={u._id} value={u._id}>
-                                    {u.displayName || u.username}{parentLabel}
+                                    {u.displayName || u.username}
                                   </option>
-                                );
-                              })}
-                          </optgroup>
-                        )}
-                      </>
-                    ) : (
-                      // For Dealer: show their own sub dealers directly
-                      subUsers.map(u => (
-                        <option key={u._id} value={u._id}>{u.displayName || u.username}</option>
-                      ))
-                    )}
-                  </select>
+                                ))}
+                            </optgroup>
+                          )}
+                          {subUsers.filter(u => u.userType === 'Sub Dealer').length > 0 && (
+                            <optgroup label="── Sub Dealers ──">
+                              {subUsers
+                                .filter(u => u.userType === 'Sub Dealer')
+                                .map(u => {
+                                  const parentDealer = u.parentId ? allUsersMap[u.parentId] : null;
+                                  const parentLabel = parentDealer ? ` [${parentDealer.displayName || parentDealer.username}]` : '';
+                                  return (
+                                    <option key={u._id} value={u._id}>
+                                      {u.displayName || u.username}{parentLabel}
+                                    </option>
+                                  );
+                                })}
+                            </optgroup>
+                          )}
+                        </>
+                      ) : (
+                        // For Dealer: show their own sub dealers directly
+                        subUsers.map(u => (
+                          <option key={u._id} value={u._id}>{u.displayName || u.username}</option>
+                        ))
+                      )}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-group-horizontal">
+                  <label>Type *</label>
+                  <div className="input-wrapper">
+                    <select 
+                      value={assignType} 
+                      onChange={(e) => setAssignType(e.target.value)}
+                      required
+                    >
+                      <option value="Assign">Assign</option>
+                      <option value="Unassign">Unassign</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
-              <div className="form-group-horizontal">
-                <label>Type *</label>
-                <div className="input-wrapper">
-                  <select 
-                    value={assignType} 
-                    onChange={(e) => setAssignType(e.target.value)}
-                    required
+              <div className="form-row" style={{ display: 'block', marginBottom: '15px' }}>
+                <div className="form-group-horizontal" style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
+                  <label style={{ fontWeight: '600', color: '#ccc', marginBottom: '2px' }}>Enter IMEIs/ICCIDs manually (comma or newline separated)</label>
+                  <div className="input-wrapper" style={{ width: '100%' }}>
+                    <textarea 
+                      value={imeisText} 
+                      onChange={(e) => setImeisText(e.target.value)}
+                      placeholder="e.g. 542307, 000002 or paste full/partial (6-digit) IMEI numbers..."
+                      rows={3}
+                      style={{ 
+                        width: '100%', 
+                        padding: '10px', 
+                        background: '#1e1e1e', 
+                        color: '#fff', 
+                        border: '1px solid #444', 
+                        borderRadius: '4px',
+                        fontFamily: 'monospace',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-row upload-row">
+                <div className="form-group-horizontal">
+                  <label>Upload ICCID/IMEI details</label>
+                  <div className="input-wrapper file-input-wrapper">
+                    <input 
+                      type="file" 
+                      id="excel-file" 
+                      onChange={handleFileChange}
+                      accept=".xlsx, .xls, .csv"
+                    />
+                    <label htmlFor="excel-file" className="btn-choose-file">
+                      Choose file
+                    </label>
+                    <span className="file-name">{fileName || 'No file chosen'}</span>
+                    <div className="help-text">In Excel Format...</div>
+                  </div>
+                </div>
+
+                <div className="upload-format-wrapper">
+                  <label>Upload Format</label>
+                  <button 
+                    type="button" 
+                    className="btn-download-format"
+                    onClick={handleDownloadFormat}
                   >
-                    <option value="Assign">Assign</option>
-                    <option value="Unassign">Unassign</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <div className="form-row" style={{ display: 'block', marginBottom: '15px' }}>
-              <div className="form-group-horizontal" style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
-                <label style={{ fontWeight: '600', color: '#ccc', marginBottom: '2px' }}>Enter IMEIs/ICCIDs manually (comma or newline separated)</label>
-                <div className="input-wrapper" style={{ width: '100%' }}>
-                  <textarea 
-                    value={imeisText} 
-                    onChange={(e) => setImeisText(e.target.value)}
-                    placeholder="e.g. 542307, 000002 or paste full/partial (6-digit) IMEI numbers..."
-                    rows={3}
-                    style={{ 
-                      width: '100%', 
-                      padding: '10px', 
-                      background: '#1e1e1e', 
-                      color: '#fff', 
-                      border: '1px solid #444', 
-                      borderRadius: '4px',
-                      fontFamily: 'monospace',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="form-row upload-row">
-              <div className="form-group-horizontal">
-                <label>Upload ICCID/IMEI details</label>
-                <div className="input-wrapper file-input-wrapper">
-                  <input 
-                    type="file" 
-                    id="excel-file" 
-                    onChange={handleFileChange}
-                    accept=".xlsx, .xls, .csv"
-                  />
-                  <label htmlFor="excel-file" className="btn-choose-file">
-                    Choose file
-                  </label>
-                  <span className="file-name">{fileName || 'No file chosen'}</span>
-                  <div className="help-text">In Excel Format...</div>
+                    <FaCloudUploadAlt />
+                  </button>
                 </div>
               </div>
 
-              <div className="upload-format-wrapper">
-                <label>Upload Format</label>
-                <button 
-                  type="button" 
-                  className="btn-download-format"
-                  onClick={handleDownloadFormat}
-                >
-                  <FaCloudUploadAlt />
+              <div className="form-actions-assign">
+                <button type="button" className="btn-cancel" onClick={resetAssignForm}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-submit" disabled={uploading}>
+                  {uploading ? 'Processing...' : 'Submit'}
                 </button>
               </div>
-            </div>
-
-            <div className="form-actions-assign">
-              <button type="button" className="btn-cancel" onClick={resetAssignForm}>
-                Cancel
-              </button>
-              <button type="submit" className="btn-submit" disabled={uploading}>
-                {uploading ? 'Processing...' : 'Submit'}
-              </button>
-            </div>
-          </form>
+            </form>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Bottom Card: Unassigned/Assigned Devices */}
       <div className="card-panel">

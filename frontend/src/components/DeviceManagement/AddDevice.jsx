@@ -417,6 +417,8 @@ const AddDevice = () => {
     return pages;
   };
 
+
+
   return (
     <div className="add-device-container">
       {toast.show && (
@@ -426,7 +428,8 @@ const AddDevice = () => {
         </div>
       )}
 
-      <div className="add-device-card">
+      {user?.userType !== 'Dealer' && (
+        <div className="add-device-card">
         <div className="add-device-header">
           <FaMobileAlt className="header-icon" />
           <span>{editingDeviceId ? 'EDIT DEVICE' : (role === 'DEALER' ? 'ASSIGN DEVICE TO SUB DEALER' : 'ADD NEW DEVICE')}</span>
@@ -679,6 +682,7 @@ const AddDevice = () => {
           </div>
         </form>
       </div>
+      )}
 
       <div className="add-device-card device-list-card">
         <div className="add-device-header">

@@ -164,6 +164,10 @@ router.post('/change-password', protect, async (req, res) => {
 // @access  Protected
 router.put('/update-profile', protect, async (req, res) => {
   try {
+    if (req.user && req.user.userType === 'Dealer') {
+      return res.status(403).json({ message: 'Dealers are not allowed to update their profile.' });
+    }
+
     const {
       username,
       companyName,

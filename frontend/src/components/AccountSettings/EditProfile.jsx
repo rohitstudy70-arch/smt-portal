@@ -78,6 +78,32 @@ const EditProfile = () => {
     navigate('/dashboard');
   };
 
+  if (user?.userType === 'Dealer') {
+    return (
+      <div className="edit-profile-container">
+        <h1 className="page-heading">Edit <span className="subtitle">Profile</span></h1>
+        <div className="card-panel" style={{ borderTop: '4px solid #f44336' }}>
+          <div className="card-panel-header">
+            <FaUser className="panel-icon" />
+            <span className="panel-title">ACCESS DENIED</span>
+          </div>
+          <div className="card-panel-body" style={{ textAlign: 'center', padding: '40px 20px', color: '#ff6b6b' }}>
+            <h2>Access Denied</h2>
+            <p style={{ marginTop: '15px', color: '#aaa', fontSize: '1.1rem' }}>Dealers are not permitted to edit their profile details.</p>
+            <button 
+              type="button" 
+              className="btn-cancel" 
+              onClick={handleCancel} 
+              style={{ marginTop: '20px', padding: '8px 24px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}
+            >
+              Go to Dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="edit-profile-container">
       <h1 className="page-heading">Edit <span className="subtitle">Profile</span></h1>

@@ -18,6 +18,8 @@ import {
   FaUserTie,
   FaMobileAlt,
   FaFileInvoiceDollar,
+  FaFileExcel,
+  FaFilePdf,
 } from 'react-icons/fa';
 import './DueDashboard.css';
 
@@ -943,12 +945,12 @@ const DueDashboard = () => {
                         <th>Dealer Name</th>
                         <th>Dealer ID</th>
                         <th>Type</th>
-                        <th>Devices Assigned</th>
-                        <th>Total Purchase Revenue</th>
-                        <th>Total Renewal Revenue</th>
-                        <th>Total Bill Amount</th>
-                        <th>Total Paid</th>
-                        <th>Remaining Dues</th>
+                        <th className="center">Devices Assigned</th>
+                        <th style={{ textAlign: 'right' }}>Total Purchase Revenue</th>
+                        <th style={{ textAlign: 'right' }}>Total Renewal Revenue</th>
+                        <th style={{ textAlign: 'right' }}>Total Bill Amount</th>
+                        <th style={{ textAlign: 'right' }}>Total Paid</th>
+                        <th style={{ textAlign: 'right' }}>Remaining Dues</th>
                         <th>Last Payment Date</th>
                         <th>Status</th>
                         <th>Actions</th>
@@ -1137,12 +1139,30 @@ const DueDashboard = () => {
                     {selfListTab === 'payments' ? (
                       /* Payments History */
                       <div className="due-section">
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginBottom: '10px' }}>
+                          <button
+                            type="button"
+                            className="due-action-btn primary"
+                            onClick={() => triggerExport('collection', 'excel', { userId: detailsData.user?._id })}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '4px 8px', height: '28px' }}
+                          >
+                            <FaFileExcel /> Export Excel
+                          </button>
+                          <button
+                            type="button"
+                            className="due-action-btn"
+                            onClick={() => triggerExport('collection', 'pdf', { userId: detailsData.user?._id })}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '4px 8px', height: '28px' }}
+                          >
+                            <FaFilePdf /> Export PDF
+                          </button>
+                        </div>
                         <div className="due-table-wrap compact">
                           <table className="due-table compact">
                             <thead>
                               <tr>
                                 <th>Date</th>
-                                <th>Amount</th>
+                                <th style={{ textAlign: 'right' }}>Amount</th>
                                 <th>Payment Mode</th>
                                 <th>Reference Number</th>
                                 <th>Remarks</th>
@@ -1262,7 +1282,7 @@ const DueDashboard = () => {
                               <th>IMEI</th>
                               <th>Device Name</th>
                               <th>Assign Date</th>
-                              <th>Bill Amount</th>
+                              <th style={{ textAlign: 'right' }}>Bill Amount</th>
                               <th>Status</th>
                             </tr>
                           </thead>
@@ -1396,8 +1416,8 @@ const DueDashboard = () => {
                       <th>Dealer Name</th>
                       <th>Activation Date</th>
                       <th>Expiry Date</th>
-                      <th>Remaining Days</th>
-                      <th>Renewal Amount</th>
+                      <th className="center">Remaining Days</th>
+                      <th style={{ textAlign: 'right' }}>Renewal Amount</th>
                       <th>Status</th>
                       <th>Actions</th>
                     </tr>
@@ -1707,7 +1727,7 @@ const DueDashboard = () => {
                         <th>Dealer Name</th>
                         <th>Company</th>
                         <th>Mobile</th>
-                        <th>Amount</th>
+                        <th style={{ textAlign: 'right' }}>Amount</th>
                         <th>Mode</th>
                         <th>Reference No</th>
                         <th>Payment Date & Time</th>
@@ -1786,7 +1806,7 @@ const DueDashboard = () => {
                         <th>Date</th>
                         <th>Dealer Name</th>
                         <th>Dealer ID</th>
-                        <th>Amount</th>
+                        <th style={{ textAlign: 'right' }}>Amount</th>
                         <th>Payment Mode</th>
                         <th>Reference No</th>
                         <th>Remarks</th>
@@ -2100,7 +2120,7 @@ const DueDashboard = () => {
                           <thead>
                             <tr>
                               <th>Date</th>
-                              <th>Amount</th>
+                              <th style={{ textAlign: 'right' }}>Amount</th>
                               <th>Mode</th>
                               <th>Reference ID</th>
                               <th>Remarks</th>
@@ -2151,7 +2171,7 @@ const DueDashboard = () => {
                               <th>IMEI</th>
                               <th>Device Name</th>
                               <th>Assigned On</th>
-                              <th>Bill Amount</th>
+                              <th style={{ textAlign: 'right' }}>Bill Amount</th>
                               <th>Status</th>
                             </tr>
                           </thead>

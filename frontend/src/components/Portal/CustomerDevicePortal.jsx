@@ -106,6 +106,9 @@ const statCatalog = {
   totalDues: { label: 'Total Purchase Revenue', icon: FaRupeeSign, tone: 'red' },
   totalRenewalDues: { label: 'Total Renewal Revenue', icon: FaRupeeSign, tone: 'orange' },
   totalRenewals: { label: 'Total Renewal Requests', icon: FaRedo, tone: 'blue' },
+  totalBillAmount: { label: 'Total Bill Amount', icon: FaRupeeSign, tone: 'red' },
+  totalPaidAmount: { label: 'Total Paid', icon: FaRupeeSign, tone: 'amber' },
+  remainingDues: { label: 'Remaining Dues', icon: FaChartLine, tone: 'violet' },
 };
 
 const statKeysByRole = {
@@ -121,12 +124,14 @@ const statKeysByRole = {
     'totalRenewalDues',
   ],
   DEALER: [
-    'totalSubDealers',
     'availableDevices',
     'renewalDueDevices',
+    'totalBillAmount',
     'expiringThisMonth',
     'totalDues',
     'totalRenewalDues',
+    'totalPaidAmount',
+    'remainingDues',
   ],
   SUB_DEALER: [
     'availableDevices',
@@ -1213,6 +1218,11 @@ const CustomerDevicePortal = () => {
       case 'totalDues':
         navigate('/due-dashboard');
         break;
+      case 'totalBillAmount':
+      case 'totalPaidAmount':
+      case 'remainingDues':
+        navigate('/due-dashboard?tab=dues&filter=PendingDues');
+        break;
       case 'expiringThisMonth':
         navigate('/due-dashboard?tab=renewals&filter=expiringThisMonth');
         break;
@@ -1228,8 +1238,11 @@ const CustomerDevicePortal = () => {
         {keys.map((key) => {
           const item = statCatalog[key];
           const Icon = item.icon;
-          const isCurrency = ['totalDues', 'totalRenewalDues'].includes(key);
+          const isCurrency = ['totalDues', 'totalRenewalDues', 'totalBillAmount', 'totalPaidAmount', 'remainingDues'].includes(key);
           let rawValue = summary?.[key] ?? 0;
+          if (['totalBillAmount', 'totalPaidAmount', 'remainingDues'].includes(key)) {
+            rawValue = dueSummary?.[key] ?? 0;
+          }
           if (portalDateMode !== 'all') {
             const fromD = portalFromDate ? new Date(portalFromDate) : null;
             if (fromD) fromD.setHours(0, 0, 0, 0);
@@ -1530,7 +1543,7 @@ const CustomerDevicePortal = () => {
 
           </>
         ) : (
-          isOps && dueSummary ? (
+          isOps && dueSummary && user?.userType !== 'Dealer' ? (
             <div className="portal-panel" style={{ marginTop: '10px' }} key="due-summary-panel">
               <div className="portal-panel-header">
                 <div>
