@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const path = require('path');
 const fs = require('fs');
 const connectDB = require('./config/db');
+const { securityHeaders, nosqlSanitizer, authRateLimiter } = require('./middleware/security');
 
 // Load environment variables
 dotenv.config();
@@ -60,15 +61,21 @@ app.options('*', cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
+// Security headers
+app.use(securityHeaders);
+
 // Parse JSON bodies
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Sanitize inputs to prevent NoSQL Injection
+app.use(nosqlSanitizer);
 
 // Serve static uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Mount routes
-app.use('/api/auth', require('./routes/auth'));
+app.use('/api/auth', authRateLimiter, require('./routes/auth'));
 app.use('/api/activation-requests', require('./routes/activationRequests'));
 app.use('/api/invoices', require('./routes/invoices'));
 app.use('/api/wallet', require('./routes/wallet'));
