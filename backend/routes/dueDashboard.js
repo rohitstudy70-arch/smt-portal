@@ -898,7 +898,26 @@ router.get('/summary', async (req, res) => {
       ]);
       const totalRenewalPaid = renewalPaidSummary[0]?.totalPaid || 0;
 
-      const deviceTotalBillAmount = dueRecord ? dueRecord.totalBillAmount || 0 : 0;
+      const deviceScopeQuery = buildDeviceScopeQuery(req.hierarchyScope);
+      const availableQuery = {
+        $and: [
+          deviceScopeQuery,
+          { status: { $ne: 'Activated' } },
+        ],
+      };
+
+      const [availableSummary] = await Device.aggregate([
+        { $match: availableQuery },
+        {
+          $group: {
+            _id: null,
+            totalBill: { $sum: { $ifNull: ['$billAmount', 0] } },
+          },
+        },
+      ]);
+      const availableBillSum = availableSummary?.totalBill || 0;
+
+      const deviceTotalBillAmount = availableBillSum;
       const deviceTotalPaidAmount = dueRecord ? dueRecord.totalPaidAmount || 0 : 0;
 
       const totalBillAmount = deviceTotalBillAmount + totalRenewalDues;
@@ -1169,7 +1188,7 @@ router.get('/dealers', async (req, res) => {
       dObj.totalBillAmount = deviceTotalBillAmount + rSummary.totalBill;
       dObj.totalPaidAmount = deviceTotalPaidAmount;
       dObj.totalOutstanding = Math.max(dObj.totalBillAmount - dObj.totalPaidAmount, 0);
-      dObj.currentDue = Math.max(dObj.totalBillAmount - dObj.totalPaidAmount, 0);
+      dObj.currentDue = dObj.totalOutstanding;
 
       return dObj;
     });
@@ -1240,7 +1259,7 @@ router.get('/dealers/:userId', async (req, res) => {
       dueObj.totalBillAmount = deviceTotalBillAmount + totalRenewalBill;
       dueObj.totalPaidAmount = deviceTotalPaidAmount;
       dueObj.totalOutstanding = Math.max(dueObj.totalBillAmount - dueObj.totalPaidAmount, 0);
-      dueObj.currentDue = Math.max(dueObj.totalBillAmount - dueObj.totalPaidAmount, 0);
+      dueObj.currentDue = dueObj.totalOutstanding;
     }
 
     res.json({ user, due: dueObj, devices, payments });

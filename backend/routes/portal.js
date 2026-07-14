@@ -262,13 +262,19 @@ router.get('/summary', protect, async (req, res) => {
     const isSubDealer = scope.role === 'SUB_DEALER';
     const selfId = req.user._id;
 
-    const availableQuery = isSubDealer
-      ? { $and: [deviceScopeQuery, { $or: [{ assignedTo: null }, { assignedTo: selfId }] }] }
-      : { ...deviceScopeQuery, assignedTo: null };
+    const availableQuery = {
+      $and: [
+        deviceScopeQuery,
+        { status: { $ne: 'Activated' } },
+      ],
+    };
 
-    const assignedQuery = isSubDealer
-      ? { $and: [deviceScopeQuery, { assignedTo: { $nin: [null, selfId] } }] }
-      : { ...deviceScopeQuery, assignedTo: { $ne: null } };
+    const assignedQuery = {
+      $and: [
+        deviceScopeQuery,
+        { assignedTo: { $nin: [null, selfId] } },
+      ],
+    };
 
     const productScopeQuery = buildProductScopeQuery(scope);
 
@@ -330,6 +336,7 @@ router.get('/summary', protect, async (req, res) => {
         renewalDueDeviceImeis,
         renewalDueSummary,
         dueRecord,
+        availableSummary,
       ] = await Promise.all([
         Device.countDocuments(dealerDeviceQuery),
         Device.countDocuments({
@@ -361,14 +368,23 @@ router.get('/summary', protect, async (req, res) => {
           },
         ]),
         syncDueForUser(selfId),
+        Device.aggregate([
+          { $match: availableQuery },
+          {
+            $group: {
+              _id: null,
+              totalBill: { $sum: { $ifNull: ['$billAmount', 0] } },
+            },
+          },
+        ]),
       ]);
 
       dashboardTotalDevices = dealerAssignedCount;
-      dashboardAssignedDevices = dealerAssignedCount;
+      dashboardAssignedDevices = assignedDevices;
       dashboardActiveDevices = dealerActivatedCount;
-      dashboardAvailableDevices = Math.max(dealerAssignedCount - dealerActivatedCount, 0);
+      dashboardAvailableDevices = availableDevices;
       dashboardRenewalDueDevices = renewalDueDeviceImeis.length;
-      totalDues = Number(dueRecord?.totalBillAmount) || 0;
+      totalDues = Number(availableSummary[0]?.totalBill) || 0;
       totalRenewalDues = Number(renewalDueSummary[0]?.total) || 0;
     } else {
       const adminRenewalDueSummary = await RenewalRequest.aggregate([
@@ -721,8 +737,14 @@ router.get('/devices', protect, async (req, res) => {
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 30);
 
-    if (status === 'available') query.assignedTo = null;
-    if (status === 'assigned') query.assignedTo = { $ne: null };
+    if (status === 'available') {
+      query.$and = query.$and || [];
+      query.$and.push({ status: { $ne: 'Activated' } });
+    }
+    if (status === 'assigned') {
+      query.$and = query.$and || [];
+      query.$and.push({ assignedTo: { $nin: [null, req.user._id] } });
+    }
     if (status === 'active') query.status = { $in: ['Active', 'Activated'] };
     if (status === 'inactive') query.status = 'Inactive';
     if (status === 'expired') query.expiryDate = { $lt: now, $ne: null };
@@ -1441,7 +1463,7 @@ router.put('/renewals/:id', protect, async (req, res) => {
           deviceStatus: 'active',
           status: 'Activated',
           renewalAmount: renewal.billAmount,
-          billAmount: renewal.billAmount,
+          billAmount: 0,
         });
       } else {
         device.presentDate = renewal.renewalDate;
@@ -1842,8 +1864,11 @@ router.get('/reports', protect, async (req, res) => {
       deviceReports: {
         totalDevices: devices.length,
         activeDevices: devices.filter((item) => ['Active', 'Activated'].includes(item.status)).length,
-        availableDevices: devices.filter((item) => !item.assignedTo).length,
-        assignedDevices: devices.filter((item) => item.assignedTo).length,
+        availableDevices: devices.filter((item) => item.status !== 'Activated').length,
+        assignedDevices: devices.filter((item) => {
+          const assignedId = item.assignedTo?._id || item.assignedTo;
+          return assignedId && assignedId.toString() !== req.user._id.toString();
+        }).length,
         expiredDevices: devices.filter((item) => item.expiryDate && item.expiryDate < now).length,
       },
       renewalReports: {

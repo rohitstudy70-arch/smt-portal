@@ -358,9 +358,15 @@ const CustomerDevicePortal = () => {
     } else if (query === 'inactive') {
       result = result.filter((device) => device.status === 'Inactive');
     } else if (query === 'assigned') {
-      result = result.filter((device) => device.assignedTo !== null);
+      result = result.filter((device) => {
+        const assignedId = device.assignedTo?._id || device.assignedTo;
+        return assignedId && assignedId !== user._id;
+      });
     } else if (query === 'available') {
-      result = result.filter((device) => device.assignedTo === null);
+      result = result.filter((device) => {
+        const assignedId = device.assignedTo?._id || device.assignedTo;
+        return (!assignedId || assignedId === user._id) && device.status !== 'Activated';
+      });
     }
 
     if (selectedDealerFilter) {
@@ -1253,13 +1259,15 @@ const CustomerDevicePortal = () => {
               }).length;
             } else if (key === 'assignedDevices') {
               rawValue = devices.filter(d => {
-                if (!d.presentDate || d.assignedTo === null) return false;
+                const assignedId = d.assignedTo?._id || d.assignedTo;
+                if (!d.presentDate || !assignedId || assignedId === user._id) return false;
                 const dDate = new Date(d.presentDate);
                 return (!fromD || dDate >= fromD) && (!toD || dDate <= toD);
               }).length;
             } else if (key === 'availableDevices') {
               rawValue = devices.filter(d => {
-                if (!d.presentDate || d.assignedTo !== null) return false;
+                const assignedId = d.assignedTo?._id || d.assignedTo;
+                if (!d.presentDate || (assignedId && assignedId !== user._id) || d.status === 'Activated') return false;
                 const dDate = new Date(d.presentDate);
                 return (!fromD || dDate >= fromD) && (!toD || dDate <= toD);
               }).length;
@@ -1271,7 +1279,8 @@ const CustomerDevicePortal = () => {
               }).length;
             } else if (key === 'totalDues') {
               rawValue = devices.filter(d => {
-                if (!d.presentDate) return false;
+                const assignedId = d.assignedTo?._id || d.assignedTo;
+                if (!d.presentDate || (assignedId && assignedId !== user._id) || d.status === 'Activated') return false;
                 const dDate = new Date(d.presentDate);
                 return (!fromD || dDate >= fromD) && (!toD || dDate <= toD);
               }).reduce((sum, d) => sum + (d.billAmount || 0), 0);

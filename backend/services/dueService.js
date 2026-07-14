@@ -57,7 +57,7 @@ const buildDeviceDueQuery = (user) => {
         { dealerId: user._id },
         { userId: user._id, dealerId: null },
       ],
-      status: { $nin: ['Active', 'Activated'] },
+      status: { $ne: 'Activated' },
     };
   }
 
@@ -78,6 +78,7 @@ const buildAllDeviceQuery = (user) => {
         { dealerId: user._id },
         { userId: user._id, dealerId: null },
       ],
+      status: { $ne: 'Activated' },
     };
   }
 
@@ -207,14 +208,14 @@ const getDueOwnerIdsFromDevice = (device) => uniqueObjectIds([
 const getDueUsersForScope = async (scope, currentUser) => {
   if (scope.role === PORTAL_ROLES.ADMIN) {
     return scope.users.filter((user) => (
-      [PORTAL_ROLES.DEALER].includes(getPortalRole(user))
+      [PORTAL_ROLES.DEALER, PORTAL_ROLES.SUB_DEALER].includes(getPortalRole(user))
     ));
   }
 
   const role = getPortalRole(currentUser);
   if (role === PORTAL_ROLES.DEALER) {
     return scope.users.filter((user) => (
-      [PORTAL_ROLES.DEALER].includes(getPortalRole(user))
+      [PORTAL_ROLES.DEALER, PORTAL_ROLES.SUB_DEALER].includes(getPortalRole(user))
     ));
   }
 
