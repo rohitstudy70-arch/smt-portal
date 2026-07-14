@@ -1405,8 +1405,18 @@ router.get('/export', async (req, res) => {
         .populate('updatedBy', 'displayName companyName username userType')
         .sort({ paymentDate: -1, createdAt: -1 });
 
-      const title = 'Collection Report';
-      const filename = 'collection-report';
+      let title = 'Collection Report';
+      let filename = 'collection-report';
+
+      const selectedUserId = req.query.userId || req.query.dealerId;
+      if (selectedUserId && isObjectId(selectedUserId)) {
+        const dealerUser = await User.findById(selectedUserId);
+        if (dealerUser) {
+          const dealerName = labelForUser(dealerUser);
+          title = `Collection Report - ${dealerName}`;
+          filename = `collection-report-${dealerName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+        }
+      }
       const headers = ['Date', 'Dealer Name', 'Dealer ID', 'Amount', 'Payment Mode', 'Reference Number', 'Remarks', 'Updated By'];
       const rows = payments.map((payment) => ({
         Date: payment.paymentDate ? payment.paymentDate.toISOString().slice(0, 10) : '',
