@@ -1426,7 +1426,9 @@ router.get('/export', async (req, res) => {
         'Payment Mode': payment.paymentMode || '',
         'Reference Number': payment.referenceNumber || '',
         Remarks: payment.remarks || '',
-        'Updated By': payment.updatedBy ? labelForUser(payment.updatedBy) : '',
+        'Updated By': req.portalRole !== 'ADMIN'
+          ? labelForUser(req.user)
+          : (payment.updatedBy ? labelForUser(payment.updatedBy) : 'Arshi Enterprises'),
       }));
 
       if (normalizedFormat === 'pdf') {
