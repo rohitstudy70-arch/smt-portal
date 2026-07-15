@@ -2605,6 +2605,7 @@ const CustomerDevicePortal = () => {
                 <option value="BB">BB</option>
                 <option value="TrackNow">TrackNow</option>
                 <option value="Road point">Road point</option>
+                {(userRole === 'ADMIN') && <option value="Other">Other</option>}
               </select>
             </label>
 
@@ -2618,6 +2619,7 @@ const CustomerDevicePortal = () => {
               >
                 <option value="NIC">NIC</option>
                 <option value="MINING">MINING</option>
+                {(userRole === 'ADMIN') && <option value="Other">Other</option>}
               </select>
             </label>
 
