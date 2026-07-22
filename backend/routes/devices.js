@@ -756,7 +756,9 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
           duplicate.validity = validity;
           duplicate.presentDate = presentDate;
           duplicate.expiryDate = expiryDate;
-          if (input.billAmount) duplicate.billAmount = Number(input.billAmount) || 0;
+          const dupTopUpAmt = Number(input.topUpAmount) || 0;
+          if (input.billAmount) duplicate.billAmount = (Number(input.billAmount) || 0) + dupTopUpAmt;
+          if (dupTopUpAmt > 0) duplicate.renewalAmount = dupTopUpAmt;
 
           duplicate.assignmentHistory.push({
             fromUser: req.user._id,
@@ -795,6 +797,8 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
     }
 
     const billAmt = Number(input.billAmount) || 0;
+    const topUpAmt = Number(input.topUpAmount) || 0;
+    const totalBillAmt = billAmt + topUpAmt;
 
     let deviceCreated = null;
     let transactionCreated = null;
@@ -822,7 +826,8 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
         msisdn1: input.msisdn1,
         msisdn2: input.msisdn2,
         itrNo: input.itrNo,
-        billAmount: billAmt,
+        billAmount: totalBillAmt,
+        renewalAmount: topUpAmt,
         validity: input.validity,
         presentDate,
         expiryDate,
@@ -838,7 +843,7 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
 
       // Create a transaction in ledger for the deducted device price
       let transactionId = '';
-      if (billAmt > 0) {
+      if (totalBillAmt > 0) {
         const randomNum = Math.floor(10000 + Math.random() * 90000);
         const date = new Date();
         const mm = String(date.getMonth() + 1).padStart(2, '0');
@@ -851,14 +856,14 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
           userId: transactionUserObj._id,
           transactionId,
           paymentId: deviceCreated._id.toString(),
-          paymentFor: 'Device Purchase',
+          paymentFor: topUpAmt > 0 ? 'Device Purchase + Top Up' : 'Device Purchase',
           referenceNo: input.imei,
           payMode: 'Itwallet',
           transactionType: 'Debit',
           status: 'Success',
-          remarks: `Device Purchase: IMEI ${input.imei}`,
-          requestedAmt: billAmt,
-          transactedAmt: billAmt,
+          remarks: topUpAmt > 0 ? `Device Purchase + Top Up: IMEI ${input.imei}` : `Device Purchase: IMEI ${input.imei}`,
+          requestedAmt: totalBillAmt,
+          transactedAmt: totalBillAmt,
           deviceName: input.deviceName,
           imei: input.imei,
           iccid: input.iccid,
@@ -1815,5 +1820,74 @@ router.post(
     }
   }
 );
+
+// @route   PUT /api/devices/:id/topup
+// @desc    Add top-up amount to device's billAmount
+// @access  Protected (Admin, Dealer, Sub Dealer)
+router.put('/:id/topup', requireRoles(PORTAL_ROLES.ADMIN, PORTAL_ROLES.DEALER, PORTAL_ROLES.SUB_DEALER), async (req, res) => {
+  try {
+    const { topUpAmount } = req.body;
+    const amount = Number(topUpAmount);
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ message: 'Top Up Amount must be greater than 0.' });
+    }
+
+    const device = await Device.findById(req.params.id);
+    if (!device) {
+      return res.status(404).json({ message: 'Device not found.' });
+    }
+
+    // Add top-up to billAmount and renewalAmount
+    device.billAmount = (device.billAmount || 0) + amount;
+    device.renewalAmount = (device.renewalAmount || 0) + amount;
+    device.updatedAt = new Date();
+    await device.save();
+
+    // Create a transaction record
+    const randomNum = Math.floor(10000 + Math.random() * 90000);
+    const date = new Date();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    const transactionId = `TOPUP_${mm}_${dd}_${randomNum}`;
+
+    // Determine the billing user (dealer, not sub-dealer)
+    let billingUserId = device.dealerId || device.userId;
+    
+    await Transaction.create({
+      userId: billingUserId,
+      transactionId,
+      paymentId: device._id.toString(),
+      paymentFor: 'Device Top Up',
+      referenceNo: device.imei,
+      payMode: 'Itwallet',
+      transactionType: 'Debit',
+      status: 'Success',
+      remarks: `Device Top Up: IMEI ${device.imei}`,
+      requestedAmt: amount,
+      transactedAmt: amount,
+      deviceName: device.deviceName,
+      imei: device.imei,
+      iccid: device.iccid,
+      serialNo: device.serialNo,
+      balanceAfterTransaction: 0,
+      createdBy: req.user._id,
+    });
+
+    // Sync dues
+    const ownerIds = getDueOwnerIdsFromDevice(device);
+    if (ownerIds && ownerIds.length > 0) {
+      await syncDueForUsers(ownerIds);
+    }
+
+    res.json({
+      message: `Top Up of ₹${amount} added successfully to device ${device.imei}.`,
+      device,
+    });
+  } catch (error) {
+    console.error('Device top-up error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 module.exports = router;

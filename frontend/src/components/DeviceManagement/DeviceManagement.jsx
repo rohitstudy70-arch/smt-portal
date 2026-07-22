@@ -264,7 +264,7 @@ const DeviceManagement = () => {
   return (
     <div className="device-management-container">
       {/* Top Card: Assign Devices */}
-      true && (
+      {true && (
         <div className="card-panel">
           <div className="card-panel-header">
             <FaMobileAlt className="panel-icon" />

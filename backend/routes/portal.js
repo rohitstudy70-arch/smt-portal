@@ -1471,6 +1471,7 @@ router.put('/renewals/:id', protect, async (req, res) => {
         device.validity = renewal.validity;
         device.deviceStatus = 'active';
         device.status = 'Activated';
+        device.billAmount = (device.billAmount || 0) + renewal.billAmount;
         device.renewalAmount = renewal.billAmount;
       }
       await device.save();

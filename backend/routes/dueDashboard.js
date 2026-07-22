@@ -1633,6 +1633,8 @@ router.post('/renew-device', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) 
 
     device.expiryDate = nextExpiry;
     device.validity = validity;
+    const renewAmt = device.renewalAmount || device.billAmount || 0;
+    device.billAmount = (device.billAmount || 0) + renewAmt;
     await device.save();
 
     const currentYear = new Date().getFullYear();

@@ -11,6 +11,8 @@ import {
   FaTimesCircle,
   FaEdit,
   FaTrash,
+  FaSync,
+  FaTimes,
 } from 'react-icons/fa';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
@@ -71,7 +73,7 @@ const createEmptyForm = (dealer, defaultVendor = '') => ({
 const AddDevice = () => {
   const { user } = useAuth();
   const role = getRole(user);
-  const tableColSpan = (user?.role === 'partner' ? 14 : 13) - (role === 'SUB_DEALER' ? 1 : 0);
+  const tableColSpan = 15 - (role === 'SUB_DEALER' ? 2 : 0);
   const [dealers, setDealers] = useState([]);
   const [subDealers, setSubDealers] = useState([]);
   const [devices, setDevices] = useState([]);
@@ -96,6 +98,28 @@ const AddDevice = () => {
   const [filterFromDate, setFilterFromDate] = useState('');
   const [filterToDate, setFilterToDate] = useState('');
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
+
+  // Top Up Modal states
+  const [topUpModalOpen, setTopUpModalOpen] = useState(false);
+  const [topUpDevice, setTopUpDevice] = useState(null);
+  const [topUpLoading, setTopUpLoading] = useState(false);
+  const [topUpSubmitting, setTopUpSubmitting] = useState(false);
+  const [topUpForm, setTopUpForm] = useState({
+    customerName: '',
+    customerMobile: '',
+    vehicleNumber: '',
+    deviceModel: '',
+    activationType: 'NIC',
+    productDescription: 'Renewal',
+    validity: '1 Year',
+    renewalDate: getLocalDateString(),
+    billAmount: '',
+    paymentMode: '',
+    transactionId: '',
+    paymentDate: getLocalDateString(),
+    remarks: '',
+  });
+  const [topUpScreenshot, setTopUpScreenshot] = useState(null);
 
   // Pagination states
   const [page, setPage] = useState(1);
@@ -415,6 +439,48 @@ const AddDevice = () => {
       pages.push(totalPages);
     }
     return pages;
+  };
+
+  // --- Top Up Modal Handlers ---
+  const handleTopUpOpen = (device) => {
+    setTopUpDevice(device);
+    setTopUpForm({
+      topUpAmount: '',
+    });
+    setTopUpModalOpen(true);
+  };
+
+  const handleTopUpClose = () => {
+    setTopUpModalOpen(false);
+    setTopUpDevice(null);
+  };
+
+  const handleTopUpSubmit = async (e) => {
+    e.preventDefault();
+    if (!topUpDevice) return;
+
+    const amount = Number(topUpForm.topUpAmount);
+    if (!amount || amount <= 0) {
+      showToast('error', 'Top Up Amount must be greater than 0.');
+      return;
+    }
+
+    setTopUpSubmitting(true);
+    try {
+      await api.put(`/devices/${topUpDevice._id}/topup`, {
+        topUpAmount: amount,
+      });
+
+      showToast('success', 'Top Up added successfully!');
+      handleTopUpClose();
+      setPage(1);
+      await fetchDevices(debouncedSearch, filterFromDate, filterToDate, 1, limit);
+    } catch (error) {
+      const msg = error.response?.data?.message || 'Failed to submit top-up request.';
+      showToast('error', msg);
+    } finally {
+      setTopUpSubmitting(false);
+    }
   };
 
 
@@ -779,11 +845,12 @@ const AddDevice = () => {
                 <th>MSISDN 2</th>
                 <th>Validity</th>
                 {role !== 'SUB_DEALER' && <th>Bill Amount</th>}
+                {role !== 'SUB_DEALER' && <th>Top Up Amount</th>}
                 <th>Activation Date</th>
                 <th>Expiry Date</th>
                 <th>Created By</th>
                 <th>Status</th>
-                {user?.role === 'partner' && <th>Actions</th>}
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -803,32 +870,43 @@ const AddDevice = () => {
                     <td>{device.msisdn2 || '-'}</td>
                     <td>{device.validity || '-'}</td>
                     {role !== 'SUB_DEALER' && <td>₹{device.billAmount || 0}</td>}
+                    {role !== 'SUB_DEALER' && <td>₹{device.renewalAmount || 0}</td>}
                     <td>{formatDate(device.presentDate)}</td>
                     <td>{formatDate(device.expiryDate)}</td>
                     <td>{getLinkedName(device.createdBy)}</td>
                     <td><span className={`device-status status-${String(device.status || 'active').toLowerCase()}`}>{device.status || 'Active'}</span></td>
-                    {user?.role === 'partner' && (
-                      <td>
-                        <div className="action-buttons-cell">
-                          <button
-                            type="button"
-                            className="btn-action-edit"
-                            onClick={() => handleEditStart(device)}
-                            title="Edit Device"
-                          >
-                            <FaEdit /> Edit
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-action-delete"
-                            onClick={() => handleDeleteDevice(device._id, device.imei)}
-                            title="Delete Device"
-                          >
-                            <FaTrash /> Delete
-                          </button>
-                        </div>
-                      </td>
-                    )}
+                    <td>
+                      <div className="action-buttons-cell">
+                        <button
+                          type="button"
+                          className="btn-action-topup"
+                          onClick={() => handleTopUpOpen(device)}
+                          title="Top Up / Recharge"
+                        >
+                          <FaSync /> Top Up
+                        </button>
+                        {user?.role === 'partner' && (
+                          <>
+                            <button
+                              type="button"
+                              className="btn-action-edit"
+                              onClick={() => handleEditStart(device)}
+                              title="Edit Device"
+                            >
+                              <FaEdit /> Edit
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-action-delete"
+                              onClick={() => handleDeleteDevice(device._id, device.imei)}
+                              title="Delete Device"
+                            >
+                              <FaTrash /> Delete
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))
               ) : (
@@ -899,6 +977,52 @@ const AddDevice = () => {
         role={role}
         user={user}
       />
+
+      {/* Top Up Modal */}
+      {topUpModalOpen && (
+        <div className="topup-modal-backdrop" onClick={handleTopUpClose}>
+          <div className="topup-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="topup-modal-header">
+              <h4><FaSync style={{ marginRight: '8px' }} /> Top Up / Recharge Device</h4>
+              <button className="topup-close-btn" onClick={handleTopUpClose}><FaTimes /></button>
+            </div>
+            <form onSubmit={handleTopUpSubmit}>
+              <div className="topup-modal-body">
+                <div className="topup-device-info">
+                  <span><strong>IMEI:</strong> {topUpDevice?.imei}</span>
+                  <span><strong>Model:</strong> {topUpDevice?.vendor || '-'}</span>
+                </div>
+
+                <div className="topup-form-group" style={{ marginTop: '10px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: '700', color: '#475569', marginBottom: '8px' }}>Top Up Amount (₹) *</label>
+                  <input
+                    type="number"
+                    value={topUpForm.topUpAmount || ''}
+                    onChange={(e) => setTopUpForm({ topUpAmount: e.target.value })}
+                    placeholder="Enter Top Up Amount"
+                    required
+                    min="1"
+                    style={{
+                      padding: '12px',
+                      fontSize: '14.5px',
+                      border: '1.5px solid #cbd5e1',
+                      borderRadius: '8px',
+                      outline: 'none',
+                      transition: 'border-color 0.15s',
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="topup-modal-footer">
+                <button type="button" className="topup-btn-cancel" onClick={handleTopUpClose}>Cancel</button>
+                <button type="submit" className="topup-btn-submit" disabled={topUpSubmitting}>
+                  <FaSync /> {topUpSubmitting ? 'Submitting...' : 'Submit Top Up'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
