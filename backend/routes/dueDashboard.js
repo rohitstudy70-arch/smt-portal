@@ -254,14 +254,31 @@ const buildRenewalRows = async (req, { paginate = true } = {}) => {
   }
 
   if (search) {
-    const regex = new RegExp(escapeRegExp(search), 'i');
+    const rawSearch = String(search).trim();
+    const regex = new RegExp(escapeRegExp(rawSearch), 'i');
+    const flexClean = rawSearch.replace(/[^a-zA-Z0-9]/g, '');
+    let flexVehicleRegex = regex;
+    if (flexClean.length >= 2) {
+      const flexPattern = flexClean.split('').map(c => escapeRegExp(c)).join('[\\s\\-]*');
+      flexVehicleRegex = new RegExp(flexPattern, 'i');
+    }
+
     andConditions.push({
       $or: [
         { imei: regex },
         { imeiNumber: regex },
+        { iccid: regex },
+        { iccidNumber: regex },
+        { serialNo: regex },
+        { serialNumber: regex },
+        { itrNo: regex },
         { deviceName: regex },
         { dealerName: regex },
         { subDealerName: regex },
+        { customerName: regex },
+        { customerMobile: regex },
+        { vehicleNo: flexVehicleRegex },
+        { vehicleNumber: flexVehicleRegex },
       ],
     });
   }
