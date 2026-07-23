@@ -1598,15 +1598,153 @@
   cursor: not-allowed;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 768px) {
+  .add-device-container {
+    gap: 12px;
+  }
+
+  .add-device-card {
+    border-radius: 8px;
+  }
+
+  .add-device-header {
+    padding: 12px 14px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .table-header-search-wrap {
+    width: 100%;
+  }
+
+  .table-header-search-input {
+    width: 100% !important;
+  }
+
+  .add-device-form {
+    padding: 16px 14px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  .form-group input,
+  .form-group select,
+  .dropdown-trigger {
+    min-height: 44px;
+    font-size: 14px;
+  }
+
+  .form-actions {
+    flex-direction: column-reverse;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .btn-save,
+  .btn-reset,
+  .btn-bulk-upload {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+    font-size: 13.5px;
+  }
+
+  .add-device-table-wrap {
+    padding: 10px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table-filters-bar {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .filters-left,
+  .filters-right {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .table-pagination-row {
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    text-align: center;
+    padding: 12px 14px;
+  }
+
+  .pagination-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .topup-modal {
+    width: 95%;
+    max-width: 95%;
+    margin: 10px;
+    max-height: 90vh;
+  }
+
+  .topup-modal-header {
+    padding: 12px 16px;
+  }
+
+  .topup-modal-body {
+    padding: 14px 16px;
+  }
+
   .topup-form-grid {
     grid-template-columns: 1fr;
   }
-  .topup-modal {
-    max-width: 100%;
-  }
+
   .topup-device-info {
     flex-direction: column;
     gap: 6px;
+    padding: 10px 12px;
+  }
+
+  .topup-modal-footer {
+    padding: 12px 16px;
+    flex-direction: column-reverse;
+  }
+
+  .topup-btn-cancel,
+  .topup-btn-submit {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
   }
 }
+
+@media (max-width: 480px) {
+  .add-device-header span {
+    font-size: 13px;
+  }
+
+  .toast-notification {
+    left: 10px;
+    right: 10px;
+    top: 10px;
+    padding: 10px 14px;
+    font-size: 12.5px;
+  }
+
+  .action-buttons-cell {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .btn-action-topup,
+  .btn-action-edit,
+  .btn-action-delete {
+    width: 100%;
+    justify-content: center;
+    padding: 6px 10px;
+  }
+}
+
