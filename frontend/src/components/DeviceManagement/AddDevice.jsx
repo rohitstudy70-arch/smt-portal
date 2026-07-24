@@ -65,6 +65,7 @@ const createEmptyForm = (dealer, defaultVendor = '') => ({
   itrNo: '',
 
   billAmount: '',
+  topUpAmount: '',
   validity: '1 Year',
   status: 'Active',
   presentDate: getLocalDateString(),
@@ -398,6 +399,7 @@ const AddDevice = () => {
       msisdn2: device.msisdn2 || '',
       itrNo: device.itrNo || '',
       billAmount: device.billAmount || '',
+      topUpAmount: '',
       validity: device.validity || '1 Year',
       status: device.status || 'Active',
       presentDate: device.presentDate ? getLocalDateString(device.presentDate) : getLocalDateString(),
@@ -705,6 +707,19 @@ const AddDevice = () => {
                   value={formData.billAmount}
                   onChange={(event) => updateFormField('billAmount', event.target.value)}
                   placeholder="Enter Bill Amount"
+                />
+              </div>
+            )}
+
+            {role !== 'SUB_DEALER' && (
+              <div className="form-group">
+                <label>Top Up Amount</label>
+                <input
+                  type="number"
+                  name="topUpAmount"
+                  value={formData.topUpAmount}
+                  onChange={(event) => updateFormField('topUpAmount', event.target.value)}
+                  placeholder="Enter Top Up Amount (Optional)"
                 />
               </div>
             )}

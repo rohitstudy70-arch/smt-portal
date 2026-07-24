@@ -101,16 +101,23 @@ const IccidSearch = () => {
         }
 
         // 2. Fetch history and renewals in parallel using targetImei
-        const [historyRes, renewalRes] = await Promise.all([
+        const [historyRes, renewalRes, directDeviceActRes] = await Promise.all([
           api.get('/activation-requests', {
             params: { search: targetImei, limit: 100 }
           }).catch(() => ({ data: { requests: [] } })),
           api.get('/portal/renewals', {
             params: { imei: targetImei }
-          }).catch(() => ({ data: [] }))
+          }).catch(() => ({ data: [] })),
+          api.get(`/activation-requests/device/${targetImei}`).catch(() => null)
         ]);
 
-        const history = historyRes.data.requests || [];
+        const history = historyRes.data?.requests || [];
+        if (directDeviceActRes?.data && directDeviceActRes.data._id) {
+          if (!history.some(r => r._id === directDeviceActRes.data._id)) {
+            history.push(directDeviceActRes.data);
+          }
+        }
+
         let fetchedRequest = null;
         if (history.length > 0) {
           const sortedHistory = [...history].sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime));
@@ -220,23 +227,23 @@ Activation Date: ${formatDate(device.presentDate)}
 Expiry Date: ${formatDate(device.expiryDate)}
 
 --- VEHICLE DETAILS ---
-Vehicle Reg. Year: ${latestRequest?.registrationYear || '—'}
-Activation Type: ${latestRenewal?.activationType || latestRequest?.activationMode || '—'}
-Vehicle Condition: ${latestRequest?.vehicleCondition || '—'}
-Vehicle Make: ${latestRequest?.vehicleMake || '—'}
-Vehicle Model: ${latestRequest?.vehicleModel || '—'}
-RTO: ${latestRequest?.rto || '—'}
-Vehicle No: ${latestRenewal?.vehicleNumber || latestRequest?.vehicleNo || '—'}
-Engine No: ${latestRequest?.engineNo || '—'}
-Chassis No: ${latestRequest?.chassisNo || '—'}
+Vehicle Reg. Year: ${latestRequest?.registrationYear || device?.registrationYear || '—'}
+Activation Type: ${latestRenewal?.activationType || latestRequest?.activationMode || device?.activationType || '—'}
+Vehicle Condition: ${latestRequest?.vehicleCondition || device?.vehicleCondition || '—'}
+Vehicle Make: ${latestRequest?.vehicleMake || device?.vehicleMake || '—'}
+Vehicle Model: ${latestRequest?.vehicleModel || device?.vehicleModel || '—'}
+RTO: ${latestRequest?.rto || device?.rto || '—'}
+Vehicle No: ${latestRenewal?.vehicleNumber || latestRequest?.vehicleNo || device?.vehicleNo || device?.vehicleNumber || '—'}
+Engine No: ${latestRequest?.engineNo || device?.engineNo || '—'}
+Chassis No: ${latestRequest?.chassisNo || device?.chassisNo || '—'}
 
 --- CUSTOMER DETAILS ---
-Customer Name: ${latestRenewal?.customerName || latestRequest?.customerName || '—'}
-Mobile No 1: ${latestRenewal?.customerMobile || latestRequest?.regMobNo || '—'}
-Mobile No 2: ${latestRequest?.regMobNo2 || '—'}
-Aadhar No: ${latestRequest?.aadharNo || '—'}
-Address: ${latestRequest?.address || '—'}
-State: ${latestRequest?.userId?.state || device.dealerId?.state || '—'}`;
+Customer Name: ${latestRenewal?.customerName || latestRequest?.customerName || device?.customerName || '—'}
+Mobile No 1: ${latestRenewal?.customerMobile || latestRequest?.regMobNo || device?.regMobNo || device?.customerMobile || '—'}
+Mobile No 2: ${latestRequest?.regMobNo2 || device?.regMobNo2 || '—'}
+Aadhar No: ${latestRequest?.aadharNo || device?.aadharNo || '—'}
+Address: ${latestRequest?.address || device?.address || '—'}
+State: ${latestRequest?.userId?.state || device?.dealerId?.state || device?.state || '—'}`;
 
     navigator.clipboard.writeText(details)
       .then(() => {
@@ -575,43 +582,43 @@ State: ${latestRequest?.userId?.state || device.dealerId?.state || '—'}`;
                   <tr>
                     <td>
                       <div className="grid-cell-label">Vehicle Reg. Year</div>
-                      <div className="grid-cell-value">{latestRequest?.registrationYear || '—'}</div>
+                      <div className="grid-cell-value">{latestRequest?.registrationYear || device?.registrationYear || '—'}</div>
                     </td>
                     <td>
                       <div className="grid-cell-label">Activation Type</div>
-                      <div className="grid-cell-value">{latestRenewal?.activationType || latestRequest?.activationMode || '—'}</div>
+                      <div className="grid-cell-value">{latestRenewal?.activationType || latestRequest?.activationMode || device?.activationType || '—'}</div>
                     </td>
                     <td>
                       <div className="grid-cell-label">Vehicle Condition</div>
-                      <div className="grid-cell-value">{latestRequest?.vehicleCondition || '—'}</div>
+                      <div className="grid-cell-value">{latestRequest?.vehicleCondition || device?.vehicleCondition || '—'}</div>
                     </td>
                   </tr>
                   <tr>
                     <td>
                       <div className="grid-cell-label">Vehicle Make</div>
-                      <div className="grid-cell-value">{latestRequest?.vehicleMake || '—'}</div>
+                      <div className="grid-cell-value">{latestRequest?.vehicleMake || device?.vehicleMake || '—'}</div>
                     </td>
                     <td>
                       <div className="grid-cell-label">Vehicle Model</div>
-                      <div className="grid-cell-value">{latestRequest?.vehicleModel || '—'}</div>
+                      <div className="grid-cell-value">{latestRequest?.vehicleModel || device?.vehicleModel || '—'}</div>
                     </td>
                     <td>
                       <div className="grid-cell-label">RTO</div>
-                      <div className="grid-cell-value">{latestRequest?.rto || '—'}</div>
+                      <div className="grid-cell-value">{latestRequest?.rto || device?.rto || '—'}</div>
                     </td>
                   </tr>
                   <tr>
                     <td>
                       <div className="grid-cell-label">Vehicle No</div>
-                      <div className="grid-cell-value bold">{latestRenewal?.vehicleNumber || latestRequest?.vehicleNo || '—'}</div>
+                      <div className="grid-cell-value bold">{latestRenewal?.vehicleNumber || latestRequest?.vehicleNo || device?.vehicleNo || device?.vehicleNumber || '—'}</div>
                     </td>
                     <td>
                       <div className="grid-cell-label">Engine No</div>
-                      <div className="grid-cell-value bold">{latestRequest?.engineNo || '—'}</div>
+                      <div className="grid-cell-value bold">{latestRequest?.engineNo || device?.engineNo || '—'}</div>
                     </td>
                     <td>
                       <div className="grid-cell-label">Chassis No</div>
-                      <div className="grid-cell-value bold">{latestRequest?.chassisNo || '—'}</div>
+                      <div className="grid-cell-value bold">{latestRequest?.chassisNo || device?.chassisNo || '—'}</div>
                     </td>
                   </tr>
                 </tbody>
@@ -628,29 +635,29 @@ State: ${latestRequest?.userId?.state || device.dealerId?.state || '—'}`;
                   <tr>
                     <td>
                       <div className="grid-cell-label">Customer Name</div>
-                      <div className="grid-cell-value bold">{latestRenewal?.customerName || latestRequest?.customerName || '—'}</div>
+                      <div className="grid-cell-value bold">{latestRenewal?.customerName || latestRequest?.customerName || device?.customerName || '—'}</div>
                     </td>
                     <td>
                       <div className="grid-cell-label">Mobile No 1</div>
-                      <div className="grid-cell-value">{latestRenewal?.customerMobile || latestRequest?.regMobNo || '—'}</div>
+                      <div className="grid-cell-value">{latestRenewal?.customerMobile || latestRequest?.regMobNo || device?.regMobNo || device?.customerMobile || '—'}</div>
                     </td>
                     <td>
                       <div className="grid-cell-label">Mobile No 2</div>
-                      <div className="grid-cell-value">{latestRequest?.regMobNo2 || '—'}</div>
+                      <div className="grid-cell-value">{latestRequest?.regMobNo2 || device?.regMobNo2 || '—'}</div>
                     </td>
                   </tr>
                   <tr>
                     <td>
                       <div className="grid-cell-label">Aadhar No</div>
-                      <div className="grid-cell-value">{latestRequest?.aadharNo || '—'}</div>
+                      <div className="grid-cell-value">{latestRequest?.aadharNo || device?.aadharNo || '—'}</div>
                     </td>
                     <td>
                       <div className="grid-cell-label">Address</div>
-                      <div className="grid-cell-value">{latestRequest?.address || '—'}</div>
+                      <div className="grid-cell-value">{latestRequest?.address || device?.address || '—'}</div>
                     </td>
                     <td>
                       <div className="grid-cell-label">State</div>
-                      <div className="grid-cell-value">{latestRequest?.userId?.state || device.dealerId?.state || '—'}</div>
+                      <div className="grid-cell-value">{latestRequest?.userId?.state || device?.dealerId?.state || device?.state || '—'}</div>
                     </td>
                   </tr>
                 </tbody>

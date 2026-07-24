@@ -11,6 +11,21 @@ const activationRequestSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
   },
+  dealerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null,
+  },
+  subDealerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null,
+  },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null,
+  },
   isSubDealer: {
     type: Boolean,
     default: false,

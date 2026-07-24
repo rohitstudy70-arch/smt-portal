@@ -8,6 +8,7 @@ const {
   PORTAL_ROLES,
   attachHierarchyScope,
   buildScopedOwnerQuery,
+  buildDeviceScopeQuery,
   requireRoles,
   isIdInScope,
 } = require('../middleware/hierarchy');
@@ -45,35 +46,19 @@ router.get('/', async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 10;
     const search = req.query.search || '';
 
-    const query = buildScopedOwnerQuery(req.hierarchyScope);
+    const query = buildDeviceScopeQuery(req.hierarchyScope);
 
     if (search) {
-      const rawSearch = String(search).trim();
-      const flexClean = rawSearch.replace(/[^a-zA-Z0-9]/g, '');
-      let flexVehicleRegex = new RegExp(escapeRegExp(rawSearch), 'i');
-      if (flexClean.length >= 2) {
-        const flexPattern = flexClean.split('').map(c => escapeRegExp(c)).join('[\\s\\-]*');
-        flexVehicleRegex = new RegExp(flexPattern, 'i');
-      }
-
       query.$or = [
-        { requestId: { $regex: rawSearch, $options: 'i' } },
-        { requestType: { $regex: rawSearch, $options: 'i' } },
-        { plan: { $regex: rawSearch, $options: 'i' } },
-        { piNo: { $regex: rawSearch, $options: 'i' } },
-        { status: { $regex: rawSearch, $options: 'i' } },
-        { remarks: { $regex: rawSearch, $options: 'i' } },
-        { dealerName: { $regex: rawSearch, $options: 'i' } },
-        { subDealerName: { $regex: rawSearch, $options: 'i' } },
-        { imei: { $regex: rawSearch, $options: 'i' } },
-        { iccid: { $regex: rawSearch, $options: 'i' } },
-        { serialNo: { $regex: rawSearch, $options: 'i' } },
-        { itrNo: { $regex: rawSearch, $options: 'i' } },
-        { customerName: { $regex: rawSearch, $options: 'i' } },
-        { regMobNo: { $regex: rawSearch, $options: 'i' } },
-        { chassisNo: { $regex: flexVehicleRegex } },
-        { engineNo: { $regex: flexVehicleRegex } },
-        { vehicleNo: flexVehicleRegex },
+        { requestId: { $regex: search, $options: 'i' } },
+        { requestType: { $regex: search, $options: 'i' } },
+        { plan: { $regex: search, $options: 'i' } },
+        { piNo: { $regex: search, $options: 'i' } },
+        { status: { $regex: search, $options: 'i' } },
+        { remarks: { $regex: search, $options: 'i' } },
+        { subDealerName: { $regex: search, $options: 'i' } },
+        { imei: { $regex: search, $options: 'i' } },
+        { vehicleNo: { $regex: search, $options: 'i' } },
       ];
     }
 
@@ -133,10 +118,15 @@ router.get('/device/:imei', requireRoles(...operationsRoles), async (req, res) =
     const { imei } = req.params;
     if (!imei) return res.status(400).json({ message: 'IMEI required' });
 
-    const query = buildScopedOwnerQuery(req.hierarchyScope);
+    const query = buildDeviceScopeQuery(req.hierarchyScope);
     query.imei = new RegExp('^' + String(imei).trim() + '$', 'i');
 
-    const request = await ActivationRequest.findOne(query).sort({ dateTime: -1 });
+    let request = await ActivationRequest.findOne(query).sort({ dateTime: -1 });
+
+    // Fallback: search directly by IMEI if not found via scoped query
+    if (!request) {
+      request = await ActivationRequest.findOne({ imei: new RegExp('^' + String(imei).trim() + '$', 'i') }).sort({ dateTime: -1 });
+    }
 
     if (!request) {
       return res.status(404).json({ message: 'No request found for this IMEI' });
@@ -233,7 +223,10 @@ router.post('/', requireRoles(...operationsRoles), async (req, res) => {
 
     const activationRequest = await ActivationRequest.create({
       requestId,
-      userId: req.user._id,
+      userId: targetUserId,
+      dealerId: device.dealerId || null,
+      subDealerId: device.subDealerId || null,
+      createdBy: req.user._id,
       dateTime: new Date(),
       isSubDealer: isSubDealer || false,
       subDealerName: subDealerName || '',
@@ -304,12 +297,6 @@ router.post('/', requireRoles(...operationsRoles), async (req, res) => {
         device.activationRequestStatus = 'processing';
         device.deviceStatus = 'inactive';
         device.status = 'Inactive';
-        if (req.body.vehicleNo) {
-          device.vehicleNo = req.body.vehicleNo;
-          device.vehicleNumber = req.body.vehicleNo;
-        }
-        if (req.body.customerName) device.customerName = req.body.customerName;
-        if (req.body.regMobNo) device.customerMobile = req.body.regMobNo;
         device.updatedAt = new Date();
         device.assignmentHistory.push({
           fromUser: fromUser || null,

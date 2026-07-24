@@ -124,26 +124,6 @@ const deviceSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
-  vehicleNo: {
-    type: String,
-    default: '',
-    trim: true,
-  },
-  vehicleNumber: {
-    type: String,
-    default: '',
-    trim: true,
-  },
-  customerName: {
-    type: String,
-    default: '',
-    trim: true,
-  },
-  customerMobile: {
-    type: String,
-    default: '',
-    trim: true,
-  },
   status: {
     type: String,
     default: 'Activated',
@@ -254,8 +234,6 @@ deviceSchema.pre('validate', function (next) {
   this.iccidNumber = this.iccidNumber || this.iccid;
   this.serialNo = this.serialNo || this.serialNumber;
   this.serialNumber = this.serialNumber || this.serialNo;
-  this.vehicleNo = this.vehicleNo || this.vehicleNumber;
-  this.vehicleNumber = this.vehicleNumber || this.vehicleNo;
   next();
 });
 
@@ -270,9 +248,5 @@ deviceSchema.index({ serialNo: 1 }, { unique: true, sparse: true });
 deviceSchema.index({ dealerId: 1 });
 deviceSchema.index({ subDealerId: 1 });
 deviceSchema.index({ createdBy: 1 });
-deviceSchema.index({ vehicleNo: 1 });
-deviceSchema.index({ vehicleNumber: 1 });
-deviceSchema.index({ customerName: 1 });
-deviceSchema.index({ customerMobile: 1 });
 
 module.exports = mongoose.model('Device', deviceSchema);

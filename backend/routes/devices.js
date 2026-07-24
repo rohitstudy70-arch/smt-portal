@@ -93,28 +93,8 @@ const normalizeDeviceInput = (body) => {
 
 const buildRegexCondition = (value, fields) => {
   if (!value) return null;
-  const rawStr = String(value).trim();
-  const escaped = escapeRegExp(rawStr);
-  const regex = new RegExp(escaped, 'i');
-
-  // Flexible regex for vehicle numbers and formatted strings (ignoring spaces & hyphens)
-  const cleanAlphanumeric = rawStr.replace(/[^a-zA-Z0-9]/g, '');
-  let flexRegex = null;
-  if (cleanAlphanumeric.length >= 2) {
-    const flexPattern = cleanAlphanumeric.split('').map(c => escapeRegExp(c)).join('[\\s\\-]*');
-    flexRegex = new RegExp(flexPattern, 'i');
-  }
-
-  const flexFields = ['vehicleNo', 'vehicleNumber', 'registrationNo', 'regNo'];
-
-  return {
-    $or: fields.map((field) => {
-      if (flexRegex && flexFields.includes(field)) {
-        return { [field]: flexRegex };
-      }
-      return { [field]: regex };
-    }),
-  };
+  const regex = new RegExp(escapeRegExp(String(value).trim()), 'i');
+  return { $or: fields.map((field) => ({ [field]: regex })) };
 };
 
 const buildDeviceFilterQuery = (queryParams = {}, userRole = '', userId = null) => {
@@ -152,11 +132,6 @@ const buildDeviceFilterQuery = (queryParams = {}, userRole = '', userId = null) 
     'dealerName',
     'subDealerName',
     'status',
-    'itrNo',
-    'vehicleNo',
-    'vehicleNumber',
-    'customerName',
-    'customerMobile',
   ]);
   if (searchCondition) conditions.push(searchCondition);
 
