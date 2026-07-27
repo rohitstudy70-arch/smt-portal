@@ -304,30 +304,87 @@
 }
 
 @media (max-width: 768px) {
+  .user-management-container {
+    padding: 10px;
+    gap: 12px;
+  }
+
   .form-group-horizontal {
     flex-direction: column;
     align-items: flex-start;
     gap: 6px;
   }
+  
   .form-group-horizontal label {
     width: 100%;
     text-align: left;
     margin-right: 0;
   }
+
+  .form-group-horizontal input,
+  .form-group-horizontal select {
+    width: 100%;
+    min-height: 42px;
+    font-size: 13.5px;
+  }
+
   .form-actions-horizontal {
     margin-left: 0;
-    justify-content: flex-end;
+    flex-direction: column-reverse;
+    gap: 10px;
+    width: 100%;
   }
+
+  .btn-submit-user,
+  .btn-reset-user {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+    font-size: 13.5px;
+  }
+
   .table-filters-bar {
     flex-direction: column;
     align-items: stretch;
     gap: 12px;
+    padding: 12px 14px;
   }
+
   .search-input-group {
     width: 100%;
   }
+
   .search-input-group input {
     flex: 1;
     width: 100%;
+    min-height: 42px;
+    font-size: 13.5px;
+  }
+
+  .users-table-wrap {
+    padding: 0 10px 10px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .user-modal-container {
+    width: 96%;
+    max-width: 96%;
+    max-height: 90vh;
   }
 }
+
+@media (max-width: 480px) {
+  .user-card-header {
+    padding: 12px 14px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .btn-action-sm {
+    width: 100%;
+    justify-content: center;
+    min-height: 38px;
+  }
+}
+

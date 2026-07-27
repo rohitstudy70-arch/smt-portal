@@ -540,3 +540,102 @@
 .pdf-modal iframe {
   background-color: #ffffff;
 }
+
+/* ======================================= */
+/* MOBILE RESPONSIVENESS (ICCID SEARCH)   */
+/* ======================================= */
+
+@media (max-width: 768px) {
+  .iccid-search-container {
+    padding: 10px;
+    gap: 12px;
+  }
+
+  .search-bar-wrap {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+
+  .search-input-group {
+    width: 100%;
+  }
+
+  .search-input-group input {
+    width: 100%;
+    min-height: 44px;
+    font-size: 14px;
+  }
+
+  .btn-search-main {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+    font-size: 14px;
+  }
+
+  .top-info-container {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .top-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .top-actions button,
+  .top-actions a,
+  .btn-activate-quick {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+  }
+
+  .upload-fields-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .upload-field-group {
+    width: 100%;
+  }
+
+  .upload-field-group input,
+  .upload-field-group select {
+    width: 100%;
+    min-height: 42px;
+    font-size: 13.5px;
+  }
+
+  .btn-upload-submit {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  .preview-modal-container {
+    width: 98%;
+    max-width: 98%;
+    max-height: 94vh;
+  }
+
+  .preview-header-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .preview-header-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
+

@@ -178,20 +178,46 @@
   background: #1e88e5;
 }
 
-@media (max-width: 576px) {
+@media (max-width: 768px) {
+  .certificates-container {
+    padding: 10px;
+    gap: 12px;
+  }
+
   .certificates-actions-row {
     flex-direction: column;
     align-items: stretch;
     gap: 12px;
+    padding: 12px 14px;
   }
+
   .table-filters-bar {
-    justify-content: stretch;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
   }
+
   .search-input-group {
     width: 100%;
   }
+
   .search-input-group input {
     width: 100%;
-    flex: 1;
+    min-height: 42px;
+    font-size: 13.5px;
+  }
+
+  .certificates-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 10px;
+  }
+
+  .btn-download {
+    width: 100%;
+    justify-content: center;
+    min-height: 42px;
+    font-size: 13px;
   }
 }
+

@@ -113,3 +113,42 @@
 .btn-action.delete {
   background: #d32f2f;
 }
+
+/* =========================================== */
+/* MOBILE RESPONSIVENESS (PRODUCT MANAGEMENT)  */
+/* =========================================== */
+
+@media (max-width: 768px) {
+  .add-product-container {
+    padding: 10px;
+    gap: 12px;
+  }
+
+  .inline-search-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .btn-inline-search {
+    justify-content: center;
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .add-product-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 10px;
+  }
+
+  .table-actions-btns {
+    flex-direction: row;
+    gap: 6px;
+  }
+
+  .btn-action {
+    width: 34px;
+    height: 34px;
+  }
+}
+

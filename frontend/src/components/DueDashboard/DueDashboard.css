@@ -975,31 +975,81 @@
 }
 
 @media (max-width: 768px) {
-  .due-tab-btn {
-    padding: 8px 12px;
-    font-size: 12px;
+  .due-tabs-container {
+    flex-wrap: wrap;
+    gap: 6px;
   }
+
+  .due-tab-btn {
+    padding: 10px 14px;
+    font-size: 12.5px;
+    flex: 1;
+    min-width: 120px;
+    justify-content: center;
+    min-height: 42px;
+  }
+
   .due-panel-header {
     flex-direction: column;
     align-items: stretch;
+    gap: 12px;
+    padding: 14px 16px;
   }
+
   .due-filters-bar {
     flex-direction: column;
     align-items: stretch;
+    gap: 10px;
+    padding: 12px 14px;
   }
+
   .due-filters-bar .search-box, 
   .due-filters-bar .filter-select {
     width: 100%;
     min-width: 0;
   }
-  .due-filters-bar .filter-select select {
+
+  .due-filters-bar .filter-select select,
+  .due-filters-bar input {
     width: 100%;
+    min-height: 42px;
+    font-size: 13.5px;
   }
+
+  .due-table-wrapper {
+    padding: 0 10px 10px;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .due-details-grid-layout {
     grid-template-columns: 1fr;
   }
+
   .due-details-grid-layout .full-width {
     grid-column: span 1;
+  }
+
+  .due-summary-cards {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+  }
+
+  .due-modal-container {
+    width: 98%;
+    max-width: 98%;
+    max-height: 92vh;
+    border-radius: 8px;
+  }
+
+  .due-modal-footer {
+    flex-direction: column-reverse;
+    gap: 10px;
+  }
+
+  .due-modal-btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
   }
 }
 
@@ -1007,16 +1057,21 @@
   .due-summary-cards {
     grid-template-columns: 1fr;
   }
+
   .due-modal-backdrop {
     padding: 10px;
   }
+
   .due-modal-header {
     padding: 12px 16px;
   }
+
   .due-modal-body {
     padding: 12px 16px;
   }
+
   .due-modal-footer {
     padding: 12px 16px;
   }
 }
+

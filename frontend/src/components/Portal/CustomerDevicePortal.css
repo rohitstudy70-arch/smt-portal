@@ -822,3 +822,69 @@
     opacity: .5;
   }
 }
+
+/* ============================================== */
+/* MOBILE RESPONSIVENESS (CUSTOMER DEVICE PORTAL) */
+/* ============================================== */
+
+@media (max-width: 768px) {
+  .portal-shell {
+    padding: 10px;
+    gap: 12px;
+  }
+
+  .portal-modal-card {
+    width: 98% !important;
+    max-width: 98% !important;
+    max-height: 92vh !important;
+    margin: 10px;
+  }
+
+  .portal-modal-body {
+    padding: 14px 16px;
+  }
+
+  .portal-modal-footer {
+    flex-direction: column-reverse;
+    gap: 10px;
+    padding: 12px 16px;
+  }
+
+  .portal-modal-footer button {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  .portal-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .portal-filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .portal-filter-bar select,
+  .portal-filter-bar input {
+    width: 100%;
+    min-height: 42px;
+  }
+
+  .portal-stat-value {
+    font-size: 22px;
+  }
+}
+
+@media (max-width: 480px) {
+  .portal-titlebar h1 {
+    font-size: 18px;
+  }
+
+  .portal-actions button {
+    min-height: 42px;
+  }
+}
+
