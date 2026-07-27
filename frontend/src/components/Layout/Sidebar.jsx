@@ -16,6 +16,7 @@ import {
   FaBoxOpen,
   FaCertificate,
   FaBook,
+  FaTimes,
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import './Sidebar.css';
@@ -75,6 +76,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           <h2>{brandName}</h2>
           <span>Customer Device Portal</span>
         </div>
+        <button className="sidebar-close-btn" onClick={() => setIsOpen(false)} aria-label="Close sidebar">
+          <FaTimes />
+        </button>
       </div>
 
       <ul className="sidebar-menu" onClick={(e) => {

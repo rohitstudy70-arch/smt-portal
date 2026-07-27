@@ -156,11 +156,14 @@ const Header = ({ toggleSidebar }) => {
     <div className="header-wrapper">
       <div className="header">
         <div className="header-left">
-          <FaBars className="menu-toggle" onClick={toggleSidebar} />
+          <button className="menu-toggle-btn" onClick={toggleSidebar} aria-label="Toggle Navigation Menu">
+            <FaBars className="menu-toggle" />
+          </button>
+          <span className="mobile-brand-title">CDB Portal</span>
         </div>
 
         <div className="header-right">
-          <form className="search-box" onSubmit={handleGlobalSearchSubmit}>
+          <form className="search-box desktop-search" onSubmit={handleGlobalSearchSubmit}>
             <input 
               type="text" 
               placeholder="Customer / IMEI / ICCID / Serial No / Vehicle No" 
@@ -188,6 +191,18 @@ const Header = ({ toggleSidebar }) => {
             )}
           </div>
         </div>
+      </div>
+
+      <div className="header-mobile-search">
+        <form className="search-box mobile-search" onSubmit={handleGlobalSearchSubmit}>
+          <input 
+            type="text" 
+            placeholder="Customer / IMEI / ICCID / Serial No / Vehicle No" 
+            value={globalSearch}
+            onChange={(e) => setGlobalSearch(e.target.value)}
+          />
+          <button type="submit">Search</button>
+        </form>
       </div>
 
       <div className="breadcrumb-bar">
