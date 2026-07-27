@@ -1,7 +1,14 @@
 .layout {
   display: flex;
   min-height: 100vh;
-  zoom: 0.8;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+@media (min-width: 1200px) {
+  .layout {
+    zoom: 0.9;
+  }
 }
 
 .main-content {
@@ -12,6 +19,8 @@
   flex-direction: column;
   min-height: 100vh;
   transition: margin-left 0.3s ease;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 .page-content {

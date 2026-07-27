@@ -193,14 +193,39 @@
   color: var(--accent-color);
 }
 
-@media (max-width: 480px) {
+@media (max-width: 576px) {
+  .login-card {
+    width: 92%;
+    max-width: 92%;
+    border-radius: 12px;
+    margin: 16px auto;
+  }
+
   .login-top-bar {
     padding: 14px 16px;
   }
-  .login-body {
-    padding: 30px 20px;
-  }
+
   .login-header {
-    padding: 30px 20px;
+    padding: 24px 18px;
+  }
+
+  .login-header h2 {
+    font-size: 20px;
+  }
+
+  .login-body {
+    padding: 24px 18px;
+  }
+
+  .form-group input,
+  .form-group select {
+    min-height: 44px;
+    font-size: 14px;
+  }
+
+  .login-btn {
+    min-height: 46px;
+    font-size: 14px;
   }
 }
+
