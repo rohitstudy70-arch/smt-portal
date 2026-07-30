@@ -149,14 +149,27 @@ const Header = ({ toggleSidebar }) => {
     }
   };
 
-  // Determine if file upload bar should be shown (matches screenshot for userdashboard page)
-  const showUpload = false;
+  const handleToggleClick = (e) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    toggleSidebar();
+  };
 
   return (
     <div className="header-wrapper">
       <div className="header">
         <div className="header-left">
-          <button className="menu-toggle-btn" onClick={toggleSidebar} aria-label="Toggle Navigation Menu">
+          <button 
+            type="button"
+            className="menu-toggle-btn" 
+            onClick={handleToggleClick} 
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              handleToggleClick(e);
+            }}
+            aria-label="Toggle Navigation Menu"
+          >
             <FaBars className="menu-toggle" />
           </button>
           <span className="mobile-brand-title">CDB Portal</span>
