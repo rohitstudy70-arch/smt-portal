@@ -220,13 +220,6 @@ const Header = ({ toggleSidebar }) => {
 
       <div className="breadcrumb-bar">
         {getBreadcrumbs()}
-
-        {showUpload && (
-          <div className="upload-bar">
-            <input type="file" id="dashboard-file" />
-            <button onClick={() => alert('File upload simulated successfully!')}>Upload</button>
-          </div>
-        )}
       </div>
     </div>
   );
