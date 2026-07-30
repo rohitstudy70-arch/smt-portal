@@ -151,9 +151,14 @@ const Header = ({ toggleSidebar }) => {
 
   const handleToggleClick = (e) => {
     if (e) {
-      e.stopPropagation();
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      if (typeof e.stopPropagation === 'function') e.stopPropagation();
     }
-    toggleSidebar();
+    if (window.toggleCdbSidebar) {
+      window.toggleCdbSidebar();
+    } else if (toggleSidebar) {
+      toggleSidebar();
+    }
   };
 
   return (
@@ -164,15 +169,19 @@ const Header = ({ toggleSidebar }) => {
             type="button"
             className="menu-toggle-btn" 
             onClick={handleToggleClick} 
-            onTouchEnd={(e) => {
-              e.preventDefault();
-              handleToggleClick(e);
-            }}
+            onTouchStart={handleToggleClick}
+            onPointerDown={handleToggleClick}
             aria-label="Toggle Navigation Menu"
           >
             <FaBars className="menu-toggle" />
           </button>
-          <span className="mobile-brand-title">CDB Portal</span>
+          <span 
+            className="mobile-brand-title" 
+            onClick={handleToggleClick}
+            onTouchStart={handleToggleClick}
+          >
+            CDB Portal
+          </span>
         </div>
 
         <div className="header-right">
