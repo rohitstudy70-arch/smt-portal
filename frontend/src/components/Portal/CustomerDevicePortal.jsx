@@ -548,9 +548,9 @@ const CustomerDevicePortal = () => {
   };
 
   const handleSearchImei = async (searchVal) => {
-    const query = searchVal || renewalForm.imei || renewalForm.vehicleNumber;
+    const query = searchVal || renewalForm.imei || renewalForm.vehicleNumber || renewalForm.customerName || renewalForm.customerMobile;
     if (!query || !query.toString().trim()) {
-      alert('Please enter an IMEI or Vehicle Number first.');
+      alert('Please enter an IMEI, Vehicle Number, Customer Name, Mobile Number, or Chassis Number first.');
       return;
     }
     const cleanQuery = query.toString().trim();
@@ -583,7 +583,7 @@ const CustomerDevicePortal = () => {
       }
     } catch (err) {
       console.error('Error fetching details:', err);
-      alert(err.response?.data?.message || 'No details found or error searching for IMEI / Vehicle Number.');
+      alert(err.response?.data?.message || 'No details found or error searching.');
     }
   };
 
@@ -2521,22 +2521,86 @@ const CustomerDevicePortal = () => {
 
             <label>
               <span>Customer Name *</span>
-              <input 
-                type="text" 
-                value={renewalForm.customerName} 
-                onChange={(e) => handleRenewalFormChange('customerName', e.target.value)} 
-                required 
-              />
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <input 
+                  type="text" 
+                  value={renewalForm.customerName} 
+                  onChange={(e) => handleRenewalFormChange('customerName', e.target.value)} 
+                  required 
+                  style={{ flex: 1, margin: 0 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => handleSearchImei(renewalForm.customerName)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: '38px',
+                    height: '38px',
+                    padding: '0',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-color)',
+                    background: '#ffffff',
+                    color: '#334155',
+                    cursor: 'pointer',
+                    transition: 'all 0.18s ease'
+                  }}
+                  title="Search Customer Name"
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = '#2563eb';
+                    e.currentTarget.style.color = '#2563eb';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-color)';
+                    e.currentTarget.style.color = '#334155';
+                  }}
+                >
+                  <FaSearch />
+                </button>
+              </div>
             </label>
 
             <label>
               <span>Customer Mobile Number *</span>
-              <input 
-                type="number" 
-                value={renewalForm.customerMobile} 
-                onChange={(e) => handleRenewalFormChange('customerMobile', e.target.value)} 
-                required 
-              />
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <input 
+                  type="number" 
+                  value={renewalForm.customerMobile} 
+                  onChange={(e) => handleRenewalFormChange('customerMobile', e.target.value)} 
+                  required 
+                  style={{ flex: 1, margin: 0 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => handleSearchImei(renewalForm.customerMobile)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: '38px',
+                    height: '38px',
+                    padding: '0',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-color)',
+                    background: '#ffffff',
+                    color: '#334155',
+                    cursor: 'pointer',
+                    transition: 'all 0.18s ease'
+                  }}
+                  title="Search Mobile Number"
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = '#2563eb';
+                    e.currentTarget.style.color = '#2563eb';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-color)';
+                    e.currentTarget.style.color = '#334155';
+                  }}
+                >
+                  <FaSearch />
+                </button>
+              </div>
             </label>
 
             <label>

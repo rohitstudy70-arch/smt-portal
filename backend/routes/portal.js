@@ -1228,6 +1228,10 @@ router.get('/renewals/search-imei/:imei', protect, async (req, res) => {
             { imei: cleanQ },
             { vehicleNumber: new RegExp('^' + escapedCleanQ + '$', 'i') },
             { vehicleNumber: new RegExp(escapedQ, 'i') },
+            { customerName: new RegExp(escapedQ, 'i') },
+            { customerMobile: q },
+            { customerMobile: cleanQ },
+            { customerMobile: new RegExp(escapedCleanQ, 'i') },
           ]
         }
       ]
@@ -1242,6 +1246,15 @@ router.get('/renewals/search-imei/:imei', protect, async (req, res) => {
             { imei: cleanQ },
             { vehicleNo: new RegExp('^' + escapedCleanQ + '$', 'i') },
             { vehicleNo: new RegExp(escapedQ, 'i') },
+            { customerName: new RegExp(escapedQ, 'i') },
+            { regMobNo: q },
+            { regMobNo: cleanQ },
+            { regMobNo: new RegExp(escapedCleanQ, 'i') },
+            { regMobNo2: q },
+            { regMobNo2: cleanQ },
+            { regMobNo2: new RegExp(escapedCleanQ, 'i') },
+            { chassisNo: new RegExp('^' + escapedCleanQ + '$', 'i') },
+            { chassisNo: new RegExp(escapedQ, 'i') },
           ]
         }
       ]
@@ -1262,6 +1275,18 @@ router.get('/renewals/search-imei/:imei', protect, async (req, res) => {
             { vehicleNo: new RegExp('^' + escapedCleanQ + '$', 'i') },
             { vehicleNumber: new RegExp(escapedQ, 'i') },
             { vehicleNo: new RegExp(escapedQ, 'i') },
+            { customerName: new RegExp(escapedQ, 'i') },
+            { customerMobile: q },
+            { customerMobile: cleanQ },
+            { customerMobile: new RegExp(escapedCleanQ, 'i') },
+            { msisdn1: q },
+            { msisdn1: cleanQ },
+            { msisdn2: q },
+            { msisdn2: cleanQ },
+            { chassisNo: new RegExp('^' + escapedCleanQ + '$', 'i') },
+            { chassisNo: new RegExp(escapedQ, 'i') },
+            { chassisNumber: new RegExp('^' + escapedCleanQ + '$', 'i') },
+            { chassisNumber: new RegExp(escapedQ, 'i') },
           ]
         }
       ]
@@ -1272,7 +1297,7 @@ router.get('/renewals/search-imei/:imei', protect, async (req, res) => {
     const device = await Device.findOne(deviceQuery);
 
     if (!latestRenewal && !device && !activation) {
-      return res.status(404).json({ message: 'No details found for the given IMEI or Vehicle Number.' });
+      return res.status(404).json({ message: 'No details found for the given search query.' });
     }
 
     const customerName = latestRenewal?.customerName || activation?.customerName || device?.customerName || '';
