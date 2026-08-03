@@ -132,6 +132,12 @@ const buildDeviceFilterQuery = (queryParams = {}, userRole = '', userId = null) 
     'dealerName',
     'subDealerName',
     'status',
+    'customerName',
+    'customerMobile',
+    'vehicleNumber',
+    'vehicleNo',
+    'chassisNo',
+    'chassisNumber',
   ]);
   if (searchCondition) conditions.push(searchCondition);
 

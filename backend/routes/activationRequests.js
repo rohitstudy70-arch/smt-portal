@@ -57,8 +57,13 @@ router.get('/', async (req, res) => {
         { status: { $regex: search, $options: 'i' } },
         { remarks: { $regex: search, $options: 'i' } },
         { subDealerName: { $regex: search, $options: 'i' } },
+        { dealerName: { $regex: search, $options: 'i' } },
         { imei: { $regex: search, $options: 'i' } },
         { vehicleNo: { $regex: search, $options: 'i' } },
+        { customerName: { $regex: search, $options: 'i' } },
+        { regMobNo: { $regex: search, $options: 'i' } },
+        { regMobNo2: { $regex: search, $options: 'i' } },
+        { chassisNo: { $regex: search, $options: 'i' } },
       ];
     }
 

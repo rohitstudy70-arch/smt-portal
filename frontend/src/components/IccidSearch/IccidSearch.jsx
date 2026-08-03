@@ -62,22 +62,26 @@ const IccidSearch = () => {
         setLatestRenewal(null);
         setDocumentsList([]);
 
-        // 1. Fetch device details
+        // 1. First try search-imei endpoint (supports Customer Name, Mobile, Vehicle, Chassis, IMEI, Serial, ICCID)
+        const portalSearchRes = await api.get(`/portal/renewals/search-imei/${encodeURIComponent(searchQuery)}`).catch(() => null);
+        if (portalSearchRes?.data?.imei) {
+          targetImei = portalSearchRes.data.imei;
+        }
+
+        // 2. Fetch device details
         const res = await api.get('/devices', {
-          params: { search: searchQuery, limit: 1 }
-        });
+          params: { search: targetImei || searchQuery, limit: 1 }
+        }).catch(() => ({ data: { devices: [] } }));
 
         let foundDevice = null;
-        let targetImei = searchQuery;
-
-        if (res.data.devices && res.data.devices.length > 0) {
+        if (res.data?.devices && res.data.devices.length > 0) {
           foundDevice = res.data.devices[0];
           targetImei = foundDevice.imei;
           setDevice(foundDevice);
           setDocumentsList(foundDevice.documents || []);
         }
 
-        // 1b. If no device found by IMEI/ICCID/Serial, try searching by Vehicle Number via activation-requests
+        // 3. If no device found yet, try searching by Customer Name / Vehicle Number via activation-requests
         if (!foundDevice) {
           const vehicleSearchRes = await api.get('/activation-requests', {
             params: { search: searchQuery, limit: 1 }
