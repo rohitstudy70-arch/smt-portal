@@ -60,7 +60,7 @@ const IccidSearch = () => {
         setDevice(null);
         setLatestRequest(null);
         setLatestRenewal(null);
-        setDocumentsList([]);
+        let targetImei = searchQuery;
 
         // 1. First try search-imei endpoint (supports Customer Name, Mobile, Vehicle, Chassis, IMEI, Serial, ICCID)
         const portalSearchRes = await api.get(`/portal/renewals/search-imei/${encodeURIComponent(searchQuery)}`).catch(() => null);
