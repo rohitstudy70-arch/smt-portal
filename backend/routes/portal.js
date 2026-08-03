@@ -1134,7 +1134,14 @@ router.get('/renewals', protect, async (req, res) => {
       query.imei = new RegExp(imei.trim(), 'i');
     }
     if (vehicleNumber) {
-      query.vehicleNumber = new RegExp(vehicleNumber.trim(), 'i');
+      const vTrim = vehicleNumber.trim();
+      const vClean = vTrim.replace(/[\s-]/g, '');
+      const escapedV = vTrim.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const escapedCleanV = vClean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      query.$or = [
+        { vehicleNumber: new RegExp(escapedV, 'i') },
+        { vehicleNumber: new RegExp(escapedCleanV, 'i') },
+      ];
     }
     if (fromDate || toDate) {
       query.renewalDate = {};
@@ -1201,27 +1208,77 @@ router.get('/renewals/stats', protect, async (req, res) => {
 
 router.get('/renewals/search-imei/:imei', protect, async (req, res) => {
   try {
-    const { imei } = req.params;
-    if (!/^\d+$/.test(imei)) {
-      return res.status(400).json({ message: 'Invalid IMEI number.' });
+    const queryStr = (req.params.imei || '').trim();
+    if (!queryStr || queryStr.length < 2) {
+      return res.status(400).json({ message: 'Search query must be at least 2 characters.' });
     }
 
     const scope = await getScope(req.user);
-    const deviceQuery = { imei, ...buildDeviceScopeQuery(scope) };
-    const activationQuery = { imei, ...buildRequestScopeQuery(scope) };
-    const renewalQuery = { imei, ...buildRequestScopeQuery(scope) };
+    const q = queryStr;
+    const cleanQ = q.replace(/[\s-]/g, '');
+    const escapedQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escapedCleanQ = cleanQ.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    const renewalQuery = {
+      $and: [
+        buildRequestScopeQuery(scope),
+        {
+          $or: [
+            { imei: q },
+            { imei: cleanQ },
+            { vehicleNumber: new RegExp('^' + escapedCleanQ + '$', 'i') },
+            { vehicleNumber: new RegExp(escapedQ, 'i') },
+          ]
+        }
+      ]
+    };
+
+    const activationQuery = {
+      $and: [
+        buildRequestScopeQuery(scope),
+        {
+          $or: [
+            { imei: q },
+            { imei: cleanQ },
+            { vehicleNo: new RegExp('^' + escapedCleanQ + '$', 'i') },
+            { vehicleNo: new RegExp(escapedQ, 'i') },
+          ]
+        }
+      ]
+    };
+
+    const deviceQuery = {
+      $and: [
+        buildDeviceScopeQuery(scope),
+        {
+          $or: [
+            { imei: q },
+            { imeiNumber: q },
+            { imei: cleanQ },
+            { imeiNumber: cleanQ },
+            { serialNo: q },
+            { iccid: q },
+            { vehicleNumber: new RegExp('^' + escapedCleanQ + '$', 'i') },
+            { vehicleNo: new RegExp('^' + escapedCleanQ + '$', 'i') },
+            { vehicleNumber: new RegExp(escapedQ, 'i') },
+            { vehicleNo: new RegExp(escapedQ, 'i') },
+          ]
+        }
+      ]
+    };
 
     const latestRenewal = await RenewalRequest.findOne(renewalQuery).sort({ createdAt: -1 });
     const activation = await ActivationRequest.findOne(activationQuery).sort({ dateTime: -1, createdAt: -1 });
     const device = await Device.findOne(deviceQuery);
 
     if (!latestRenewal && !device && !activation) {
-      return res.status(404).json({ message: 'No details found for the given IMEI.' });
+      return res.status(404).json({ message: 'No details found for the given IMEI or Vehicle Number.' });
     }
 
-    const customerName = latestRenewal?.customerName || activation?.customerName || '';
-    const customerMobile = latestRenewal?.customerMobile || activation?.regMobNo || activation?.regMobNo2 || '';
-    const vehicleNumber = latestRenewal?.vehicleNumber || activation?.vehicleNo || '';
+    const customerName = latestRenewal?.customerName || activation?.customerName || device?.customerName || '';
+    const customerMobile = latestRenewal?.customerMobile || activation?.regMobNo || activation?.regMobNo2 || device?.customerMobile || '';
+    const vehicleNumber = latestRenewal?.vehicleNumber || activation?.vehicleNo || device?.vehicleNumber || device?.vehicleNo || (!/^\d{15}$/.test(q) ? q : '');
+    const imei = latestRenewal?.imei || activation?.imei || device?.imei || (/^\d{15}$/.test(q) ? q : '');
     const deviceModel = latestRenewal?.deviceModel || device?.vendor || activation?.vendor || '';
 
     let activationType = 'NIC';
@@ -1274,7 +1331,7 @@ router.get('/renewals/search-imei/:imei', protect, async (req, res) => {
       documents: device?.documents || []
     });
   } catch (error) {
-    console.error('Search IMEI error:', error.message);
+    console.error('Search IMEI/Vehicle error:', error.message);
     res.status(500).json({ message: 'Server error' });
   }
 });

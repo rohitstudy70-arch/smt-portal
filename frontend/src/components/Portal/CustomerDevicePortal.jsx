@@ -547,17 +547,19 @@ const CustomerDevicePortal = () => {
     return `${year}-${month}-${day}`;
   };
 
-  const handleSearchImei = async (imeiVal) => {
-    if (!imeiVal) {
-      alert('Please enter an IMEI number first.');
+  const handleSearchImei = async (searchVal) => {
+    const query = searchVal || renewalForm.imei || renewalForm.vehicleNumber;
+    if (!query || !query.toString().trim()) {
+      alert('Please enter an IMEI or Vehicle Number first.');
       return;
     }
-    if (!/^\d{15}$/.test(imeiVal)) {
-      alert('IMEI must contain exactly 15 digits.');
+    const cleanQuery = query.toString().trim();
+    if (cleanQuery.length < 2) {
+      alert('Search query must be at least 2 characters.');
       return;
     }
     try {
-      const response = await api.get(`/portal/renewals/search-imei/${imeiVal}`);
+      const response = await api.get(`/portal/renewals/search-imei/${encodeURIComponent(cleanQuery)}`);
       if (response.data) {
         const details = response.data;
         setRenewalForm(current => {
@@ -566,6 +568,7 @@ const CustomerDevicePortal = () => {
             dealerId: details.dealerId || current.dealerId,
             customerName: details.customerName || current.customerName,
             customerMobile: details.customerMobile || current.customerMobile,
+            imei: details.imei || current.imei,
             vehicleNumber: details.vehicleNumber || current.vehicleNumber,
             deviceModel: details.deviceModel || current.deviceModel,
             activationType: details.activationType || current.activationType,
@@ -579,8 +582,8 @@ const CustomerDevicePortal = () => {
         });
       }
     } catch (err) {
-      console.error('Error fetching IMEI details:', err);
-      alert(err.response?.data?.message || 'No details found or error searching for IMEI.');
+      console.error('Error fetching details:', err);
+      alert(err.response?.data?.message || 'No details found or error searching for IMEI / Vehicle Number.');
     }
   };
 
@@ -2582,12 +2585,46 @@ const CustomerDevicePortal = () => {
 
             <label>
               <span>Vehicle Number *</span>
-              <input 
-                type="text" 
-                value={renewalForm.vehicleNumber} 
-                onChange={(e) => handleRenewalFormChange('vehicleNumber', e.target.value)} 
-                required 
-              />
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <input 
+                  type="text" 
+                  value={renewalForm.vehicleNumber} 
+                  onChange={(e) => handleRenewalFormChange('vehicleNumber', e.target.value)} 
+                  required 
+                  style={{ flex: 1, margin: 0 }}
+                  disabled={isEditingActivatedOrCompleted}
+                />
+                <button
+                  type="button"
+                  onClick={() => handleSearchImei(renewalForm.vehicleNumber)}
+                  disabled={isEditingActivatedOrCompleted}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: '38px',
+                    height: '38px',
+                    padding: '0',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-color)',
+                    background: '#ffffff',
+                    color: '#334155',
+                    cursor: 'pointer',
+                    transition: 'all 0.18s ease'
+                  }}
+                  title="Search Vehicle Number"
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = '#2563eb';
+                    e.currentTarget.style.color = '#2563eb';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-color)';
+                    e.currentTarget.style.color = '#334155';
+                  }}
+                >
+                  <FaSearch />
+                </button>
+              </div>
             </label>
 
             <label>
