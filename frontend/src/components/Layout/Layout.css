@@ -5,12 +5,6 @@
   overflow-x: hidden;
 }
 
-@media (min-width: 1200px) {
-  .layout {
-    zoom: 0.9;
-  }
-}
-
 .main-content {
   flex: 1;
   margin-left: 250px; /* Width of sidebar */
@@ -19,12 +13,12 @@
   flex-direction: column;
   min-height: 100vh;
   transition: margin-left 0.3s ease;
-  width: 100%;
+  width: calc(100% - 250px);
   overflow-x: hidden;
 }
 
 .page-content {
-  padding: 20px;
+  padding: 24px 28px;
   flex: 1;
 }
 
