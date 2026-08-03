@@ -547,10 +547,13 @@ const CustomerDevicePortal = () => {
     return `${year}-${month}-${day}`;
   };
 
-  const handleSearchImei = async (searchVal) => {
-    const query = searchVal || renewalForm.imei || renewalForm.vehicleNumber || renewalForm.customerName || renewalForm.customerMobile;
+  const handleSearchImei = async (searchVal, fieldLabel = '') => {
+    let query = searchVal;
+    if (query === undefined || query === null || query === '') {
+      query = renewalForm.imei || renewalForm.vehicleNumber || renewalForm.customerName || renewalForm.customerMobile;
+    }
     if (!query || !query.toString().trim()) {
-      alert('Please enter an IMEI, Vehicle Number, Customer Name, Mobile Number, or Chassis Number first.');
+      alert(`Please enter ${fieldLabel || 'an IMEI, Vehicle Number, Customer Name, Mobile Number, or Chassis Number'} first.`);
       return;
     }
     const cleanQuery = query.toString().trim();
@@ -583,7 +586,7 @@ const CustomerDevicePortal = () => {
       }
     } catch (err) {
       console.error('Error fetching details:', err);
-      alert(err.response?.data?.message || 'No details found or error searching.');
+      alert(err.response?.data?.message || 'No details found for the given search.');
     }
   };
 
@@ -2525,13 +2528,19 @@ const CustomerDevicePortal = () => {
                 <input 
                   type="text" 
                   value={renewalForm.customerName} 
-                  onChange={(e) => handleRenewalFormChange('customerName', e.target.value)} 
+                  onChange={(e) => handleRenewalFormChange('customerName', e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleSearchImei(renewalForm.customerName, 'Customer Name');
+                    }
+                  }}
                   required 
                   style={{ flex: 1, margin: 0 }}
                 />
                 <button
                   type="button"
-                  onClick={() => handleSearchImei(renewalForm.customerName)}
+                  onClick={() => handleSearchImei(renewalForm.customerName, 'Customer Name')}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -2565,15 +2574,21 @@ const CustomerDevicePortal = () => {
               <span>Customer Mobile Number *</span>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <input 
-                  type="number" 
+                  type="text" 
                   value={renewalForm.customerMobile} 
                   onChange={(e) => handleRenewalFormChange('customerMobile', e.target.value)} 
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleSearchImei(renewalForm.customerMobile, 'Mobile Number');
+                    }
+                  }}
                   required 
                   style={{ flex: 1, margin: 0 }}
                 />
                 <button
                   type="button"
-                  onClick={() => handleSearchImei(renewalForm.customerMobile)}
+                  onClick={() => handleSearchImei(renewalForm.customerMobile, 'Mobile Number')}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -2607,16 +2622,22 @@ const CustomerDevicePortal = () => {
               <span>IMEI Number *</span>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <input 
-                  type="number" 
+                  type="text" 
                   value={renewalForm.imei} 
                   onChange={(e) => handleRenewalFormChange('imei', e.target.value)} 
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleSearchImei(renewalForm.imei, 'IMEI Number');
+                    }
+                  }}
                   required 
                   style={{ flex: 1, margin: 0 }}
                   disabled={isEditingActivatedOrCompleted}
                 />
                 <button
                   type="button"
-                  onClick={() => handleSearchImei(renewalForm.imei)}
+                  onClick={() => handleSearchImei(renewalForm.imei, 'IMEI Number')}
                   disabled={isEditingActivatedOrCompleted}
                   style={{
                     display: 'flex',
@@ -2654,13 +2675,19 @@ const CustomerDevicePortal = () => {
                   type="text" 
                   value={renewalForm.vehicleNumber} 
                   onChange={(e) => handleRenewalFormChange('vehicleNumber', e.target.value)} 
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleSearchImei(renewalForm.vehicleNumber, 'Vehicle Number');
+                    }
+                  }}
                   required 
                   style={{ flex: 1, margin: 0 }}
                   disabled={isEditingActivatedOrCompleted}
                 />
                 <button
                   type="button"
-                  onClick={() => handleSearchImei(renewalForm.vehicleNumber)}
+                  onClick={() => handleSearchImei(renewalForm.vehicleNumber, 'Vehicle Number')}
                   disabled={isEditingActivatedOrCompleted}
                   style={{
                     display: 'flex',

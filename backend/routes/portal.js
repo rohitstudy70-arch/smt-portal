@@ -1302,8 +1302,8 @@ router.get('/renewals/search-imei/:imei', protect, async (req, res) => {
 
     const customerName = latestRenewal?.customerName || activation?.customerName || device?.customerName || '';
     const customerMobile = latestRenewal?.customerMobile || activation?.regMobNo || activation?.regMobNo2 || device?.customerMobile || '';
-    const vehicleNumber = latestRenewal?.vehicleNumber || activation?.vehicleNo || device?.vehicleNumber || device?.vehicleNo || (!/^\d{15}$/.test(q) ? q : '');
-    const imei = latestRenewal?.imei || activation?.imei || device?.imei || (/^\d{15}$/.test(q) ? q : '');
+    const vehicleNumber = latestRenewal?.vehicleNumber || activation?.vehicleNo || device?.vehicleNumber || device?.vehicleNo || '';
+    const imei = latestRenewal?.imei || activation?.imei || device?.imei || '';
     const deviceModel = latestRenewal?.deviceModel || device?.vendor || activation?.vendor || '';
 
     let activationType = 'NIC';
