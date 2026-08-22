@@ -1,4 +1,7 @@
 const express = require('express');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const ActivationRequest = require('../models/ActivationRequest');
 const Device = require('../models/Device');
 const User = require('../models/User');
@@ -15,6 +18,36 @@ const {
 const { syncDueForUsers, getDueOwnerIdsFromDevice } = require('../services/dueService');
 
 const router = express.Router();
+
+// KYC Upload Setup
+const kycStorageDir = path.join(__dirname, '..', 'storage', 'kyc');
+if (!fs.existsSync(kycStorageDir)) {
+  fs.mkdirSync(kycStorageDir, { recursive: true });
+}
+
+const kycStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, kycStorageDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(null, `kyc-${req.params.id}-${uniqueSuffix}${ext}`);
+  }
+});
+
+const kycFileFilter = (req, file, cb) => {
+  const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+  if (allowed.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only JPG, PNG, and PDF files are allowed for KYC documents.'), false);
+  }
+};
+
+const kycUpload = multer({
+  storage: kycStorage,
+  fileFilter: kycFileFilter,
+  limits: { fileSize: 10 * 1024 * 1024 }
+});
 
 router.use(protect, attachHierarchyScope);
 
@@ -580,6 +613,122 @@ router.delete('/:id', async (req, res) => {
     res.json({ message: 'Request deleted successfully' });
   } catch (error) {
     console.error('Delete request error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ============================================
+// KYC Document Routes
+// ============================================
+
+// @route   POST /api/activation-requests/:id/kyc
+// @desc    Upload KYC document for an activation request
+router.post('/:id/kyc', requireRoles(...operationsRoles), (req, res) => {
+  kycUpload.single('file')(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ message: err.message });
+    }
+    try {
+      const request = await ActivationRequest.findById(req.params.id);
+      if (!request) {
+        return res.status(404).json({ message: 'Activation request not found.' });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: 'Please select a file to upload.' });
+      }
+
+      const documentType = req.body.documentType;
+      if (!documentType || !['PAN Card', 'Aadhar Card', 'RC Book'].includes(documentType)) {
+        return res.status(400).json({ message: 'Invalid document type. Must be PAN Card, Aadhar Card, or RC Book.' });
+      }
+
+      // Remove existing document of same type (replace)
+      request.kycDocuments = (request.kycDocuments || []).filter(d => d.documentType !== documentType);
+
+      request.kycDocuments.push({
+        documentType,
+        fileName: req.file.filename,
+        originalName: req.file.originalname,
+        fileUrl: `/storage/kyc/${req.file.filename}`,
+        mimeType: req.file.mimetype,
+        fileSize: req.file.size,
+        uploadedBy: req.user._id,
+        uploadedAt: new Date(),
+      });
+
+      await request.save();
+      res.status(201).json({ message: `${documentType} uploaded successfully.`, kycDocuments: request.kycDocuments });
+    } catch (error) {
+      console.error('KYC upload error:', error.message);
+      res.status(500).json({ message: 'Server error' });
+    }
+  });
+});
+
+// @route   GET /api/activation-requests/:id/kyc
+// @desc    Get KYC documents for an activation request
+router.get('/:id/kyc', requireRoles(...operationsRoles), async (req, res) => {
+  try {
+    const request = await ActivationRequest.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({ message: 'Activation request not found.' });
+    }
+    res.json({ kycDocuments: request.kycDocuments || [] });
+  } catch (error) {
+    console.error('KYC fetch error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET /api/activation-requests/kyc-by-imei/:imei
+// @desc    Get KYC documents by IMEI (for search page)
+router.get('/kyc-by-imei/:imei', requireRoles(...operationsRoles), async (req, res) => {
+  try {
+    const { imei } = req.params;
+    if (!imei) return res.status(400).json({ message: 'IMEI required' });
+
+    const request = await ActivationRequest.findOne({
+      imei: new RegExp('^' + String(imei).trim() + '$', 'i'),
+      kycDocuments: { $exists: true, $not: { $size: 0 } }
+    }).sort({ dateTime: -1 });
+
+    if (!request) {
+      return res.json({ kycDocuments: [] });
+    }
+    res.json({ kycDocuments: request.kycDocuments || [] });
+  } catch (error) {
+    console.error('KYC by IMEI fetch error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   DELETE /api/activation-requests/:id/kyc/:docId
+// @desc    Delete a KYC document
+router.delete('/:id/kyc/:docId', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
+  try {
+    const request = await ActivationRequest.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({ message: 'Activation request not found.' });
+    }
+
+    const doc = (request.kycDocuments || []).find(d => d._id.toString() === req.params.docId);
+    if (!doc) {
+      return res.status(404).json({ message: 'KYC document not found.' });
+    }
+
+    // Delete file from disk
+    const filePath = path.join(kycStorageDir, doc.fileName);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+
+    request.kycDocuments = request.kycDocuments.filter(d => d._id.toString() !== req.params.docId);
+    await request.save();
+
+    res.json({ message: 'KYC document deleted successfully.', kycDocuments: request.kycDocuments });
+  } catch (error) {
+    console.error('KYC delete error:', error.message);
     res.status(500).json({ message: 'Server error' });
   }
 });

@@ -16,11 +16,18 @@ const IccidSearch = () => {
   
   // Document Management States
   const [documentsList, setDocumentsList] = useState([]);
+  const [kycDocsList, setKycDocsList] = useState([]);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState(''); // 'idle', 'uploading', 'success', 'failed'
   const [uploadError, setUploadError] = useState('');
   const [selectedDocType, setSelectedDocType] = useState('Fitment Letter');
   const [isReplacingDocId, setIsReplacingDocId] = useState(null);
+  
+  // Tracking Info States (Tracking ID & Software)
+  const [trackingIdInput, setTrackingIdInput] = useState('');
+  const [softwareInput, setSoftwareInput] = useState('');
+  const [savingTracking, setSavingTracking] = useState(false);
+  const [trackingSavedMsg, setTrackingSavedMsg] = useState('');
   
   // Preview Modals State
   const [previewImage, setPreviewImage] = useState(null);
@@ -60,6 +67,9 @@ const IccidSearch = () => {
         setDevice(null);
         setLatestRequest(null);
         setLatestRenewal(null);
+        setKycDocsList([]);
+        setTrackingIdInput('');
+        setSoftwareInput('');
         let targetImei = searchQuery;
 
         // 1. First try search-imei endpoint (supports Customer Name, Mobile, Vehicle, Chassis, IMEI, Serial, ICCID)
@@ -186,6 +196,23 @@ const IccidSearch = () => {
             setError('No device found matching the search term.');
           }
         }
+
+        // 4. Fetch Customer KYC Documents if IMEI available
+        const finalImei = realImei || targetImei;
+        if (finalImei) {
+          const kycRes = await api.get(`/activation-requests/kyc-by-imei/${finalImei}`).catch(() => null);
+          if (kycRes?.data?.kycDocuments && kycRes.data.kycDocuments.length > 0) {
+            setKycDocsList(kycRes.data.kycDocuments);
+          } else if (fetchedRequest?.kycDocuments?.length > 0) {
+            setKycDocsList(fetchedRequest.kycDocuments);
+          }
+        }
+
+        // 5. Pre-fill Tracking ID & Software
+        const initialTrackingId = foundDevice?.trackingId || fetchedRequest?.trackingId || '';
+        const initialSoftware = foundDevice?.software || fetchedRequest?.software || '';
+        setTrackingIdInput(initialTrackingId);
+        setSoftwareInput(initialSoftware);
 
         setLoading(false);
       } catch (err) {
@@ -434,6 +461,57 @@ State: ${latestRequest?.userId?.state || device?.dealerId?.state || device?.stat
     }
   };
 
+  const handleViewKyc = (doc) => {
+    const isImage = ['image/jpeg', 'image/jpg', 'image/png'].includes(doc.mimeType);
+    const backendBase = (api.defaults.baseURL || '').replace(/\/api$/, '');
+    const fileUrl = doc.fileUrl.startsWith('http') ? doc.fileUrl : `${backendBase}${doc.fileUrl}`;
+    
+    if (isImage) {
+      setPreviewImage({ ...doc, url: fileUrl });
+      setZoomLevel(1);
+      setIsFullScreen(false);
+    } else if (doc.mimeType === 'application/pdf') {
+      setPreviewPdf({ ...doc, url: fileUrl });
+    } else {
+      window.open(fileUrl, '_blank');
+    }
+  };
+
+  const handleDownloadKyc = (doc) => {
+    const backendBase = (api.defaults.baseURL || '').replace(/\/api$/, '');
+    const fileUrl = doc.fileUrl.startsWith('http') ? doc.fileUrl : `${backendBase}${doc.fileUrl}`;
+    const link = document.createElement('a');
+    link.href = fileUrl;
+    link.setAttribute('download', doc.originalName || doc.fileName);
+    link.setAttribute('target', '_blank');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
+  const handleSaveTrackingInfo = async () => {
+    const targetImei = device?.imei || latestRequest?.imei || latestRenewal?.imei;
+    if (!targetImei) {
+      alert('No valid IMEI found for this device.');
+      return;
+    }
+    setSavingTracking(true);
+    setTrackingSavedMsg('');
+    try {
+      await api.put(`/devices/tracking-info/${targetImei}`, {
+        trackingId: trackingIdInput,
+        software: softwareInput
+      });
+      setTrackingSavedMsg('Tracking info saved successfully!');
+      setTimeout(() => setTrackingSavedMsg(''), 3500);
+    } catch (err) {
+      console.error('Save tracking error:', err);
+      alert(err.response?.data?.message || 'Failed to save tracking info.');
+    } finally {
+      setSavingTracking(false);
+    }
+  };
+
   const activationStatus = getActivationStatus();
 
   return (
@@ -673,7 +751,7 @@ State: ${latestRequest?.userId?.state || device?.dealerId?.state || device?.stat
           <div className="search-section-card">
             <div className="section-header-teal">Uploaded Documents</div>
             
-            {/* Admin Upload Control Section */}
+            {/* Admin Upload Control Section & Tracking Info Controls */}
             {role === 'ADMIN' && (
               <div className="upload-controls-box">
                 <div className="upload-fields-row">
@@ -690,7 +768,57 @@ State: ${latestRequest?.userId?.state || device?.dealerId?.state || device?.stat
                       Upload Fitment Letter
                     </label>
                   </div>
+
+                  {/* TRACKING ID INPUT */}
+                  <div className="upload-field-group">
+                    <label>Tracking ID</label>
+                    <input 
+                      type="text" 
+                      className="tracking-id-input"
+                      value={trackingIdInput}
+                      onChange={(e) => setTrackingIdInput(e.target.value)}
+                      placeholder="Enter Tracking ID"
+                    />
+                  </div>
+
+                  {/* SOFTWARE DROPDOWN */}
+                  <div className="upload-field-group">
+                    <label>Software</label>
+                    <select 
+                      className="doc-type-select"
+                      value={softwareInput}
+                      onChange={(e) => setSoftwareInput(e.target.value)}
+                    >
+                      <option value="">Select Software</option>
+                      <option value="CAR ONLINE">CAR ONLINE</option>
+                      <option value="TRAQUELITE">TRAQUELITE</option>
+                      <option value="CHASETRACK">CHASETRACK</option>
+                      <option value="I PLUS">I PLUS</option>
+                      <option value="TRACKFEY">TRACKFEY</option>
+                      <option value="RTMS">RTMS</option>
+                      <option value="OTHERS">OTHERS</option>
+                    </select>
+                  </div>
+
+                  {/* SAVE TRACKING INFO BUTTON */}
+                  <div className="upload-button-wrapper">
+                    <button 
+                      type="button" 
+                      onClick={handleSaveTrackingInfo}
+                      disabled={savingTracking}
+                      className="btn-upload-label"
+                      style={{ backgroundColor: '#059669', border: 'none' }}
+                    >
+                      {savingTracking ? 'Saving...' : 'Save Tracking Info'}
+                    </button>
+                  </div>
                 </div>
+
+                {trackingSavedMsg && (
+                  <div className="upload-status-alert success-alert" style={{ marginTop: '10px' }}>
+                    {trackingSavedMsg}
+                  </div>
+                )}
 
                 {/* Upload Status / Progress Bar */}
                 {uploadStatus === 'uploading' && (
@@ -802,6 +930,78 @@ State: ${latestRequest?.userId?.state || device?.dealerId?.state || device?.stat
                     <tr>
                       <td colSpan={5} className="portal-empty" style={{ padding: '24px' }}>
                         No documents uploaded for this device.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* 5. Customer KYC Documents Section */}
+          <div className="search-section-card" style={{ marginTop: '20px' }}>
+            <div className="section-header-teal">Customer KYC Details (PAN Card, Aadhaar Card, RC Book)</div>
+            <div className="card-body-table" style={{ marginTop: '15px' }}>
+              <table className="portal-table wide">
+                <thead>
+                  <tr>
+                    <th>Document Type</th>
+                    <th>File Name</th>
+                    <th>Upload Date</th>
+                    <th style={{ textAlign: 'center' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {kycDocsList.map((doc, idx) => {
+                    const isImg = ['image/jpeg', 'image/jpg', 'image/png'].includes(doc.mimeType);
+                    const backendBase = (api.defaults.baseURL || '').replace(/\/api$/, '');
+                    const previewUrl = doc.fileUrl?.startsWith('http') ? doc.fileUrl : `${backendBase}${doc.fileUrl}`;
+                    return (
+                      <tr key={doc._id || idx}>
+                        <td className="strong">{doc.documentType}</td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            {isImg ? (
+                              <img 
+                                src={previewUrl} 
+                                alt={doc.originalName || doc.fileName} 
+                                className="doc-thumbnail"
+                                onError={(e) => { e.target.src = 'https://placehold.co/40x40?text=KYC' }}
+                              />
+                            ) : (
+                              <div className="pdf-thumbnail-placeholder">PDF</div>
+                            )}
+                            <span className="doc-file-name" title={doc.originalName || doc.fileName}>
+                              {(doc.originalName || doc.fileName).length > 30 ? (doc.originalName || doc.fileName).substring(0, 27) + '...' : (doc.originalName || doc.fileName)}
+                            </span>
+                          </div>
+                        </td>
+                        <td>{doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
+                            <button 
+                              type="button" 
+                              className="btn-action-view"
+                              onClick={() => handleViewKyc(doc)}
+                            >
+                              View
+                            </button>
+                            <button 
+                              type="button" 
+                              className="btn-action-download"
+                              onClick={() => handleDownloadKyc(doc)}
+                            >
+                              Download
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {kycDocsList.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="portal-empty" style={{ padding: '24px' }}>
+                        No KYC documents (PAN Card, Aadhaar Card, RC Book) uploaded for this customer/device.
                       </td>
                     </tr>
                   )}

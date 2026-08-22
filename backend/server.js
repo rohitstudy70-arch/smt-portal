@@ -76,6 +76,7 @@ app.use(nosqlSanitizer);
 
 // Serve static uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/storage', express.static(path.join(__dirname, 'storage')));
 
 // Mount routes
 app.use('/api/auth', authRateLimiter, require('./routes/auth'));

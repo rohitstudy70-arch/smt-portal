@@ -104,6 +104,16 @@ const deviceSchema = new mongoose.Schema({
     type: String,
     default: 'Aquila Track Bharat 101 With IRNSS',
   },
+  trackingId: {
+    type: String,
+    default: '',
+    trim: true,
+  },
+  software: {
+    type: String,
+    default: '',
+    trim: true,
+  },
   msisdn1: {
     type: String,
     default: '',

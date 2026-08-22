@@ -70,6 +70,11 @@ const ActivationRequests = () => {
   const [formData, setFormData] = useState(initialFormState);
   const [imeiError, setImeiError] = useState('');
 
+  // KYC Upload States
+  const [kycFiles, setKycFiles] = useState({ panCard: null, aadharCard: null, rcBook: null });
+  const [kycUploading, setKycUploading] = useState({ panCard: false, aadharCard: false, rcBook: false });
+  const [kycUploaded, setKycUploaded] = useState({ panCard: null, aadharCard: null, rcBook: null });
+
   // Device dropdown list state
   const [availableDevices, setAvailableDevices] = useState([]);
   const [loadingDevices, setLoadingDevices] = useState(false);
@@ -462,6 +467,9 @@ const ActivationRequests = () => {
     });
     setEditRequestId(req._id);
     setIsEditing(true);
+    setKycFiles({ panCard: null, aadharCard: null, rcBook: null });
+    setKycUploaded({ panCard: null, aadharCard: null, rcBook: null });
+    loadKycDocuments(req._id);
     setShowModal(true);
   };
 
@@ -469,23 +477,63 @@ const ActivationRequests = () => {
     e.preventDefault();
     setSubmitting(true);
     try {
+      let requestId = editRequestId;
       if (isEditing) {
         await api.put(`/activation-requests/${editRequestId}`, formData);
-        alert('Activation Request updated successfully!');
       } else {
-        await api.post('/activation-requests', formData);
-        alert('Activation Request raised successfully!');
+        const res = await api.post('/activation-requests', formData);
+        requestId = res.data?.request?._id || res.data?._id;
       }
+
+      // Upload KYC files if any selected
+      if (requestId) {
+        const kycTypes = [
+          { key: 'panCard', label: 'PAN Card' },
+          { key: 'aadharCard', label: 'Aadhar Card' },
+          { key: 'rcBook', label: 'RC Book' },
+        ];
+        for (const kt of kycTypes) {
+          if (kycFiles[kt.key]) {
+            const fd = new FormData();
+            fd.append('file', kycFiles[kt.key]);
+            fd.append('documentType', kt.label);
+            await api.post(`/activation-requests/${requestId}/kyc`, fd, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            }).catch(err => console.error(`KYC upload error (${kt.label}):`, err));
+          }
+        }
+      }
+
+      alert(isEditing ? 'Activation Request updated successfully!' : 'Activation Request raised successfully!');
       setShowModal(false);
       setSubmitting(false);
       setIsEditing(false);
       setEditRequestId(null);
       setFormData(initialFormState);
+      setKycFiles({ panCard: null, aadharCard: null, rcBook: null });
+      setKycUploaded({ panCard: null, aadharCard: null, rcBook: null });
       handleRefresh();
     } catch (err) {
       console.error('Error submitting request:', err);
       setSubmitting(false);
       alert(err.response?.data?.message || 'Failed to submit request.');
+    }
+  };
+
+  // Load existing KYC documents when editing
+  const loadKycDocuments = async (reqId) => {
+    try {
+      const res = await api.get(`/activation-requests/${reqId}/kyc`);
+      const docs = res.data?.kycDocuments || [];
+      const uploaded = { panCard: null, aadharCard: null, rcBook: null };
+      docs.forEach(doc => {
+        if (doc.documentType === 'PAN Card') uploaded.panCard = doc;
+        if (doc.documentType === 'Aadhar Card') uploaded.aadharCard = doc;
+        if (doc.documentType === 'RC Book') uploaded.rcBook = doc;
+      });
+      setKycUploaded(uploaded);
+    } catch (err) {
+      console.error('Error loading KYC documents:', err);
     }
   };
 
@@ -953,6 +1001,66 @@ const ActivationRequests = () => {
                         rows="2"
                         required
                       />
+                    </div>
+                  </div>
+
+                  <h4 className="column-section-title" style={{ marginTop: '20px' }}>CUSTOMER KYC DETAILS</h4>
+                  <div className="form-row-grid">
+                    {/* PAN CARD UPLOAD */}
+                    <div className="form-group-custom">
+                      <label>PAN Card (JPG, PNG, PDF)</label>
+                      <input 
+                        type="file" 
+                        accept="image/jpeg,image/png,application/pdf"
+                        onChange={(e) => setKycFiles({ ...kycFiles, panCard: e.target.files[0] })}
+                      />
+                      {kycFiles.panCard && <span style={{ fontSize: '11px', color: '#10b981' }}>Selected: {kycFiles.panCard.name}</span>}
+                      {kycUploaded.panCard && (
+                        <div style={{ fontSize: '11px', marginTop: '4px' }}>
+                          <span style={{ color: '#059669', fontWeight: 'bold' }}>✓ Uploaded: </span>
+                          <a href={kycUploaded.panCard.fileUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline', color: '#2563eb' }}>
+                            {kycUploaded.panCard.originalName}
+                          </a>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* AADHAR CARD UPLOAD */}
+                    <div className="form-group-custom">
+                      <label>Aadhaar Card (JPG, PNG, PDF)</label>
+                      <input 
+                        type="file" 
+                        accept="image/jpeg,image/png,application/pdf"
+                        onChange={(e) => setKycFiles({ ...kycFiles, aadharCard: e.target.files[0] })}
+                      />
+                      {kycFiles.aadharCard && <span style={{ fontSize: '11px', color: '#10b981' }}>Selected: {kycFiles.aadharCard.name}</span>}
+                      {kycUploaded.aadharCard && (
+                        <div style={{ fontSize: '11px', marginTop: '4px' }}>
+                          <span style={{ color: '#059669', fontWeight: 'bold' }}>✓ Uploaded: </span>
+                          <a href={kycUploaded.aadharCard.fileUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline', color: '#2563eb' }}>
+                            {kycUploaded.aadharCard.originalName}
+                          </a>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* RC BOOK UPLOAD */}
+                    <div className="form-group-custom">
+                      <label>RC Book (JPG, PNG, PDF)</label>
+                      <input 
+                        type="file" 
+                        accept="image/jpeg,image/png,application/pdf"
+                        onChange={(e) => setKycFiles({ ...kycFiles, rcBook: e.target.files[0] })}
+                      />
+                      {kycFiles.rcBook && <span style={{ fontSize: '11px', color: '#10b981' }}>Selected: {kycFiles.rcBook.name}</span>}
+                      {kycUploaded.rcBook && (
+                        <div style={{ fontSize: '11px', marginTop: '4px' }}>
+                          <span style={{ color: '#059669', fontWeight: 'bold' }}>✓ Uploaded: </span>
+                          <a href={kycUploaded.rcBook.fileUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline', color: '#2563eb' }}>
+                            {kycUploaded.rcBook.originalName}
+                          </a>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -86,6 +86,8 @@ const normalizeDeviceInput = (body) => {
     deviceName: String(body.deviceName || 'Aquila Track Bharat 101 With IRNSS').trim(),
     billAmount: Number(body.billAmount) || 0,
     topUpAmount: Number(body.topUpAmount) || 0,
+    trackingId: String(body.trackingId || '').trim(),
+    software: String(body.software || '').trim(),
     validity: normalizeValidity(body.validity),
     status: String(body.status || 'Active').trim() || 'Active',
     presentDate: parsedPresentDate,
@@ -1160,6 +1162,8 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
       device.billAmount = newBillAmount;
       device.renewalAmount = input.topUpAmount;
       device.validity = input.validity;
+      device.trackingId = input.trackingId;
+      device.software = input.software;
       device.presentDate = presentDate;
       device.expiryDate = expiryDate;
       device.status = input.status;
@@ -1895,6 +1899,56 @@ router.put('/:id/topup', requireRoles(PORTAL_ROLES.ADMIN, PORTAL_ROLES.DEALER, P
     });
   } catch (error) {
     console.error('Device top-up error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   PUT /api/devices/tracking-info/:imei
+// @desc    Update trackingId and software for a device and corresponding activation request
+// @access  Protected
+router.put('/tracking-info/:imei', async (req, res) => {
+  try {
+    const { imei } = req.params;
+    const { trackingId, software } = req.body;
+
+    const cleanImei = String(imei).trim();
+    if (!cleanImei) {
+      return res.status(400).json({ message: 'IMEI is required' });
+    }
+
+    let updatedDevice = null;
+    const device = await Device.findOne({
+      $or: [
+        { imei: new RegExp('^' + escapeRegExp(cleanImei) + '$', 'i') },
+        { imeiNumber: new RegExp('^' + escapeRegExp(cleanImei) + '$', 'i') }
+      ]
+    });
+    if (device) {
+      if (trackingId !== undefined) device.trackingId = String(trackingId).trim();
+      if (software !== undefined) device.software = String(software).trim();
+      await device.save();
+      updatedDevice = device;
+    }
+
+    // Also update ActivationRequest if found
+    const ActivationRequest = require('../models/ActivationRequest');
+    const actReq = await ActivationRequest.findOne({
+      imei: new RegExp('^' + escapeRegExp(cleanImei) + '$', 'i')
+    });
+    if (actReq) {
+      if (trackingId !== undefined) actReq.trackingId = String(trackingId).trim();
+      if (software !== undefined) actReq.software = String(software).trim();
+      await actReq.save();
+    }
+
+    res.json({
+      message: 'Tracking info updated successfully.',
+      trackingId: updatedDevice?.trackingId || trackingId || '',
+      software: updatedDevice?.software || software || '',
+      device: updatedDevice
+    });
+  } catch (error) {
+    console.error('Update tracking info error:', error.message);
     res.status(500).json({ message: 'Server error' });
   }
 });

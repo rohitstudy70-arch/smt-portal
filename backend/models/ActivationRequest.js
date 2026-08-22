@@ -102,6 +102,30 @@ const activationRequestSchema = new mongoose.Schema({
   customerName: { type: String, default: '' },
   aadharNo: { type: String, default: '' },
   address: { type: String, default: '' },
+  trackingId: { type: String, default: '', trim: true },
+  software: { type: String, default: '', trim: true },
+
+  // KYC Documents
+  kycDocuments: [
+    {
+      documentType: {
+        type: String,
+        enum: ['PAN Card', 'Aadhar Card', 'RC Book'],
+        required: true,
+      },
+      fileName: { type: String, required: true },
+      originalName: { type: String, required: true },
+      fileUrl: { type: String, required: true },
+      mimeType: { type: String, required: true },
+      fileSize: { type: Number, required: true },
+      uploadedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true,
+      },
+      uploadedAt: { type: Date, default: Date.now },
+    },
+  ],
 });
 
 module.exports = mongoose.model('ActivationRequest', activationRequestSchema);
