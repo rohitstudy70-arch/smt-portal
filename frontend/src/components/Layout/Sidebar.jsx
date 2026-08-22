@@ -102,7 +102,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           </li>
         )}
 
-        {canShow(allRoles) && (
+        {canShow(['ADMIN']) && (
           <li className={`sidebar-menu-item ${isServiceRequestsActive ? 'active' : ''}`}>
             <div className="menu-link" onClick={() => setServiceRequestsOpen(!serviceRequestsOpen)}>
               <FaClipboardList className="menu-icon" />
@@ -215,7 +215,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
 
 
-        {canShow(['ADMIN', 'SUB_DEALER']) && (
+        {canShow(['ADMIN']) && (
           <li className={`sidebar-menu-item ${location.pathname === '/certificates' ? 'active' : ''}`}>
             <NavLink to="/certificates">
               <FaCertificate className="menu-icon" />
