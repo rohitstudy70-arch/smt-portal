@@ -411,14 +411,17 @@ router.get('/', async (req, res) => {
     const assigneeQuery = assignedTo ? { assignedTo } : {};
     const query = combineQueries(scopeQuery, filterQuery, assigneeQuery);
 
-    const parsedLimit = Math.min(parseInt(limit, 10) || 10, 100000);
+    const isUnlimited = limit === 'all' || limit === 'unlimited';
+    const parsedLimit = isUnlimited ? 10000000 : Math.min(parseInt(limit, 10) || 10, 10000000);
     const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
 
+    let deviceQuery = populateDevice(Device.find(query)).sort({ createdAt: -1 });
+    if (!isUnlimited) {
+      deviceQuery = deviceQuery.skip((parsedPage - 1) * parsedLimit).limit(parsedLimit);
+    }
+
     const [devices, total] = await Promise.all([
-      populateDevice(Device.find(query))
-        .sort({ createdAt: -1 })
-        .skip((parsedPage - 1) * parsedLimit)
-        .limit(parsedLimit),
+      deviceQuery,
       Device.countDocuments(query),
     ]);
 
