@@ -398,8 +398,10 @@ const AddDevice = () => {
       msisdn1: device.msisdn1 || '',
       msisdn2: device.msisdn2 || '',
       itrNo: device.itrNo || '',
-      billAmount: device.billAmount || '',
-      topUpAmount: '',
+      billAmount: (Number(device.billAmount) || 0) >= (Number(device.renewalAmount) || 0) 
+        ? ((Number(device.billAmount) || 0) - (Number(device.renewalAmount) || 0) || '') 
+        : (device.billAmount || ''),
+      topUpAmount: device.renewalAmount || '',
       validity: device.validity || '1 Year',
       status: device.status || 'Active',
       presentDate: device.presentDate ? getLocalDateString(device.presentDate) : getLocalDateString(),
@@ -721,6 +723,11 @@ const AddDevice = () => {
                   onChange={(event) => updateFormField('topUpAmount', event.target.value)}
                   placeholder="Enter Top Up Amount (Optional)"
                 />
+                {(formData.billAmount !== '' || formData.topUpAmount !== '') && (
+                  <small style={{ color: '#2563eb', fontWeight: 600, display: 'block', marginTop: '4px' }}>
+                    Total Bill Amount: ₹{(Number(formData.billAmount) || 0) + (Number(formData.topUpAmount) || 0)}
+                  </small>
+                )}
               </div>
             )}
 

@@ -128,11 +128,6 @@ router.get('/device/:imei', requireRoles(...operationsRoles), async (req, res) =
 
     let request = await ActivationRequest.findOne(query).sort({ dateTime: -1 });
 
-    // Fallback: search directly by IMEI if not found via scoped query
-    if (!request) {
-      request = await ActivationRequest.findOne({ imei: new RegExp('^' + String(imei).trim() + '$', 'i') }).sort({ dateTime: -1 });
-    }
-
     if (!request) {
       return res.status(404).json({ message: 'No request found for this IMEI' });
     }

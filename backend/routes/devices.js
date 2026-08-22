@@ -85,6 +85,7 @@ const normalizeDeviceInput = (body) => {
     itrNo: String(body.itrNo || '').trim(),
     deviceName: String(body.deviceName || 'Aquila Track Bharat 101 With IRNSS').trim(),
     billAmount: Number(body.billAmount) || 0,
+    topUpAmount: Number(body.topUpAmount) || 0,
     validity: normalizeValidity(body.validity),
     status: String(body.status || 'Active').trim() || 'Active',
     presentDate: parsedPresentDate,
@@ -977,7 +978,7 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
     const input = normalizeDeviceInput(req.body);
 
     const oldBillAmount = device.billAmount || 0;
-    const newBillAmount = Number(input.billAmount) || 0;
+    const newBillAmount = (Number(input.billAmount) || 0) + (Number(input.topUpAmount) || 0);
     const oldUserId = device.userId;
     const oldDueOwnerIds = getDueOwnerIdsFromDevice(device);
 
@@ -1157,6 +1158,7 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
       device.msisdn2 = input.msisdn2;
       device.itrNo = input.itrNo;
       device.billAmount = newBillAmount;
+      device.renewalAmount = input.topUpAmount;
       device.validity = input.validity;
       device.presentDate = presentDate;
       device.expiryDate = expiryDate;
@@ -1839,9 +1841,10 @@ router.put('/:id/topup', requireRoles(PORTAL_ROLES.ADMIN, PORTAL_ROLES.DEALER, P
       return res.status(400).json({ message: 'Top Up Amount must be greater than 0.' });
     }
 
-    const device = await Device.findById(req.params.id);
+    const scopeQuery = buildDeviceScopeQuery(req.hierarchyScope);
+    const device = await Device.findOne(combineQueries(scopeQuery, { _id: req.params.id }));
     if (!device) {
-      return res.status(404).json({ message: 'Device not found.' });
+      return res.status(404).json({ message: 'Device not found or access denied.' });
     }
 
     // Add top-up to billAmount and renewalAmount
