@@ -174,7 +174,7 @@ function App() {
           <Route 
             path="/service-requests/activation" 
             element={
-              <ProtectedRoute allowedRoles={['ADMIN']}>
+              <ProtectedRoute allowedRoles={operationsRoles}>
                 <Layout>
                   <ActivationRequests />
                 </Layout>

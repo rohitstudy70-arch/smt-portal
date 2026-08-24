@@ -102,7 +102,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           </li>
         )}
 
-        {canShow(['ADMIN']) && (
+        {canShow(['ADMIN', 'DEALER', 'SUB_DEALER']) && (
           <li className={`sidebar-menu-item ${isServiceRequestsActive ? 'active' : ''}`}>
             <div className="menu-link" onClick={() => setServiceRequestsOpen(!serviceRequestsOpen)}>
               <FaClipboardList className="menu-icon" />
