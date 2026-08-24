@@ -151,8 +151,6 @@ const ActivationRequests = () => {
         deviceBillAmount: prefillDevice.billAmount || null,
         itrNo: prefillDevice.itrNo || prefillRequest?.itrNo || '',
         vendor: prefillDevice.vendor || '',
-        trackingId: prefillDevice.trackingId || prefillRequest?.trackingId || '',
-        software: prefillDevice.software || prefillRequest?.software || '',
         
         // Vehicle details from request
         installationDate: prefillRequest?.installationDate ? formatDateForInput(prefillRequest.installationDate) : '',
@@ -171,7 +169,9 @@ const ActivationRequests = () => {
         aadharNo: prefillRequest?.aadharNo || '',
         regMobNo: prefillRequest?.regMobNo || '',
         regMobNo2: prefillRequest?.regMobNo2 || '',
-        address: prefillRequest?.address || ''
+        address: prefillRequest?.address || '',
+        trackingId: prefillDevice?.trackingId || prefillRequest?.trackingId || '',
+        software: prefillDevice?.software || prefillRequest?.software || ''
       }));
 
       setShowModal(true);
@@ -567,12 +567,9 @@ const ActivationRequests = () => {
   };
 
   const handleOpenKycLink = async (doc) => {
-    if (!doc) return;
+    if (!doc || !doc.fileUrl) return;
     try {
-      const endpoint = doc._id 
-        ? `/activation-requests/kyc-document/${doc._id}/preview`
-        : doc.fileUrl;
-      const response = await api.get(endpoint, { responseType: 'blob' });
+      const response = await api.get(doc.fileUrl, { responseType: 'blob' });
       const blob = new Blob([response.data], { type: doc.mimeType || 'application/pdf' });
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank');
@@ -580,7 +577,9 @@ const ActivationRequests = () => {
       console.error('Error opening KYC document:', err);
       const backendBase = (api.defaults.baseURL || '').replace(/\/api$/, '');
       const token = localStorage.getItem('token') || '';
-      const fileUrl = `${backendBase}${doc.fileUrl}?token=${token}`;
+      const fileUrl = doc.fileUrl.startsWith('http')
+        ? doc.fileUrl
+        : `${backendBase}${doc.fileUrl}?token=${token}`;
       window.open(fileUrl, '_blank');
     }
   };
@@ -1022,32 +1021,6 @@ const ActivationRequests = () => {
                         placeholder="Auto-filled"
                       />
                     </div>
-                    <div className="form-group-custom">
-                      <label>Tracking ID</label>
-                      <input 
-                        type="text" 
-                        value={formData.trackingId || ''} 
-                        onChange={(e) => setFormData({...formData, trackingId: e.target.value})}
-                        placeholder="Enter Tracking ID"
-                      />
-                    </div>
-                    <div className="form-group-custom">
-                      <label>Software</label>
-                      <select 
-                        value={formData.software || ''} 
-                        onChange={(e) => setFormData({...formData, software: e.target.value})}
-                        style={{ padding: '8px 12px', borderRadius: '5px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-                      >
-                        <option value="">Select Software</option>
-                        <option value="CAR ONLINE">CAR ONLINE</option>
-                        <option value="TRAQUELITE">TRAQUELITE</option>
-                        <option value="CHASETRACK">CHASETRACK</option>
-                        <option value="I PLUS">I PLUS</option>
-                        <option value="TRACKFEY">TRACKFEY</option>
-                        <option value="RTMS">RTMS</option>
-                        <option value="OTHERS">OTHERS</option>
-                      </select>
-                    </div>
                   </div>
 
 
@@ -1184,13 +1157,10 @@ const ActivationRequests = () => {
                       />
                     </div>
                   </div>
-                </div>
 
-                {/* FULL-WIDTH DEDICATED SECTION: CUSTOMER & KYC DETAILS */}
-                <div className="customer-fullwidth-section">
-                  <h4 className="column-section-title" style={{ margin: 0 }}>CUSTOMER DETAILS</h4>
+                  <h4 className="column-section-title" style={{ marginTop: '20px' }}>CUSTOMER DETAILS</h4>
 
-                  <div className="customer-fields-grid-4col">
+                  <div className="form-row-grid">
                     <div className="form-group-custom">
                       <label>Customer Name <span className="required-star">*</span></label>
                       <input 
@@ -1203,7 +1173,7 @@ const ActivationRequests = () => {
                     </div>
 
                     <div className="form-group-custom">
-                      <label>Aadhaar Number</label>
+                      <label>Aadhar Number</label>
                       <input 
                         type="text" 
                         value={formData.aadharNo}
@@ -1236,6 +1206,33 @@ const ActivationRequests = () => {
                       />
                     </div>
 
+                    <div className="form-group-custom">
+                      <label>Tracking ID</label>
+                      <input 
+                        type="text" 
+                        value={formData.trackingId}
+                        onChange={(e) => setFormData({...formData, trackingId: e.target.value})}
+                        placeholder="Enter Tracking ID"
+                      />
+                    </div>
+
+                    <div className="form-group-custom">
+                      <label>Software</label>
+                      <select 
+                        value={formData.software}
+                        onChange={(e) => setFormData({...formData, software: e.target.value})}
+                      >
+                        <option value="">Select Software</option>
+                        <option value="CAR ONLINE">CAR ONLINE</option>
+                        <option value="TRAQUELITE">TRAQUELITE</option>
+                        <option value="CHASETRACK">CHASETRACK</option>
+                        <option value="I PLUS">I PLUS</option>
+                        <option value="TRACKFEY">TRACKFEY</option>
+                        <option value="RTMS">RTMS</option>
+                        <option value="OTHERS">OTHERS</option>
+                      </select>
+                    </div>
+
                     <div className="form-group-custom full-width-group">
                       <label>Customer Address <span className="required-star">*</span></label>
                       <textarea 
@@ -1248,8 +1245,8 @@ const ActivationRequests = () => {
                     </div>
                   </div>
 
-                  <h4 className="column-section-title" style={{ marginTop: '10px', margin: 0 }}>CUSTOMER KYC DETAILS</h4>
-                  <div className="kyc-fields-grid-3col">
+                  <h4 className="column-section-title" style={{ marginTop: '20px' }}>CUSTOMER KYC DETAILS</h4>
+                  <div className="form-row-grid">
                     {/* PAN CARD UPLOAD */}
                     <div className="form-group-custom">
                       <label>PAN Card (JPG, PNG, PDF)</label>

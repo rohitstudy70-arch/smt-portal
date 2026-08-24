@@ -251,9 +251,6 @@ const IccidSearch = () => {
       || latestRequest?.subDealerName
       || '';
 
-    const trackingIdVal = device.trackingId || latestRequest?.trackingId || trackingIdInput || '—';
-    const softwareVal = device.software || latestRequest?.software || softwareInput || '—';
-
     const details = `--- DEVICE DETAILS ---
 Model: ${vendorName}
 Dealer Name: ${dealerName}
@@ -264,8 +261,6 @@ ICCID No: ${device.iccid || '—'}
 MSISDN 1: ${device.msisdn1 || '—'}
 MSISDN 2: ${device.msisdn2 || '—'}
 ITR No: ${device.itrNo || '—'}
-Tracking ID: ${trackingIdVal}
-Software: ${softwareVal}
 Validity: ${device.validity || '—'}
 Activation Date: ${formatDate(device.presentDate)}
 Expiry Date: ${formatDate(device.expiryDate)}
@@ -496,17 +491,16 @@ State: ${latestRequest?.userId?.state || device?.dealerId?.state || device?.stat
   const handleViewKyc = async (doc) => {
     try {
       let objectUrl = '';
-      const previewEndpoint = doc._id 
-        ? `/activation-requests/kyc-document/${doc._id}/preview`
-        : doc.fileUrl;
-      const response = await api.get(previewEndpoint, { responseType: 'blob' }).catch(() => null);
+      const response = await api.get(doc.fileUrl, { responseType: 'blob' }).catch(() => null);
       if (response && response.data) {
         const blob = new Blob([response.data], { type: doc.mimeType || 'application/pdf' });
         objectUrl = URL.createObjectURL(blob);
       } else {
         const backendBase = (api.defaults.baseURL || '').replace(/\/api$/, '');
         const token = localStorage.getItem('token') || '';
-        objectUrl = `${backendBase}${doc.fileUrl}?token=${token}`;
+        objectUrl = doc.fileUrl.startsWith('http')
+          ? doc.fileUrl
+          : `${backendBase}${doc.fileUrl}?token=${token}`;
       }
 
       const isImage = ['image/jpeg', 'image/jpg', 'image/png'].includes(doc.mimeType);
@@ -524,10 +518,7 @@ State: ${latestRequest?.userId?.state || device?.dealerId?.state || device?.stat
 
   const handleDownloadKyc = async (doc) => {
     try {
-      const downloadEndpoint = doc._id 
-        ? `/activation-requests/kyc-document/${doc._id}/download`
-        : doc.fileUrl;
-      const response = await api.get(downloadEndpoint, { responseType: 'blob' });
+      const response = await api.get(doc.fileUrl, { responseType: 'blob' });
       const blob = new Blob([response.data], { type: doc.mimeType || 'application/octet-stream' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -541,7 +532,9 @@ State: ${latestRequest?.userId?.state || device?.dealerId?.state || device?.stat
       console.error('Error downloading KYC:', err);
       const backendBase = (api.defaults.baseURL || '').replace(/\/api$/, '');
       const token = localStorage.getItem('token') || '';
-      const fileUrl = `${backendBase}${doc.fileUrl}?token=${token}`;
+      const fileUrl = doc.fileUrl.startsWith('http')
+        ? doc.fileUrl
+        : `${backendBase}${doc.fileUrl}?token=${token}`;
       window.open(fileUrl, '_blank');
     }
   };

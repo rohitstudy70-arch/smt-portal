@@ -442,12 +442,6 @@ router.post('/', requireRoles(...operationsRoles), async (req, res) => {
       software: software || '',
     });
 
-    if (trackingId || software) {
-      if (trackingId) device.trackingId = trackingId;
-      if (software) device.software = software;
-      await device.save();
-    }
-
     // Create a transaction in ledger for the deducted amount
     if (reqAmount > 0) {
       const randomNum = Math.floor(10000 + Math.random() * 90000);
@@ -713,16 +707,6 @@ router.put('/:id', async (req, res) => {
     }
 
     await request.save();
-
-    // Sync trackingId and software to Device if available
-    if (request.imei && (req.body.trackingId || req.body.software)) {
-      const devToUpdate = await Device.findOne({ imei: request.imei });
-      if (devToUpdate) {
-        if (req.body.trackingId) devToUpdate.trackingId = req.body.trackingId;
-        if (req.body.software) devToUpdate.software = req.body.software;
-        await devToUpdate.save();
-      }
-    }
     res.json({ message: 'Request updated successfully', request });
   } catch (error) {
     console.error('Update request error:', error.message);
@@ -889,54 +873,6 @@ router.delete('/:id/kyc/:docId', requireRoles(PORTAL_ROLES.ADMIN), async (req, r
   } catch (error) {
     console.error('KYC delete error:', error.message);
     res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// @route   GET /api/activation-requests/kyc-document/:docId/preview
-// @desc    Inline stream/preview of KYC document (PAN, Aadhaar, RC Book)
-router.get('/kyc-document/:docId/preview', async (req, res) => {
-  try {
-    const request = await ActivationRequest.findOne({ 'kycDocuments._id': req.params.docId });
-    if (!request) {
-      return res.status(404).json({ message: 'KYC document record not found.' });
-    }
-    const doc = request.kycDocuments.id(req.params.docId) || request.kycDocuments.find(d => d._id.toString() === req.params.docId);
-    if (!doc) {
-      return res.status(404).json({ message: 'KYC document sub-record not found.' });
-    }
-    const filePath = path.join(kycStorageDir, doc.fileName);
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ message: 'Physical KYC file missing from server storage.' });
-    }
-    res.setHeader('Content-Type', doc.mimeType || 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(doc.originalName || doc.fileName)}"`);
-    res.sendFile(filePath);
-  } catch (error) {
-    console.error('KYC preview error:', error.message);
-    res.status(500).json({ message: 'Server error previewing KYC document' });
-  }
-});
-
-// @route   GET /api/activation-requests/kyc-document/:docId/download
-// @desc    Download KYC document (PAN, Aadhaar, RC Book)
-router.get('/kyc-document/:docId/download', async (req, res) => {
-  try {
-    const request = await ActivationRequest.findOne({ 'kycDocuments._id': req.params.docId });
-    if (!request) {
-      return res.status(404).json({ message: 'KYC document record not found.' });
-    }
-    const doc = request.kycDocuments.id(req.params.docId) || request.kycDocuments.find(d => d._id.toString() === req.params.docId);
-    if (!doc) {
-      return res.status(404).json({ message: 'KYC document sub-record not found.' });
-    }
-    const filePath = path.join(kycStorageDir, doc.fileName);
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ message: 'Physical KYC file missing from server storage.' });
-    }
-    res.download(filePath, doc.originalName || doc.fileName);
-  } catch (error) {
-    console.error('KYC download error:', error.message);
-    res.status(500).json({ message: 'Server error downloading KYC document' });
   }
 });
 
