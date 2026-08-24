@@ -7,9 +7,19 @@ const { getPortalRole, getDescendantUsers } = require('../middleware/hierarchy')
 const router = express.Router();
 
 const userManagementRoles = ['ADMIN', 'DEALER'];
-const allowedCreateTypesByRole = {
-  ADMIN: ['Dealer', 'Sub Dealer'],
-  DEALER: ['Sub Dealer'],
+const getAllowedCreateTypes = (user) => {
+  const role = getPortalRole(user);
+  const isFullAdmin = user?.role === 'partner' && user?.userType !== 'Administration';
+  if (isFullAdmin) {
+    return ['Administration', 'Dealer', 'Sub Dealer'];
+  }
+  if (role === 'ADMIN') {
+    return ['Dealer', 'Sub Dealer'];
+  }
+  if (role === 'DEALER') {
+    return ['Sub Dealer'];
+  }
+  return [];
 };
 
 const isSupportedUserType = (userType) => ['Dealer', 'Sub Dealer', 'Administration', ''].includes(userType || '');
@@ -102,7 +112,7 @@ router.post('/sub-user', protect, async (req, res) => {
       return res.status(400).json({ message: 'Please fill in all required fields' });
     }
 
-    const allowedUserTypes = allowedCreateTypesByRole[role] || [];
+    const allowedUserTypes = getAllowedCreateTypes(req.user);
 
     if (!allowedUserTypes.includes(userType)) {
       return res.status(403).json({ message: 'Access denied: You cannot create this user type.' });
@@ -117,7 +127,7 @@ router.post('/sub-user', protect, async (req, res) => {
     // Determine parentId based on role
     let finalParentId = req.user._id;
     if (role === 'ADMIN') {
-      if (userType === 'Dealer') {
+      if (userType === 'Dealer' || userType === 'Administration') {
         finalParentId = null;
       } else if (userType === 'Sub Dealer') {
         if (!parentId) {
@@ -197,7 +207,7 @@ router.put('/sub-user/:id', protect, async (req, res) => {
     }
 
      if (userType) {
-      const allowedUserTypes = allowedCreateTypesByRole[role] || [];
+      const allowedUserTypes = getAllowedCreateTypes(req.user);
       if (!allowedUserTypes.includes(userType)) {
         return res.status(403).json({ message: 'Access denied: You cannot assign this user type.' });
       }
@@ -223,7 +233,7 @@ router.put('/sub-user/:id', protect, async (req, res) => {
       }
     }
 
-    if (subUser.userType === 'Dealer') {
+    if (subUser.userType === 'Dealer' || subUser.userType === 'Administration') {
       subUser.parentId = null;
     } else if (subUser.userType === 'Sub Dealer' && role === 'ADMIN') {
       if (req.body.parentId !== undefined) {
@@ -330,6 +340,11 @@ router.delete('/sub-user/:id/permanent', protect, async (req, res) => {
     } else if (targetRole === 'SUB_DEALER') {
       if (role !== 'ADMIN' && role !== 'DEALER') {
         return res.status(403).json({ message: 'Access denied: Only Admins and Dealers can delete Sub Dealers.' });
+      }
+    } else if (subUser.userType === 'Administration') {
+      const isFullAdmin = req.user?.role === 'partner' && req.user?.userType !== 'Administration';
+      if (!isFullAdmin) {
+        return res.status(403).json({ message: 'Access denied: Only Full Admins can delete Administration accounts.' });
       }
     } else {
       return res.status(403).json({ message: 'Access denied: Unsupported account type.' });

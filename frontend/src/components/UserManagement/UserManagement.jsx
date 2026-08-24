@@ -164,6 +164,9 @@ const UserManagement = () => {
     if (targetUserType === 'Sub Dealer') {
       return true;
     }
+    if (targetUserType === 'Administration') {
+      return isFullAdmin;
+    }
     return false;
   };
 
