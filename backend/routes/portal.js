@@ -1560,7 +1560,7 @@ router.put('/renewals/:id', protect, async (req, res) => {
           deviceStatus: 'active',
           status: 'Activated',
           renewalAmount: renewal.billAmount,
-          billAmount: 0,
+          billAmount: renewal.billAmount,
         });
       } else {
         device.presentDate = renewal.renewalDate;
@@ -1568,7 +1568,11 @@ router.put('/renewals/:id', protect, async (req, res) => {
         device.validity = renewal.validity;
         device.deviceStatus = 'active';
         device.status = 'Activated';
-        device.billAmount = (device.billAmount || 0) + renewal.billAmount;
+        if (!device.billAmount || device.billAmount === 0) {
+          device.billAmount = renewal.billAmount;
+        } else {
+          device.billAmount = (device.billAmount || 0) + renewal.billAmount;
+        }
         device.renewalAmount = renewal.billAmount;
       }
       await device.save();

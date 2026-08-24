@@ -54,6 +54,44 @@ const syncDevicesToProducts = async () => {
     } else {
       console.log('✅ [Migration] Devices and Products are already fully synchronized.');
     }
+
+    // Sync billAmount / renewalAmount from RenewalRequests & ActivationRequests for devices where billAmount is 0
+    const RenewalRequest = require('../models/RenewalRequest');
+    const ActivationRequest = require('../models/ActivationRequest');
+
+    const zeroBillDevices = await Device.find({
+      $or: [
+        { billAmount: { $eq: 0 } },
+        { billAmount: { $exists: false } },
+        { billAmount: null }
+      ]
+    });
+
+    let updatedAmtCount = 0;
+    for (const dev of zeroBillDevices) {
+      // Check RenewalRequest first
+      const latestRenewal = await RenewalRequest.findOne({ imei: dev.imei, billAmount: { $gt: 0 } }).sort({ createdAt: -1 });
+      if (latestRenewal && latestRenewal.billAmount > 0) {
+        dev.billAmount = latestRenewal.billAmount;
+        dev.renewalAmount = dev.renewalAmount || latestRenewal.billAmount;
+        await dev.save();
+        updatedAmtCount++;
+        continue;
+      }
+
+      // Check ActivationRequest next
+      const latestActivation = await ActivationRequest.findOne({ imei: dev.imei, amount: { $gt: 0 } }).sort({ createdAt: -1 });
+      if (latestActivation && latestActivation.amount > 0) {
+        dev.billAmount = latestActivation.amount;
+        dev.renewalAmount = dev.renewalAmount || latestActivation.amount;
+        await dev.save();
+        updatedAmtCount++;
+      }
+    }
+
+    if (updatedAmtCount > 0) {
+      console.log(`✅ [Migration] Updated billAmount for ${updatedAmtCount} devices from Renewal/Activation requests.`);
+    }
   } catch (error) {
     console.error('❌ [Migration] Error syncing devices to products:', error.message);
   }
