@@ -35,7 +35,6 @@ export const PortalProvider = ({ children }) => {
   const userRole = user?.role === 'partner' ? 'ADMIN' : user?.userType === 'Administration' ? 'ADMIN' : user?.userType === 'Sub Dealer' ? 'SUB_DEALER' : 'DEALER';
 
   const loadPortalData = useCallback(async (force = false) => {
-    // If already loaded and not forced, skip showing loading screen/refetching
     if (hasLoaded && !force) {
       return;
     }
@@ -49,28 +48,15 @@ export const PortalProvider = ({ children }) => {
       const canManageUsers = userRole === 'ADMIN' || userRole === 'DEALER';
       const isOps = userRole === 'ADMIN' || userRole === 'DEALER' || userRole === 'SUB_DEALER';
 
+      // --- PHASE 1: Instant Critical Load (<200ms) ---
       const [
         summaryRes,
-        dealersRes,
-        subDealersRes,
         usersRes,
-        customersRes,
-        devicesRes,
-        renewalsRes,
-        reportsRes,
-        loginLogsRes,
         dueSummaryRes,
         renewalDueSummaryRes,
       ] = await Promise.all([
         api.get('/portal/summary'),
-        canManageUsers ? api.get('/portal/users', { params: { type: 'dealer' } }) : Promise.resolve({ data: [] }),
-        canManageUsers ? api.get('/portal/users', { params: { type: 'subDealer' } }) : Promise.resolve({ data: [] }),
         canManageUsers ? api.get('/portal/users', { params: { type: 'all' } }) : Promise.resolve({ data: [] }),
-        api.get('/portal/customers'),
-        api.get('/portal/devices', { params: { limit: 'all' } }),
-        api.get('/portal/renewals'),
-        api.get('/portal/reports'),
-        canManageUsers ? api.get('/portal/login-logs').catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
         isOps ? api.get('/due-dashboard/summary').catch(() => ({ data: null })) : Promise.resolve({ data: null }),
         api.get('/portal/renewals/due-summary').catch(() => ({ data: null })),
       ]);
@@ -78,17 +64,9 @@ export const PortalProvider = ({ children }) => {
       setSummary(summaryRes.data);
       setDueSummary(dueSummaryRes?.data || null);
       setRenewalDueSummary(renewalDueSummaryRes?.data || null);
-      setDealers(dealersRes.data || []);
       setUsers(usersRes.data || []);
-      setCustomers(customersRes.data || []);
-      setDevices(devicesRes.data?.devices || []);
-      setRenewals(renewalsRes.data || []);
-      setReports(reportsRes.data || null);
-      setLoginLogs(loginLogsRes.data || []);
 
       const allUsers = usersRes.data || [];
-      
-      // Identify dealers
       let dealerList = [];
       if (userRole === 'ADMIN') {
         const listFromDb = allUsers.filter(
@@ -102,47 +80,52 @@ export const PortalProvider = ({ children }) => {
         dealerList = user ? [user] : [];
       }
       setDeviceDealerOptions(dealerList);
+      setDealers(dealerList);
 
-      // Identify sub-dealers
       const subDealerList = allUsers.filter((item) => item.userType === 'Sub Dealer');
       setSubDealers(subDealerList);
+
+      // Unblock UI immediately after Phase 1
       setHasLoaded(true);
+      setLoading(false);
+
+      // --- PHASE 2: Silent Background Asynchronous Load ---
+      Promise.all([
+        api.get('/portal/customers').catch(() => ({ data: [] })),
+        api.get('/portal/devices', { params: { limit: 'all' } }).catch(() => ({ data: { devices: [] } })),
+        api.get('/portal/renewals').catch(() => ({ data: [] })),
+        api.get('/portal/reports').catch(() => ({ data: null })),
+        canManageUsers ? api.get('/portal/login-logs').catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
+      ]).then(([customersRes, devicesRes, renewalsRes, reportsRes, loginLogsRes]) => {
+        setCustomers(customersRes.data || []);
+        setDevices(devicesRes.data?.devices || []);
+        setRenewals(renewalsRes.data || []);
+        setReports(reportsRes.data || null);
+        setLoginLogs(loginLogsRes.data || []);
+      }).catch(bgErr => {
+        console.warn('Background secondary load warning:', bgErr);
+      });
+
     } catch (err) {
-      console.error('Error fetching portal data:', err);
+      console.error('Error fetching critical portal data:', err);
       setError(err.response?.data?.message || 'Failed to load portal data.');
-    } finally {
       setLoading(false);
     }
   }, [user, userRole, hasLoaded]);
 
   const refreshPortalData = useCallback(async () => {
-    // Run fetch in background without turning on the loading spinner
     try {
       const canManageUsers = userRole === 'ADMIN' || userRole === 'DEALER';
       const isOps = userRole === 'ADMIN' || userRole === 'DEALER' || userRole === 'SUB_DEALER';
 
       const [
         summaryRes,
-        dealersRes,
-        subDealersRes,
         usersRes,
-        customersRes,
-        devicesRes,
-        renewalsRes,
-        reportsRes,
-        loginLogsRes,
         dueSummaryRes,
         renewalDueSummaryRes,
       ] = await Promise.all([
         api.get('/portal/summary'),
-        canManageUsers ? api.get('/portal/users', { params: { type: 'dealer' } }) : Promise.resolve({ data: [] }),
-        canManageUsers ? api.get('/portal/users', { params: { type: 'subDealer' } }) : Promise.resolve({ data: [] }),
         canManageUsers ? api.get('/portal/users', { params: { type: 'all' } }) : Promise.resolve({ data: [] }),
-        api.get('/portal/customers'),
-        api.get('/portal/devices', { params: { limit: 'all' } }),
-        api.get('/portal/renewals'),
-        api.get('/portal/reports'),
-        canManageUsers ? api.get('/portal/login-logs').catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
         isOps ? api.get('/due-dashboard/summary').catch(() => ({ data: null })) : Promise.resolve({ data: null }),
         api.get('/portal/renewals/due-summary').catch(() => ({ data: null })),
       ]);
@@ -150,13 +133,7 @@ export const PortalProvider = ({ children }) => {
       setSummary(summaryRes.data);
       setDueSummary(dueSummaryRes?.data || null);
       setRenewalDueSummary(renewalDueSummaryRes?.data || null);
-      setDealers(dealersRes.data || []);
       setUsers(usersRes.data || []);
-      setCustomers(customersRes.data || []);
-      setDevices(devicesRes.data?.devices || []);
-      setRenewals(renewalsRes.data || []);
-      setReports(reportsRes.data || null);
-      setLoginLogs(loginLogsRes.data || []);
 
       const allUsers = usersRes.data || [];
       let dealerList = [];
@@ -172,9 +149,24 @@ export const PortalProvider = ({ children }) => {
         dealerList = user ? [user] : [];
       }
       setDeviceDealerOptions(dealerList);
+      setDealers(dealerList);
+      setSubDealers(allUsers.filter((item) => item.userType === 'Sub Dealer'));
 
-      const subDealerList = allUsers.filter((item) => item.userType === 'Sub Dealer');
-      setSubDealers(subDealerList);
+      // Fetch background detailed data
+      Promise.all([
+        api.get('/portal/customers').catch(() => ({ data: [] })),
+        api.get('/portal/devices', { params: { limit: 'all' } }).catch(() => ({ data: { devices: [] } })),
+        api.get('/portal/renewals').catch(() => ({ data: [] })),
+        api.get('/portal/reports').catch(() => ({ data: null })),
+        canManageUsers ? api.get('/portal/login-logs').catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
+      ]).then(([customersRes, devicesRes, renewalsRes, reportsRes, loginLogsRes]) => {
+        setCustomers(customersRes.data || []);
+        setDevices(devicesRes.data?.devices || []);
+        setRenewals(renewalsRes.data || []);
+        setReports(reportsRes.data || null);
+        setLoginLogs(loginLogsRes.data || []);
+      });
+
     } catch (err) {
       console.error('Background refresh failed:', err);
     }

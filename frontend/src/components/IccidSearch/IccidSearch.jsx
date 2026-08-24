@@ -448,32 +448,58 @@ State: ${latestRequest?.userId?.state || device?.dealerId?.state || device?.stat
     }
   };
 
-  const handleViewFile = (doc) => {
-    const isImage = ['image/jpeg', 'image/jpg', 'image/png'].includes(doc.mimeType);
-    const previewUrl = `${(api.defaults.baseURL || '').replace(/\/api$/, '')}/api/devices/${device.imei}/documents/${doc._id}/preview`;
-    
-    if (isImage) {
-      setPreviewImage({ ...doc, url: previewUrl });
-      setZoomLevel(1);
-      setIsFullScreen(false);
-    } else if (doc.mimeType === 'application/pdf') {
-      setPreviewPdf({ ...doc, url: previewUrl });
+  const handleViewFile = async (doc) => {
+    try {
+      const response = await api.get(`/devices/${device.imei}/documents/${doc._id}/preview`, {
+        responseType: 'blob',
+      });
+      const blob = new Blob([response.data], { type: doc.mimeType || 'application/pdf' });
+      const objectUrl = URL.createObjectURL(blob);
+
+      const isImage = ['image/jpeg', 'image/jpg', 'image/png'].includes(doc.mimeType);
+      if (isImage) {
+        setPreviewImage({ ...doc, url: objectUrl });
+        setZoomLevel(1);
+        setIsFullScreen(false);
+      } else {
+        setPreviewPdf({ ...doc, url: objectUrl });
+      }
+    } catch (err) {
+      console.error('Failed to view file:', err);
+      // Fallback: pass authenticated URL
+      const token = localStorage.getItem('token') || '';
+      const previewUrl = `${(api.defaults.baseURL || '').replace(/\/api$/, '')}/api/devices/${device.imei}/documents/${doc._id}/preview?token=${token}`;
+      const isImage = ['image/jpeg', 'image/jpg', 'image/png'].includes(doc.mimeType);
+      if (isImage) {
+        setPreviewImage({ ...doc, url: previewUrl });
+        setZoomLevel(1);
+        setIsFullScreen(false);
+      } else {
+        setPreviewPdf({ ...doc, url: previewUrl });
+      }
     }
   };
 
-  const handleViewKyc = (doc) => {
-    const isImage = ['image/jpeg', 'image/jpg', 'image/png'].includes(doc.mimeType);
-    const backendBase = (api.defaults.baseURL || '').replace(/\/api$/, '');
-    const fileUrl = doc.fileUrl.startsWith('http') ? doc.fileUrl : `${backendBase}${doc.fileUrl}`;
-    
-    if (isImage) {
-      setPreviewImage({ ...doc, url: fileUrl });
-      setZoomLevel(1);
-      setIsFullScreen(false);
-    } else if (doc.mimeType === 'application/pdf') {
-      setPreviewPdf({ ...doc, url: fileUrl });
-    } else {
-      window.open(fileUrl, '_blank');
+  const handleViewKyc = async (doc) => {
+    try {
+      const backendBase = (api.defaults.baseURL || '').replace(/\/api$/, '');
+      const token = localStorage.getItem('token') || '';
+      const fileUrl = doc.fileUrl.startsWith('http')
+        ? doc.fileUrl
+        : `${backendBase}${doc.fileUrl}?token=${token}`;
+
+      const isImage = ['image/jpeg', 'image/jpg', 'image/png'].includes(doc.mimeType);
+      if (isImage) {
+        setPreviewImage({ ...doc, url: fileUrl });
+        setZoomLevel(1);
+        setIsFullScreen(false);
+      } else if (doc.mimeType === 'application/pdf') {
+        setPreviewPdf({ ...doc, url: fileUrl });
+      } else {
+        window.open(fileUrl, '_blank');
+      }
+    } catch (err) {
+      console.error('Error previewing KYC:', err);
     }
   };
 
@@ -857,7 +883,8 @@ State: ${latestRequest?.userId?.state || device?.dealerId?.state || device?.stat
                 <tbody>
                   {documentsList.map((doc) => {
                     const isImg = ['image/jpeg', 'image/jpg', 'image/png'].includes(doc.mimeType);
-                    const previewUrl = `${(api.defaults.baseURL || '').replace(/\/api$/, '')}/api/devices/${device.imei}/documents/${doc._id}/preview`;
+                    const token = localStorage.getItem('token') || '';
+                    const previewUrl = `${(api.defaults.baseURL || '').replace(/\/api$/, '')}/api/devices/${device.imei}/documents/${doc._id}/preview?token=${token}`;
                     return (
                       <tr key={doc._id}>
                         <td className="strong">{doc.documentType}</td>
@@ -1053,18 +1080,37 @@ State: ${latestRequest?.userId?.state || device?.dealerId?.state || device?.stat
                 <div className="preview-modal-header">
                   <h3>{previewPdf.documentType} - {previewPdf.originalName}</h3>
                   <div className="preview-header-controls">
+                    <button 
+                      type="button" 
+                      onClick={() => window.open(previewPdf.url, '_blank')} 
+                      title="Open in New Tab"
+                      style={{ backgroundColor: '#2563eb', color: '#fff', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}
+                    >
+                      Open in New Tab ↗
+                    </button>
                     <button type="button" onClick={() => handleFileDownload(previewPdf)} title="Download">Download</button>
                     <button type="button" className="close-btn" onClick={() => setPreviewPdf(null)}>Close</button>
                   </div>
                 </div>
-                <div className="preview-modal-body">
-                  <iframe 
-                    src={`${previewPdf.url}#toolbar=0`} 
-                    title={previewPdf.originalName}
-                    width="100%"
+                <div className="preview-modal-body" style={{ height: '75vh', width: '100%' }}>
+                  <object 
+                    data={previewPdf.url} 
+                    type="application/pdf" 
+                    width="100%" 
                     height="100%"
-                    style={{ border: 'none' }}
-                  />
+                    style={{ border: 'none', width: '100%', height: '100%' }}
+                  >
+                    <embed src={previewPdf.url} type="application/pdf" width="100%" height="100%" />
+                    <div style={{ padding: '20px', textAlign: 'center' }}>
+                      <p>Inline PDF preview is restricted by browser security policy.</p>
+                      <button 
+                        onClick={() => window.open(previewPdf.url, '_blank')} 
+                        style={{ padding: '8px 16px', background: '#059669', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                      >
+                        Open PDF in New Window
+                      </button>
+                    </div>
+                  </object>
                 </div>
               </div>
             </div>

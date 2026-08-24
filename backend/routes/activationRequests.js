@@ -81,6 +81,10 @@ router.get('/', async (req, res) => {
 
     const query = buildDeviceScopeQuery(req.hierarchyScope);
 
+    if (req.query.createdBy) {
+      query.createdBy = req.query.createdBy;
+    }
+
     if (search) {
       query.$or = [
         { requestId: { $regex: search, $options: 'i' } },
@@ -102,6 +106,7 @@ router.get('/', async (req, res) => {
 
     const total = await ActivationRequest.countDocuments(query);
     const requests = await ActivationRequest.find(query)
+      .populate('createdBy', 'username displayName userType companyName')
       .sort({ dateTime: -1 })
       .skip((page - 1) * limit)
       .limit(limit);
@@ -168,6 +173,118 @@ router.get('/device/:imei', requireRoles(...operationsRoles), async (req, res) =
     res.json(request);
   } catch (error) {
     console.error('Fetch request by imei error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET /api/activation-requests/today-summary
+// @desc    Get today's raise request counts grouped by creator (user ID)
+// @access  Admin only
+router.get('/today-summary', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
+  try {
+    // Support optional date query param, default to today
+    const targetDate = req.query.date ? new Date(req.query.date) : new Date();
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const pipeline = [
+      {
+        $match: {
+          dateTime: { $gte: startOfDay, $lte: endOfDay },
+        },
+      },
+      {
+        $group: {
+          _id: '$createdBy',
+          totalRequests: { $sum: 1 },
+          totalAmount: { $sum: { $ifNull: ['$amount', 0] } },
+          statuses: {
+            $push: '$status',
+          },
+          requestTypes: {
+            $push: '$requestType',
+          },
+          latestRequest: { $max: '$dateTime' },
+        },
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'userInfo',
+        },
+      },
+      { $unwind: { path: '$userInfo', preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          _id: 1,
+          totalRequests: 1,
+          totalAmount: 1,
+          latestRequest: 1,
+          processing: {
+            $size: {
+              $filter: { input: '$statuses', as: 's', cond: { $eq: ['$$s', 'Processing'] } },
+            },
+          },
+          completed: {
+            $size: {
+              $filter: { input: '$statuses', as: 's', cond: { $eq: ['$$s', 'Completed'] } },
+            },
+          },
+          requested: {
+            $size: {
+              $filter: { input: '$statuses', as: 's', cond: { $eq: ['$$s', 'Requested'] } },
+            },
+          },
+          rejected: {
+            $size: {
+              $filter: { input: '$statuses', as: 's', cond: { $eq: ['$$s', 'Rejected'] } },
+            },
+          },
+          commercialPlan: {
+            $size: {
+              $filter: { input: '$requestTypes', as: 'rt', cond: { $eq: ['$$rt', 'Commercial Plan'] } },
+            },
+          },
+          topUp: {
+            $size: {
+              $filter: { input: '$requestTypes', as: 'rt', cond: { $eq: ['$$rt', 'Top-up'] } },
+            },
+          },
+          rechargePlan: {
+            $size: {
+              $filter: { input: '$requestTypes', as: 'rt', cond: { $eq: ['$$rt', 'Recharge Plan'] } },
+            },
+          },
+          userName: {
+            $ifNull: [
+              '$userInfo.displayName',
+              { $ifNull: ['$userInfo.companyName', '$userInfo.username'] },
+            ],
+          },
+          userType: { $ifNull: ['$userInfo.userType', ''] },
+          username: { $ifNull: ['$userInfo.username', ''] },
+        },
+      },
+      { $sort: { totalRequests: -1 } },
+    ];
+
+    const summary = await ActivationRequest.aggregate(pipeline);
+
+    const grandTotal = summary.reduce((acc, item) => acc + item.totalRequests, 0);
+    const grandAmount = summary.reduce((acc, item) => acc + item.totalAmount, 0);
+
+    res.json({
+      date: startOfDay.toISOString().slice(0, 10),
+      grandTotal,
+      grandAmount,
+      users: summary,
+    });
+  } catch (error) {
+    console.error('Today summary error:', error.message);
     res.status(500).json({ message: 'Server error' });
   }
 });

@@ -139,4 +139,8 @@ renewalRequestSchema.pre('save', function (next) {
   next();
 });
 
+renewalRequestSchema.index({ dealerId: 1, status: 1, paymentStatus: 1 });
+renewalRequestSchema.index({ userId: 1 });
+renewalRequestSchema.index({ imei: 1 });
+
 module.exports = mongoose.model('RenewalRequest', renewalRequestSchema);

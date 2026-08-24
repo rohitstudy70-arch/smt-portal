@@ -17,26 +17,22 @@ yarn-error.log*
 lerna-debug.log*
 
 # Build outputs
-dist/
+# dist/
 build/
 out/
 .next/
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-.DS_Store
+# Heavy local SDKs, JDKs, and Android builds
+.jdk/
+.jdk21/
+.sdk/
+.tmp/
+*.apk
+*.aab
 
-# OS
-Thumbs.db
-
-# Database
-*.db
-*.sqlite
-*.log
+# Track compiled frontend production dist
+!frontend/dist/
+!frontend/dist/**
 
 # Uploads
 backend/uploads/

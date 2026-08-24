@@ -86,7 +86,9 @@ const getDescendantUsers = async (rootUserId) => {
   let frontier = [rootUserId];
 
   while (frontier.length > 0) {
-    const children = await User.find({ parentId: { $in: frontier } }).select('-password');
+    const children = await User.find({ parentId: { $in: frontier } })
+      .select('_id username displayName companyName userType parentId role address city state pincode mobileNo')
+      .lean();
     if (children.length === 0) break;
 
     descendants.push(...children);
@@ -100,7 +102,9 @@ const getScope = async (user) => {
   const role = getPortalRole(user);
 
   if (role === 'ADMIN') {
-    const users = await User.find({}).select('-password');
+    const users = await User.find({})
+      .select('_id username displayName companyName userType parentId role address city state pincode mobileNo')
+      .lean();
     return {
       role,
       users,

@@ -258,5 +258,7 @@ deviceSchema.index({ serialNo: 1 }, { unique: true, sparse: true });
 deviceSchema.index({ dealerId: 1 });
 deviceSchema.index({ subDealerId: 1 });
 deviceSchema.index({ createdBy: 1 });
+deviceSchema.index({ dealerId: 1, subDealerId: 1, status: 1 });
+deviceSchema.index({ expiryDate: 1, status: 1 });
 
 module.exports = mongoose.model('Device', deviceSchema);

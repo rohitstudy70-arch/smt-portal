@@ -23,6 +23,9 @@ const ActivationRequests = () => {
   const [limit, setLimit] = useState(5);
   const [search, setSearch] = useState('');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [todaySummary, setTodaySummary] = useState(null);
+  const [todaySummaryDate, setTodaySummaryDate] = useState(new Date().toISOString().slice(0, 10));
+  const [selectedUserFilter, setSelectedUserFilter] = useState('');
 
   // Initial Form State
   const initialFormState = {
@@ -252,9 +255,11 @@ const ActivationRequests = () => {
     const fetchRequests = async () => {
       try {
         setLoading(true);
-        const response = await api.get('/activation-requests', {
-          params: { page, limit, search }
-        });
+        const params = { page, limit, search };
+        if (selectedUserFilter) {
+          params.createdBy = selectedUserFilter;
+        }
+        const response = await api.get('/activation-requests', { params });
         setRequests(response.data.requests);
         setTotalCount(response.data.total);
         setLoading(false);
@@ -265,7 +270,23 @@ const ActivationRequests = () => {
     };
 
     fetchRequests();
-  }, [page, limit, search, refreshTrigger]);
+  }, [page, limit, search, refreshTrigger, selectedUserFilter]);
+
+  // Fetch Today's Raise Request Summary (Admin Only)
+  useEffect(() => {
+    if (role !== 'ADMIN') return;
+    const fetchTodaySummary = async () => {
+      try {
+        const res = await api.get('/activation-requests/today-summary', {
+          params: { date: todaySummaryDate },
+        });
+        setTodaySummary(res.data);
+      } catch (err) {
+        console.error('Error fetching today summary:', err);
+      }
+    };
+    fetchTodaySummary();
+  }, [role, refreshTrigger, todaySummaryDate]);
 
   // Amount Auto-calculation
   useEffect(() => {
@@ -606,6 +627,175 @@ const ActivationRequests = () => {
           <FaPlus /> Raise Request
         </button>
       </div>
+
+      {/* Today's Raise Request Summary (Admin Only) */}
+      {role === 'ADMIN' && todaySummary && (
+        <div style={{
+          background: '#ffffff',
+          border: '1px solid #e2e8f0',
+          borderRadius: '10px',
+          padding: '16px 20px',
+          marginBottom: '18px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
+            <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              📊 Raise Request Summary — {todaySummaryDate === new Date().toISOString().slice(0, 10) ? 'Today' : todaySummaryDate}
+            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <select
+                value={selectedUserFilter}
+                onChange={(e) => {
+                  setSelectedUserFilter(e.target.value);
+                  setPage(1);
+                }}
+                style={{
+                  padding: '5px 10px',
+                  borderRadius: '6px',
+                  border: '1px solid #0ea5e9',
+                  fontSize: '12px',
+                  color: '#0f172a',
+                  background: '#f0f9ff',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="">👤 All Users / Employees</option>
+                {todaySummary.users.map((u) => (
+                  <option key={u._id} value={u._id}>
+                    {u.userName || 'Unknown'} {u.username ? `(${u.username})` : ''} — {u.totalRequests} raised
+                  </option>
+                ))}
+              </select>
+
+              {selectedUserFilter && (
+                <button
+                  onClick={() => setSelectedUserFilter('')}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: '#ef4444',
+                    color: '#fff',
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ✕ Clear User Filter
+                </button>
+              )}
+
+              <input
+                type="date"
+                value={todaySummaryDate}
+                onChange={(e) => setTodaySummaryDate(e.target.value)}
+                style={{
+                  padding: '5px 10px',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '12px',
+                  color: '#334155',
+                }}
+              />
+              <span style={{
+                background: '#0ea5e9',
+                color: '#fff',
+                padding: '4px 12px',
+                borderRadius: '20px',
+                fontSize: '12px',
+                fontWeight: '700',
+              }}>
+                Total: {todaySummary.grandTotal}
+              </span>
+              <span style={{
+                background: '#10b981',
+                color: '#fff',
+                padding: '4px 12px',
+                borderRadius: '20px',
+                fontSize: '12px',
+                fontWeight: '700',
+              }}>
+                ₹{(todaySummary.grandAmount || 0).toLocaleString('en-IN')}
+              </span>
+            </div>
+          </div>
+
+          {todaySummary.users.length === 0 ? (
+            <p style={{ color: '#94a3b8', fontSize: '13px', margin: '8px 0 0' }}>No raise requests found for this date.</p>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                <thead>
+                  <tr style={{ background: '#f1f5f9' }}>
+                    <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', color: '#475569', borderBottom: '2px solid #e2e8f0' }}>User Name</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', color: '#475569', borderBottom: '2px solid #e2e8f0' }}>User ID</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: '700', color: '#475569', borderBottom: '2px solid #e2e8f0' }}>Role</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: '700', color: '#475569', borderBottom: '2px solid #e2e8f0' }}>Total</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: '700', color: '#475569', borderBottom: '2px solid #e2e8f0' }}>Commercial</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: '700', color: '#475569', borderBottom: '2px solid #e2e8f0' }}>Top-up</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: '700', color: '#475569', borderBottom: '2px solid #e2e8f0' }}>Recharge</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: '700', color: '#475569', borderBottom: '2px solid #e2e8f0' }}>Processing</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: '700', color: '#475569', borderBottom: '2px solid #e2e8f0' }}>Completed</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'right', fontWeight: '700', color: '#475569', borderBottom: '2px solid #e2e8f0' }}>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {todaySummary.users.map((item, idx) => {
+                    const isSelected = selectedUserFilter === String(item._id);
+                    return (
+                      <tr
+                        key={item._id || idx}
+                        onClick={() => {
+                          setSelectedUserFilter(isSelected ? '' : String(item._id));
+                          setPage(1);
+                        }}
+                        style={{
+                          background: isSelected ? '#e0f2fe' : (idx % 2 === 0 ? '#fff' : '#f8fafc'),
+                          borderBottom: '1px solid #f1f5f9',
+                          cursor: 'pointer',
+                          transition: 'background 0.2s',
+                        }}
+                        title="Click to filter requests by this user"
+                      >
+                        <td style={{ padding: '8px 10px', fontWeight: '600', color: '#1e293b' }}>{item.userName || 'Unknown'}</td>
+                        <td style={{ padding: '8px 10px', color: '#64748b' }}>{item.username || '-'}</td>
+                      <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                        <span style={{
+                          background: item.userType === 'Administration' ? '#dbeafe' : item.userType === 'Dealer' ? '#fef3c7' : '#e0e7ff',
+                          color: item.userType === 'Administration' ? '#1e40af' : item.userType === 'Dealer' ? '#92400e' : '#3730a3',
+                          padding: '2px 8px',
+                          borderRadius: '10px',
+                          fontSize: '11px',
+                          fontWeight: '600',
+                        }}>
+                          {item.userType || 'Admin'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '8px 10px', textAlign: 'center', fontWeight: '700', color: '#0ea5e9', fontSize: '14px' }}>{item.totalRequests}</td>
+                      <td style={{ padding: '8px 10px', textAlign: 'center', color: '#334155' }}>{item.commercialPlan || 0}</td>
+                      <td style={{ padding: '8px 10px', textAlign: 'center', color: '#334155' }}>{item.topUp || 0}</td>
+                      <td style={{ padding: '8px 10px', textAlign: 'center', color: '#334155' }}>{item.rechargePlan || 0}</td>
+                      <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                        <span style={{ background: '#fef9c3', color: '#a16207', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>
+                          {item.processing || 0}
+                        </span>
+                      </td>
+                      <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                        <span style={{ background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>
+                          {item.completed || 0}
+                        </span>
+                      </td>
+                      <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: '600', color: '#059669' }}>₹{(item.totalAmount || 0).toLocaleString('en-IN')}</td>
+                    </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {showModal && (
         <div className="modal-overlay">
@@ -1131,6 +1321,7 @@ const ActivationRequests = () => {
                   <th>ICCID</th>
                   <th>Customer Name</th>
                   <th>Dealer Name</th>
+                  <th>Raised By (User ID)</th>
                   <th>Request Date</th>
                   <th>Status</th>
                   <th>Actions</th>
@@ -1160,6 +1351,8 @@ const ActivationRequests = () => {
                   const statusClass = displayStatus.toLowerCase();
 
                   if (role === 'ADMIN') {
+                    const creatorName = req.createdBy?.displayName || req.createdBy?.companyName || req.createdBy?.username || '--';
+                    const creatorId = req.createdBy?.username || '';
                     return (
                       <tr key={req._id}>
                         <td><input type="checkbox" /></td>
@@ -1169,6 +1362,14 @@ const ActivationRequests = () => {
                         <td>{req.iccid || '--'}</td>
                         <td>{req.customerName || '--'}</td>
                         <td>{req.dealerName || '--'}</td>
+                        <td>
+                          <span style={{ fontWeight: '600', color: '#1e293b' }}>{creatorName}</span>
+                          {creatorId && (
+                            <span style={{ fontSize: '11px', color: '#64748b', display: 'block' }}>
+                              ({creatorId})
+                            </span>
+                          )}
+                        </td>
                         <td>
                           {new Date(req.dateTime).toLocaleString('en-IN', {
                             day: '2-digit',
