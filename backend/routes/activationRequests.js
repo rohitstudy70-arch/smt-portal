@@ -442,6 +442,14 @@ router.post('/', requireRoles(...operationsRoles), async (req, res) => {
       software: software || '',
     });
 
+    // Sync trackingId and software to Device model
+    if (imei) {
+      await Device.updateOne(
+        { imei },
+        { $set: { trackingId: trackingId || '', software: software || '' } }
+      ).catch(err => console.error('Error syncing tracking info to Device:', err));
+    }
+
     // Create a transaction in ledger for the deducted amount
     if (reqAmount > 0) {
       const randomNum = Math.floor(10000 + Math.random() * 90000);
@@ -707,6 +715,15 @@ router.put('/:id', async (req, res) => {
     }
 
     await request.save();
+
+    // Sync trackingId and software to Device model
+    if (request.imei) {
+      await Device.updateOne(
+        { imei: request.imei },
+        { $set: { trackingId: request.trackingId || '', software: request.software || '' } }
+      ).catch(err => console.error('Error syncing tracking info to Device on edit:', err));
+    }
+
     res.json({ message: 'Request updated successfully', request });
   } catch (error) {
     console.error('Update request error:', error.message);

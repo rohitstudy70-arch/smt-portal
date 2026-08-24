@@ -1366,8 +1366,8 @@ router.get('/renewals/search-imei/:imei', protect, async (req, res) => {
       validity,
       renewalDate,
       billAmount,
-      trackingId: device?.trackingId || activation?.trackingId || latestRenewal?.trackingId || '',
-      software: device?.software || activation?.software || latestRenewal?.software || '',
+      trackingId: activation?.trackingId || device?.trackingId || latestRenewal?.trackingId || '',
+      software: activation?.software || device?.software || latestRenewal?.software || '',
       documents: device?.documents || []
     });
   } catch (error) {

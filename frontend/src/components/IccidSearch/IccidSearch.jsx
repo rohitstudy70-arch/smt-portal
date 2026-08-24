@@ -209,8 +209,8 @@ const IccidSearch = () => {
         }
 
         // 5. Pre-fill Tracking ID & Software
-        const initialTrackingId = foundDevice?.trackingId || fetchedRequest?.trackingId || '';
-        const initialSoftware = foundDevice?.software || fetchedRequest?.software || '';
+        const initialTrackingId = fetchedRequest?.trackingId || foundDevice?.trackingId || '';
+        const initialSoftware = fetchedRequest?.software || foundDevice?.software || '';
         setTrackingIdInput(initialTrackingId);
         setSoftwareInput(initialSoftware);
 
@@ -798,11 +798,11 @@ Software: ${softwareInput || device?.software || latestRequest?.software || late
                   <tr>
                     <td>
                       <div className="grid-cell-label">Tracking ID</div>
-                      <div className="grid-cell-value bold">{trackingIdInput || device?.trackingId || latestRequest?.trackingId || latestRenewal?.trackingId || '—'}</div>
+                      <div className="grid-cell-value bold">{latestRequest?.trackingId || device?.trackingId || trackingIdInput || latestRenewal?.trackingId || '—'}</div>
                     </td>
                     <td>
                       <div className="grid-cell-label">Software</div>
-                      <div className="grid-cell-value bold">{softwareInput || device?.software || latestRequest?.software || latestRenewal?.software || '—'}</div>
+                      <div className="grid-cell-value bold">{latestRequest?.software || device?.software || softwareInput || latestRenewal?.software || '—'}</div>
                     </td>
                     <td></td>
                   </tr>
