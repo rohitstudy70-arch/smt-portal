@@ -251,6 +251,9 @@ const IccidSearch = () => {
       || latestRequest?.subDealerName
       || '';
 
+    const trackingIdVal = device.trackingId || latestRequest?.trackingId || trackingIdInput || '—';
+    const softwareVal = device.software || latestRequest?.software || softwareInput || '—';
+
     const details = `--- DEVICE DETAILS ---
 Model: ${vendorName}
 Dealer Name: ${dealerName}
@@ -261,6 +264,8 @@ ICCID No: ${device.iccid || '—'}
 MSISDN 1: ${device.msisdn1 || '—'}
 MSISDN 2: ${device.msisdn2 || '—'}
 ITR No: ${device.itrNo || '—'}
+Tracking ID: ${trackingIdVal}
+Software: ${softwareVal}
 Validity: ${device.validity || '—'}
 Activation Date: ${formatDate(device.presentDate)}
 Expiry Date: ${formatDate(device.expiryDate)}

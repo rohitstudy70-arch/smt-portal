@@ -63,6 +63,8 @@ const ActivationRequests = () => {
     address: '',
     isSubDealer: false,
     subDealerName: '',
+    trackingId: '',
+    software: '',
     deviceBillAmount: null
   };
 
@@ -149,6 +151,8 @@ const ActivationRequests = () => {
         deviceBillAmount: prefillDevice.billAmount || null,
         itrNo: prefillDevice.itrNo || prefillRequest?.itrNo || '',
         vendor: prefillDevice.vendor || '',
+        trackingId: prefillDevice.trackingId || prefillRequest?.trackingId || '',
+        software: prefillDevice.software || prefillRequest?.software || '',
         
         // Vehicle details from request
         installationDate: prefillRequest?.installationDate ? formatDateForInput(prefillRequest.installationDate) : '',
@@ -374,6 +378,8 @@ const ActivationRequests = () => {
       subDealerName: device.subDealerName || device.subDealerId?.displayName || device.subDealerId?.companyName || device.subDealerId?.username || '',
       vendor: device.vendor || '',
       itrNo: device.itrNo || '',
+      trackingId: device.trackingId || '',
+      software: device.software || '',
       plan: device.validity === '2 Years' ? '2 Years' : '1 Year',
       amount: device.billAmount || 0,
       deviceBillAmount: device.billAmount || null
@@ -484,6 +490,8 @@ const ActivationRequests = () => {
       address: req.address || '',
       isSubDealer: req.isSubDealer || false,
       subDealerName: req.subDealerName || '',
+      trackingId: req.trackingId || '',
+      software: req.software || '',
       deviceBillAmount: null
     });
     setEditRequestId(req._id);
@@ -1013,6 +1021,32 @@ const ActivationRequests = () => {
                         readOnly 
                         placeholder="Auto-filled"
                       />
+                    </div>
+                    <div className="form-group-custom">
+                      <label>Tracking ID</label>
+                      <input 
+                        type="text" 
+                        value={formData.trackingId || ''} 
+                        onChange={(e) => setFormData({...formData, trackingId: e.target.value})}
+                        placeholder="Enter Tracking ID"
+                      />
+                    </div>
+                    <div className="form-group-custom">
+                      <label>Software</label>
+                      <select 
+                        value={formData.software || ''} 
+                        onChange={(e) => setFormData({...formData, software: e.target.value})}
+                        style={{ padding: '8px 12px', borderRadius: '5px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                      >
+                        <option value="">Select Software</option>
+                        <option value="CAR ONLINE">CAR ONLINE</option>
+                        <option value="TRAQUELITE">TRAQUELITE</option>
+                        <option value="CHASETRACK">CHASETRACK</option>
+                        <option value="I PLUS">I PLUS</option>
+                        <option value="TRACKFEY">TRACKFEY</option>
+                        <option value="RTMS">RTMS</option>
+                        <option value="OTHERS">OTHERS</option>
+                      </select>
                     </div>
                   </div>
 

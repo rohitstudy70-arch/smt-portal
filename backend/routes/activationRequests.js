@@ -330,6 +330,8 @@ router.post('/', requireRoles(...operationsRoles), async (req, res) => {
       customerName,
       aadharNo,
       address,
+      trackingId,
+      software,
     } = req.body;
 
     if (!imei) {
@@ -436,7 +438,15 @@ router.post('/', requireRoles(...operationsRoles), async (req, res) => {
       customerName: customerName || '',
       aadharNo: aadharNo || '',
       address: address || '',
+      trackingId: trackingId || '',
+      software: software || '',
     });
+
+    if (trackingId || software) {
+      if (trackingId) device.trackingId = trackingId;
+      if (software) device.software = software;
+      await device.save();
+    }
 
     // Create a transaction in ledger for the deducted amount
     if (reqAmount > 0) {
@@ -689,7 +699,7 @@ router.put('/:id', async (req, res) => {
       'itrNo', 'vendor', 'installationDate', 'activationMode',
       'vehicleCondition', 'vehicleMake', 'vehicleModel', 'registrationYear',
       'vehicleNo', 'rto', 'engineNo', 'chassisNo', 'regMobNo', 'regMobNo2',
-      'customerName', 'aadharNo', 'address'
+      'customerName', 'aadharNo', 'address', 'trackingId', 'software'
     ];
 
     updatableFields.forEach((field) => {
@@ -703,6 +713,16 @@ router.put('/:id', async (req, res) => {
     }
 
     await request.save();
+
+    // Sync trackingId and software to Device if available
+    if (request.imei && (req.body.trackingId || req.body.software)) {
+      const devToUpdate = await Device.findOne({ imei: request.imei });
+      if (devToUpdate) {
+        if (req.body.trackingId) devToUpdate.trackingId = req.body.trackingId;
+        if (req.body.software) devToUpdate.software = req.body.software;
+        await devToUpdate.save();
+      }
+    }
     res.json({ message: 'Request updated successfully', request });
   } catch (error) {
     console.error('Update request error:', error.message);
