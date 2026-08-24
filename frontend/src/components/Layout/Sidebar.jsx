@@ -198,17 +198,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         {canShow(['ADMIN', 'DEALER', 'SUB_DEALER']) && (
           <li className={`sidebar-menu-item ${location.pathname === '/add-device' ? 'active' : ''}`}>
             <NavLink to="/add-device">
-              {role === 'DEALER' ? (
-                <>
-                  <FaMobileAlt className="menu-icon" />
-                  <span className="menu-text">Assign Devices</span>
-                </>
-              ) : (
-                <>
-                  <FaPlusCircle className="menu-icon" />
-                  <span className="menu-text">Add Device</span>
-                </>
-              )}
+              <FaPlusCircle className="menu-icon" />
+              <span className="menu-text">Add Device</span>
             </NavLink>
           </li>
         )}
