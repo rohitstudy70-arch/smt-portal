@@ -9,12 +9,8 @@ const router = express.Router();
 const userManagementRoles = ['ADMIN', 'DEALER'];
 const getAllowedCreateTypes = (user) => {
   const role = getPortalRole(user);
-  const isFullAdmin = user?.role === 'partner' && user?.userType !== 'Administration';
-  if (isFullAdmin) {
-    return ['Administration', 'Dealer', 'Sub Dealer'];
-  }
   if (role === 'ADMIN') {
-    return ['Dealer', 'Sub Dealer'];
+    return ['Administration', 'Dealer', 'Sub Dealer'];
   }
   if (role === 'DEALER') {
     return ['Sub Dealer'];

@@ -12,7 +12,7 @@ const getRole = (user) => {
 };
 
 const userTypesByRole = {
-  ADMIN: ['Dealer', 'Sub Dealer'],
+  ADMIN: ['Administration', 'Dealer', 'Sub Dealer'],
   DEALER: ['Sub Dealer'],
   SUB_DEALER: [],
 };
@@ -21,9 +21,7 @@ const UserManagement = () => {
   const { user } = useAuth();
   const role = getRole(user);
   const isFullAdmin = user?.role === 'partner' && user?.userType !== 'Administration';
-  const allowedUserTypes = isFullAdmin
-    ? ['Administration', 'Dealer', 'Sub Dealer']
-    : (userTypesByRole[role] || []);
+  const allowedUserTypes = userTypesByRole[role] || [];
   const [subUsers, setSubUsers] = useState([]);
   const [dealers, setDealers] = useState([]);
   const [loading, setLoading] = useState(true);
