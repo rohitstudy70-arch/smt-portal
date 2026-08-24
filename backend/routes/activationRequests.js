@@ -343,6 +343,28 @@ router.post('/', requireRoles(...operationsRoles), async (req, res) => {
       return res.status(404).json({ message: 'Device not found.' });
     }
 
+    // Role-based Device Assignment Scope Restriction
+    const userRole = (req.user.role || '').toUpperCase();
+    const isSuperUser = userRole === 'PARTNER' || userRole === 'ADMIN' || req.user.username === 'bulbala123';
+    
+    if (!isSuperUser) {
+      const userIdStr = req.user._id.toString();
+      const deviceDealerStr = device.dealerId ? device.dealerId.toString() : '';
+      const deviceSubDealerStr = device.subDealerId ? device.subDealerId.toString() : '';
+      const deviceCreatedByStr = device.createdBy ? device.createdBy.toString() : '';
+
+      const isAssignedToUser = (deviceDealerStr === userIdStr) || 
+                               (deviceSubDealerStr === userIdStr) || 
+                               (deviceCreatedByStr === userIdStr) ||
+                               (req.hierarchyScope && req.hierarchyScope.userIds && req.hierarchyScope.userIds.some(id => id.toString() === deviceDealerStr || id.toString() === deviceSubDealerStr));
+
+      if (!isAssignedToUser) {
+        return res.status(403).json({ 
+          message: 'Access Denied: You can only raise activation requests for devices assigned to your account.' 
+        });
+      }
+    }
+
     // Step 7: Prevent duplicate requests for initial activations
     if (requestType === 'Commercial Plan') {
       const existingRequest = await ActivationRequest.findOne({
