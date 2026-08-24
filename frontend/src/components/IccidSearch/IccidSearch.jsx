@@ -490,37 +490,53 @@ State: ${latestRequest?.userId?.state || device?.dealerId?.state || device?.stat
 
   const handleViewKyc = async (doc) => {
     try {
-      const backendBase = (api.defaults.baseURL || '').replace(/\/api$/, '');
-      const token = localStorage.getItem('token') || '';
-      const fileUrl = doc.fileUrl.startsWith('http')
-        ? doc.fileUrl
-        : `${backendBase}${doc.fileUrl}?token=${token}`;
+      let objectUrl = '';
+      const response = await api.get(doc.fileUrl, { responseType: 'blob' }).catch(() => null);
+      if (response && response.data) {
+        const blob = new Blob([response.data], { type: doc.mimeType || 'application/pdf' });
+        objectUrl = URL.createObjectURL(blob);
+      } else {
+        const backendBase = (api.defaults.baseURL || '').replace(/\/api$/, '');
+        const token = localStorage.getItem('token') || '';
+        objectUrl = doc.fileUrl.startsWith('http')
+          ? doc.fileUrl
+          : `${backendBase}${doc.fileUrl}?token=${token}`;
+      }
 
       const isImage = ['image/jpeg', 'image/jpg', 'image/png'].includes(doc.mimeType);
       if (isImage) {
-        setPreviewImage({ ...doc, url: fileUrl });
+        setPreviewImage({ ...doc, url: objectUrl });
         setZoomLevel(1);
         setIsFullScreen(false);
-      } else if (doc.mimeType === 'application/pdf') {
-        setPreviewPdf({ ...doc, url: fileUrl });
       } else {
-        window.open(fileUrl, '_blank');
+        setPreviewPdf({ ...doc, url: objectUrl });
       }
     } catch (err) {
       console.error('Error previewing KYC:', err);
     }
   };
 
-  const handleDownloadKyc = (doc) => {
-    const backendBase = (api.defaults.baseURL || '').replace(/\/api$/, '');
-    const fileUrl = doc.fileUrl.startsWith('http') ? doc.fileUrl : `${backendBase}${doc.fileUrl}`;
-    const link = document.createElement('a');
-    link.href = fileUrl;
-    link.setAttribute('download', doc.originalName || doc.fileName);
-    link.setAttribute('target', '_blank');
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+  const handleDownloadKyc = async (doc) => {
+    try {
+      const response = await api.get(doc.fileUrl, { responseType: 'blob' });
+      const blob = new Blob([response.data], { type: doc.mimeType || 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', doc.originalName || doc.fileName || 'KYC_Document');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (err) {
+      console.error('Error downloading KYC:', err);
+      const backendBase = (api.defaults.baseURL || '').replace(/\/api$/, '');
+      const token = localStorage.getItem('token') || '';
+      const fileUrl = doc.fileUrl.startsWith('http')
+        ? doc.fileUrl
+        : `${backendBase}${doc.fileUrl}?token=${token}`;
+      window.open(fileUrl, '_blank');
+    }
   };
 
   const handleSaveTrackingInfo = async () => {

@@ -558,6 +558,24 @@ const ActivationRequests = () => {
     }
   };
 
+  const handleOpenKycLink = async (doc) => {
+    if (!doc || !doc.fileUrl) return;
+    try {
+      const response = await api.get(doc.fileUrl, { responseType: 'blob' });
+      const blob = new Blob([response.data], { type: doc.mimeType || 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    } catch (err) {
+      console.error('Error opening KYC document:', err);
+      const backendBase = (api.defaults.baseURL || '').replace(/\/api$/, '');
+      const token = localStorage.getItem('token') || '';
+      const fileUrl = doc.fileUrl.startsWith('http')
+        ? doc.fileUrl
+        : `${backendBase}${doc.fileUrl}?token=${token}`;
+      window.open(fileUrl, '_blank');
+    }
+  };
+
   const totalPages = Math.ceil(totalCount / limit) || 1;
 
   const getPageNumbers = () => {
@@ -1206,9 +1224,13 @@ const ActivationRequests = () => {
                       {kycUploaded.panCard && (
                         <div style={{ fontSize: '11px', marginTop: '4px' }}>
                           <span style={{ color: '#059669', fontWeight: 'bold' }}>✓ Uploaded: </span>
-                          <a href={kycUploaded.panCard.fileUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline', color: '#2563eb' }}>
+                          <button 
+                            type="button" 
+                            onClick={() => handleOpenKycLink(kycUploaded.panCard)}
+                            style={{ background: 'none', border: 'none', color: '#2563eb', textDecoration: 'underline', cursor: 'pointer', fontSize: '11px', padding: 0 }}
+                          >
                             {kycUploaded.panCard.originalName}
-                          </a>
+                          </button>
                         </div>
                       )}
                     </div>
@@ -1225,9 +1247,13 @@ const ActivationRequests = () => {
                       {kycUploaded.aadharCard && (
                         <div style={{ fontSize: '11px', marginTop: '4px' }}>
                           <span style={{ color: '#059669', fontWeight: 'bold' }}>✓ Uploaded: </span>
-                          <a href={kycUploaded.aadharCard.fileUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline', color: '#2563eb' }}>
+                          <button 
+                            type="button" 
+                            onClick={() => handleOpenKycLink(kycUploaded.aadharCard)}
+                            style={{ background: 'none', border: 'none', color: '#2563eb', textDecoration: 'underline', cursor: 'pointer', fontSize: '11px', padding: 0 }}
+                          >
                             {kycUploaded.aadharCard.originalName}
-                          </a>
+                          </button>
                         </div>
                       )}
                     </div>
@@ -1244,9 +1270,13 @@ const ActivationRequests = () => {
                       {kycUploaded.rcBook && (
                         <div style={{ fontSize: '11px', marginTop: '4px' }}>
                           <span style={{ color: '#059669', fontWeight: 'bold' }}>✓ Uploaded: </span>
-                          <a href={kycUploaded.rcBook.fileUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline', color: '#2563eb' }}>
+                          <button 
+                            type="button" 
+                            onClick={() => handleOpenKycLink(kycUploaded.rcBook)}
+                            style={{ background: 'none', border: 'none', color: '#2563eb', textDecoration: 'underline', cursor: 'pointer', fontSize: '11px', padding: 0 }}
+                          >
                             {kycUploaded.rcBook.originalName}
-                          </a>
+                          </button>
                         </div>
                       )}
                     </div>
