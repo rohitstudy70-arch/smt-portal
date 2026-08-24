@@ -727,8 +727,10 @@ router.put('/:id', async (req, res) => {
 
     await request.save();
 
-    // Sync trackingId, software and customer details to Device model
+    // Sync trackingId, software and customer details to Device & RenewalRequest models
     if (request.imei) {
+      const imeiClean = String(request.imei).trim();
+      const imeiRegex = new RegExp('^' + imeiClean + '$', 'i');
       const updatePayload = {
         trackingId: request.trackingId || '',
         software: request.software || '',
@@ -740,9 +742,15 @@ router.put('/:id', async (req, res) => {
       if (request.address) updatePayload.address = request.address;
 
       await Device.updateMany(
-        { imei: new RegExp('^' + String(request.imei).trim() + '$', 'i') },
+        { $or: [{ imei: imeiRegex }, { imeiNumber: imeiRegex }] },
         { $set: updatePayload }
       ).catch(err => console.error('Error syncing tracking info to Device on edit:', err));
+
+      const RenewalRequest = require('../models/RenewalRequest');
+      await RenewalRequest.updateMany(
+        { imei: imeiRegex },
+        { $set: updatePayload }
+      ).catch(err => console.error('Error syncing tracking info to RenewalRequest on edit:', err));
     }
 
     res.json({ message: 'Request updated successfully', request });
