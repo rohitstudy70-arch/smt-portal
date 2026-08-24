@@ -1184,10 +1184,13 @@ const ActivationRequests = () => {
                       />
                     </div>
                   </div>
+                </div>
 
-                  <h4 className="column-section-title" style={{ marginTop: '20px' }}>CUSTOMER DETAILS</h4>
+                {/* FULL-WIDTH DEDICATED SECTION: CUSTOMER & KYC DETAILS */}
+                <div className="customer-fullwidth-section">
+                  <h4 className="column-section-title" style={{ margin: 0 }}>CUSTOMER DETAILS</h4>
 
-                  <div className="form-row-grid">
+                  <div className="customer-fields-grid-4col">
                     <div className="form-group-custom">
                       <label>Customer Name <span className="required-star">*</span></label>
                       <input 
@@ -1200,7 +1203,7 @@ const ActivationRequests = () => {
                     </div>
 
                     <div className="form-group-custom">
-                      <label>Aadhar Number</label>
+                      <label>Aadhaar Number</label>
                       <input 
                         type="text" 
                         value={formData.aadharNo}
@@ -1245,8 +1248,8 @@ const ActivationRequests = () => {
                     </div>
                   </div>
 
-                  <h4 className="column-section-title" style={{ marginTop: '20px' }}>CUSTOMER KYC DETAILS</h4>
-                  <div className="form-row-grid">
+                  <h4 className="column-section-title" style={{ marginTop: '10px', margin: 0 }}>CUSTOMER KYC DETAILS</h4>
+                  <div className="kyc-fields-grid-3col">
                     {/* PAN CARD UPLOAD */}
                     <div className="form-group-custom">
                       <label>PAN Card (JPG, PNG, PDF)</label>
