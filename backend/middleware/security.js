@@ -13,27 +13,44 @@ const WINDOW_MS = 15 * 60 * 1000; // 15 minutes window
 const MAX_LOGIN_ATTEMPTS = 50; // max 50 login attempts per IP per 15 minutes
 
 const securityHeaders = (req, res, next) => {
-  // Prevent clickjacking by restricting framing to SAMEORIGIN
+  // Hide server fingerprint
+  res.removeHeader('X-Powered-By');
+  // Prevent clickjacking
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-  // Prevent MIME type sniffing
+  // Prevent MIME sniffing
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  // Enable XSS filtering built into modern browsers
+  // Enable browser XSS filtering
   res.setHeader('X-XSS-Protection', '1; mode=block');
   // Enforce secure HTTPS connection
-  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  // Set Referrer Policy to prevent credential leaking in referrers
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  // Referrer Policy
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  // Permissions Policy to restrict camera/microphone/geolocation access unless requested
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  // Content Security Policy
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; frame-src 'self' blob:; connect-src 'self' https: http:;"
+  );
   
   next();
 };
 
-const sanitizeNoSQL = (obj) => {
+const sanitizeInput = (obj) => {
+  if (typeof obj === 'string') {
+    // Strip malicious script tags & event handlers (XSS Protection)
+    return obj
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/javascript:/gi, '')
+      .replace(/onerror=/gi, '')
+      .replace(/onload=/gi, '');
+  }
   if (obj instanceof Object) {
     for (const key in obj) {
       if (key.startsWith('$')) {
         delete obj[key];
       } else {
-        sanitizeNoSQL(obj[key]);
+        obj[key] = sanitizeInput(obj[key]);
       }
     }
   }
@@ -41,14 +58,43 @@ const sanitizeNoSQL = (obj) => {
 };
 
 const nosqlSanitizer = (req, res, next) => {
-  if (req.body) req.body = sanitizeNoSQL(req.body);
-  if (req.query) req.query = sanitizeNoSQL(req.query);
-  if (req.params) req.params = sanitizeNoSQL(req.params);
+  if (req.body) req.body = sanitizeInput(req.body);
+  if (req.query) req.query = sanitizeInput(req.query);
+  if (req.params) req.params = sanitizeInput(req.params);
+  next();
+};
+
+const globalStore = {};
+const GLOBAL_WINDOW_MS = 15 * 60 * 1000;
+const MAX_GLOBAL_REQUESTS = 500; // max 500 requests per IP per 15 minutes
+
+const globalRateLimiter = (req, res, next) => {
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || 'unknown';
+  const now = Date.now();
+
+  if (!globalStore[ip]) {
+    globalStore[ip] = { count: 1, resetTime: now + GLOBAL_WINDOW_MS };
+    return next();
+  }
+
+  const record = globalStore[ip];
+  if (now > record.resetTime) {
+    record.count = 1;
+    record.resetTime = now + GLOBAL_WINDOW_MS;
+    return next();
+  }
+
+  record.count += 1;
+  if (record.count > MAX_GLOBAL_REQUESTS) {
+    return res.status(429).json({
+      message: 'Too many requests from this IP. Please wait a few minutes before trying again.'
+    });
+  }
+
   next();
 };
 
 const authRateLimiter = (req, res, next) => {
-  // Get remote IP address
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || 'unknown';
   const now = Date.now();
 
@@ -63,7 +109,6 @@ const authRateLimiter = (req, res, next) => {
   const record = rateLimitStore[ip];
 
   if (now > record.resetTime) {
-    // Window expired, reset counter
     record.count = 1;
     record.resetTime = now + WINDOW_MS;
     return next();
@@ -79,7 +124,7 @@ const authRateLimiter = (req, res, next) => {
   next();
 };
 
-// Periodic cleanup of rate limiting memory (every 30 minutes)
+// Periodic cleanup of rate limiting memory (every 15 minutes)
 setInterval(() => {
   const now = Date.now();
   for (const ip in rateLimitStore) {
@@ -87,10 +132,16 @@ setInterval(() => {
       delete rateLimitStore[ip];
     }
   }
-}, 30 * 60 * 1000);
+  for (const ip in globalStore) {
+    if (now > globalStore[ip].resetTime) {
+      delete globalStore[ip];
+    }
+  }
+}, 15 * 60 * 1000);
 
 module.exports = {
   securityHeaders,
   nosqlSanitizer,
-  authRateLimiter
+  authRateLimiter,
+  globalRateLimiter,
 };

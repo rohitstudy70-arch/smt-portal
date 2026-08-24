@@ -4,10 +4,15 @@ const dotenv = require('dotenv');
 const path = require('path');
 const fs = require('fs');
 const connectDB = require('./config/db');
-const { securityHeaders, nosqlSanitizer, authRateLimiter } = require('./middleware/security');
+const { securityHeaders, nosqlSanitizer, authRateLimiter, globalRateLimiter } = require('./middleware/security');
 
 // Load environment variables
 dotenv.config();
+
+const app = express();
+
+// Disable X-Powered-By header to prevent server fingerprinting
+app.disable('x-powered-by');
 
 // Connect to MongoDB
 connectDB().then(() => {
@@ -24,8 +29,6 @@ if (!fs.existsSync(uploadDir)) {
 if (!fs.existsSync(screenshotDir)) {
   fs.mkdirSync(screenshotDir);
 }
-
-const app = express();
 
 // CORS - allow frontend origins
 const allowedOrigins = [
@@ -64,14 +67,15 @@ app.options('*', cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-// Security headers
+// Security headers & Anti-DDoS Global Rate Limiting
 app.use(securityHeaders);
+app.use('/api', globalRateLimiter);
 
-// Parse JSON bodies
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Parse JSON bodies with payload size limit (max 10MB to prevent Buffer Overflow attacks)
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Sanitize inputs to prevent NoSQL Injection
+// Sanitize inputs to prevent NoSQL Injection and XSS
 app.use(nosqlSanitizer);
 
 // Serve static uploads
