@@ -559,9 +559,12 @@ const ActivationRequests = () => {
   };
 
   const handleOpenKycLink = async (doc) => {
-    if (!doc || !doc.fileUrl) return;
+    if (!doc) return;
     try {
-      const response = await api.get(doc.fileUrl, { responseType: 'blob' });
+      const endpoint = doc._id 
+        ? `/activation-requests/kyc-document/${doc._id}/preview`
+        : doc.fileUrl;
+      const response = await api.get(endpoint, { responseType: 'blob' });
       const blob = new Blob([response.data], { type: doc.mimeType || 'application/pdf' });
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank');
@@ -569,9 +572,7 @@ const ActivationRequests = () => {
       console.error('Error opening KYC document:', err);
       const backendBase = (api.defaults.baseURL || '').replace(/\/api$/, '');
       const token = localStorage.getItem('token') || '';
-      const fileUrl = doc.fileUrl.startsWith('http')
-        ? doc.fileUrl
-        : `${backendBase}${doc.fileUrl}?token=${token}`;
+      const fileUrl = `${backendBase}${doc.fileUrl}?token=${token}`;
       window.open(fileUrl, '_blank');
     }
   };
