@@ -1303,7 +1303,7 @@ router.get('/renewals/search-imei/:imei', protect, async (req, res) => {
     };
 
     const latestRenewal = await RenewalRequest.findOne(renewalQuery).sort({ createdAt: -1 });
-    const activation = await ActivationRequest.findOne(activationQuery).sort({ dateTime: -1, createdAt: -1 });
+    const activation = await ActivationRequest.findOne(activationQuery).sort({ updatedAt: -1, dateTime: -1, createdAt: -1 });
     const device = await Device.findOne(deviceQuery).populate('dealerId subDealerId createdBy');
 
     if (!latestRenewal && !device && !activation) {

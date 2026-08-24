@@ -164,7 +164,7 @@ router.get('/device/:imei', requireRoles(...operationsRoles), async (req, res) =
     const query = buildDeviceScopeQuery(req.hierarchyScope);
     query.imei = new RegExp('^' + String(imei).trim() + '$', 'i');
 
-    let request = await ActivationRequest.findOne(query).sort({ dateTime: -1 });
+    let request = await ActivationRequest.findOne(query).sort({ updatedAt: -1, dateTime: -1 });
 
     if (!request) {
       return res.status(404).json({ message: 'No request found for this IMEI' });
@@ -739,8 +739,8 @@ router.put('/:id', async (req, res) => {
       if (request.aadharNo) updatePayload.aadharNo = request.aadharNo;
       if (request.address) updatePayload.address = request.address;
 
-      await Device.updateOne(
-        { imei: request.imei },
+      await Device.updateMany(
+        { imei: new RegExp('^' + String(request.imei).trim() + '$', 'i') },
         { $set: updatePayload }
       ).catch(err => console.error('Error syncing tracking info to Device on edit:', err));
     }

@@ -134,7 +134,7 @@ const IccidSearch = () => {
 
         let fetchedRequest = null;
         if (history.length > 0) {
-          const sortedHistory = [...history].sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime));
+          const sortedHistory = [...history].sort((a, b) => new Date(b.updatedAt || b.dateTime || b.createdAt) - new Date(a.updatedAt || a.dateTime || a.createdAt));
           fetchedRequest = sortedHistory[0];
           setLatestRequest(fetchedRequest);
         }
