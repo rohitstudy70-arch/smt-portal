@@ -142,8 +142,8 @@ const ActivationRequests = () => {
         expiryDate: prefillDevice.expiryDate || null,
         dealerName: dName || '',
         dealerAddress: dealerAddressStr || '',
-        isSubDealer: !!prefillDevice.subDealerId,
-        subDealerName: prefillDevice.subDealerName || '',
+        isSubDealer: !!(prefillDevice.subDealerId || prefillDevice.subDealerName),
+        subDealerName: prefillDevice.subDealerName || prefillDevice.subDealerId?.displayName || prefillDevice.subDealerId?.companyName || prefillDevice.subDealerId?.username || '',
         plan: prefillDevice.validity === '2 Years' ? '2 Years' : '1 Year',
         amount: prefillDevice.billAmount || 0,
         deviceBillAmount: prefillDevice.billAmount || null,
@@ -370,8 +370,8 @@ const ActivationRequests = () => {
       expiryDate: device.expiryDate || null,
       dealerName: dName || '',
       dealerAddress: dealerAddressStr || '',
-      isSubDealer: !!device.subDealerId,
-      subDealerName: device.subDealerName || '',
+      isSubDealer: !!(device.subDealerId || device.subDealerName),
+      subDealerName: device.subDealerName || device.subDealerId?.displayName || device.subDealerId?.companyName || device.subDealerId?.username || '',
       vendor: device.vendor || '',
       itrNo: device.itrNo || '',
       plan: device.validity === '2 Years' ? '2 Years' : '1 Year',
@@ -877,18 +877,16 @@ const ActivationRequests = () => {
                       />
                     </div>
 
-                    {formData.isSubDealer && (
-                      <div className="form-group-custom">
-                        <label>Sub Dealer Name</label>
-                        <input 
-                          type="text" 
-                          value={formData.subDealerName} 
-                          className="readonly-input" 
-                          readOnly 
-                          placeholder="Auto-filled"
-                        />
-                      </div>
-                    )}
+                    <div className="form-group-custom">
+                      <label>Sub Dealer Name</label>
+                      <input 
+                        type="text" 
+                        value={formData.subDealerName || ''} 
+                        className="readonly-input" 
+                        readOnly 
+                        placeholder="Auto-filled"
+                      />
+                    </div>
 
                     <div className="form-group-custom">
                       <label>Dealer Address</label>
