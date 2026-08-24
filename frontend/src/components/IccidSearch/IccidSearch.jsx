@@ -244,9 +244,17 @@ const IccidSearch = () => {
       || latestRequest?.dealerName
       || '-';
 
+    const subDealerName = device.subDealerName
+      || device.subDealerId?.displayName
+      || device.subDealerId?.companyName
+      || device.subDealerId?.username
+      || latestRequest?.subDealerName
+      || '';
+
     const details = `--- DEVICE DETAILS ---
 Model: ${vendorName}
 Dealer Name: ${dealerName}
+Sub Dealer Name: ${subDealerName}
 IMEI No: ${device.imei || '—'}
 Serial No: ${device.serialNo || '—'}
 ICCID No: ${device.iccid || '—'}
@@ -556,6 +564,7 @@ State: ${latestRequest?.userId?.state || device?.dealerId?.state || device?.stat
             <div className="vendor-dealer-info">
               <div>Model: <strong>{device.vendor || '—'}</strong></div>
               <div>Dealer Name: <strong>{device.dealerName || device.dealerId?.displayName || device.dealerId?.companyName || '—'}</strong></div>
+              <div>Sub Dealer Name: <strong>{device.subDealerName || device.subDealerId?.displayName || device.subDealerId?.companyName || ''}</strong></div>
             </div>
             <div className="top-actions" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
               <button className="btn-copy-all" onClick={handleCopyDetails}>

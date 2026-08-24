@@ -1304,7 +1304,7 @@ router.get('/renewals/search-imei/:imei', protect, async (req, res) => {
 
     const latestRenewal = await RenewalRequest.findOne(renewalQuery).sort({ createdAt: -1 });
     const activation = await ActivationRequest.findOne(activationQuery).sort({ dateTime: -1, createdAt: -1 });
-    const device = await Device.findOne(deviceQuery);
+    const device = await Device.findOne(deviceQuery).populate('dealerId subDealerId createdBy');
 
     if (!latestRenewal && !device && !activation) {
       return res.status(404).json({ message: 'No details found for the given search query.' });
@@ -1315,6 +1315,7 @@ router.get('/renewals/search-imei/:imei', protect, async (req, res) => {
     const vehicleNumber = latestRenewal?.vehicleNumber || activation?.vehicleNo || device?.vehicleNumber || device?.vehicleNo || '';
     const imei = latestRenewal?.imei || activation?.imei || device?.imei || '';
     const deviceModel = latestRenewal?.deviceModel || device?.vendor || activation?.vendor || '';
+    const subDealerName = device?.subDealerName || device?.subDealerId?.displayName || device?.subDealerId?.companyName || activation?.subDealerName || '';
 
     let activationType = 'NIC';
     if (latestRenewal?.activationType) {
@@ -1353,6 +1354,8 @@ router.get('/renewals/search-imei/:imei', protect, async (req, res) => {
 
     res.json({
       dealerId: latestRenewal?.dealerId || device?.dealerId || activation?.userId || '',
+      dealerName: device?.dealerName || device?.dealerId?.displayName || device?.dealerId?.companyName || '',
+      subDealerName,
       customerName,
       customerMobile,
       imei,
