@@ -832,57 +832,7 @@ Software: ${softwareInput || device?.software || latestRequest?.software || late
                       Upload Fitment Letter
                     </label>
                   </div>
-
-                  {/* TRACKING ID INPUT */}
-                  <div className="upload-field-group">
-                    <label>Tracking ID</label>
-                    <input 
-                      type="text" 
-                      className="tracking-id-input"
-                      value={trackingIdInput}
-                      onChange={(e) => setTrackingIdInput(e.target.value)}
-                      placeholder="Enter Tracking ID"
-                    />
-                  </div>
-
-                  {/* SOFTWARE DROPDOWN */}
-                  <div className="upload-field-group">
-                    <label>Software</label>
-                    <select 
-                      className="doc-type-select"
-                      value={softwareInput}
-                      onChange={(e) => setSoftwareInput(e.target.value)}
-                    >
-                      <option value="">Select Software</option>
-                      <option value="CAR ONLINE">CAR ONLINE</option>
-                      <option value="TRAQUELITE">TRAQUELITE</option>
-                      <option value="CHASETRACK">CHASETRACK</option>
-                      <option value="I PLUS">I PLUS</option>
-                      <option value="TRACKFEY">TRACKFEY</option>
-                      <option value="RTMS">RTMS</option>
-                      <option value="OTHERS">OTHERS</option>
-                    </select>
-                  </div>
-
-                  {/* SAVE TRACKING INFO BUTTON */}
-                  <div className="upload-button-wrapper">
-                    <button 
-                      type="button" 
-                      onClick={handleSaveTrackingInfo}
-                      disabled={savingTracking}
-                      className="btn-upload-label"
-                      style={{ backgroundColor: '#059669', border: 'none' }}
-                    >
-                      {savingTracking ? 'Saving...' : 'Save Tracking Info'}
-                    </button>
-                  </div>
                 </div>
-
-                {trackingSavedMsg && (
-                  <div className="upload-status-alert success-alert" style={{ marginTop: '10px' }}>
-                    {trackingSavedMsg}
-                  </div>
-                )}
 
                 {/* Upload Status / Progress Bar */}
                 {uploadStatus === 'uploading' && (
