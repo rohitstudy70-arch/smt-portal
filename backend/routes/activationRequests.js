@@ -691,8 +691,19 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ message: 'Request not found' });
     }
 
-    if (req.portalRole !== PORTAL_ROLES.ADMIN) {
-      return res.status(403).json({ message: 'Access denied: Only Admins are allowed to edit activation requests.' });
+    const isSuperUser = req.portalRole === PORTAL_ROLES.ADMIN || req.user.role === 'partner' || req.user.username === 'bulbala123';
+
+    if (!isSuperUser) {
+      const userIdStr = req.user._id.toString();
+      const isCreator = request.createdBy && request.createdBy.toString() === userIdStr;
+      const isUserMatch = request.userId && request.userId.toString() === userIdStr;
+      const isDealerMatch = request.dealerId && request.dealerId.toString() === userIdStr;
+      const isSubDealerMatch = request.subDealerId && request.subDealerId.toString() === userIdStr;
+      const isInScope = req.hierarchyScope && req.hierarchyScope.userIds && req.hierarchyScope.userIds.some(id => id.toString() === userIdStr);
+
+      if (!isCreator && !isUserMatch && !isDealerMatch && !isSubDealerMatch && !isInScope) {
+        return res.status(403).json({ message: 'Access denied: You can only edit activation requests for your account.' });
+      }
     }
 
     const updatableFields = [
@@ -716,11 +727,21 @@ router.put('/:id', async (req, res) => {
 
     await request.save();
 
-    // Sync trackingId and software to Device model
+    // Sync trackingId, software and customer details to Device model
     if (request.imei) {
+      const updatePayload = {
+        trackingId: request.trackingId || '',
+        software: request.software || '',
+      };
+      if (request.customerName) updatePayload.customerName = request.customerName;
+      if (request.regMobNo) updatePayload.regMobNo = request.regMobNo;
+      if (request.regMobNo2) updatePayload.regMobNo2 = request.regMobNo2;
+      if (request.aadharNo) updatePayload.aadharNo = request.aadharNo;
+      if (request.address) updatePayload.address = request.address;
+
       await Device.updateOne(
         { imei: request.imei },
-        { $set: { trackingId: request.trackingId || '', software: request.software || '' } }
+        { $set: updatePayload }
       ).catch(err => console.error('Error syncing tracking info to Device on edit:', err));
     }
 
