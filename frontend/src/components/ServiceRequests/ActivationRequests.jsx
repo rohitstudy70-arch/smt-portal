@@ -26,6 +26,8 @@ const ActivationRequests = () => {
   const [todaySummary, setTodaySummary] = useState(null);
   const [todaySummaryDate, setTodaySummaryDate] = useState(new Date().toISOString().slice(0, 10));
   const [selectedUserFilter, setSelectedUserFilter] = useState('');
+  const [selectedFilterType, setSelectedFilterType] = useState('creator'); // 'creator' or 'dealer'
+  const [summaryViewMode, setSummaryViewMode] = useState('user'); // 'user' (Employee) or 'dealer' (Dealer ID)
 
   // Initial Form State
   const initialFormState = {
@@ -261,7 +263,11 @@ const ActivationRequests = () => {
         setLoading(true);
         const params = { page, limit, search };
         if (selectedUserFilter) {
-          params.createdBy = selectedUserFilter;
+          if (selectedFilterType === 'dealer') {
+            params.dealerId = selectedUserFilter;
+          } else {
+            params.createdBy = selectedUserFilter;
+          }
         }
         const response = await api.get('/activation-requests', { params });
         setRequests(response.data.requests);
@@ -274,7 +280,7 @@ const ActivationRequests = () => {
     };
 
     fetchRequests();
-  }, [page, limit, search, refreshTrigger, selectedUserFilter]);
+  }, [page, limit, search, refreshTrigger, selectedUserFilter, selectedFilterType]);
 
   // Fetch Today's Raise Request Summary (Admin Only)
   useEffect(() => {
@@ -665,14 +671,63 @@ const ActivationRequests = () => {
           boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
-            <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              📊 Raise Request Summary — {todaySummaryDate === new Date().toISOString().slice(0, 10) ? 'Today' : todaySummaryDate}
-            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                📊 Raise Request Summary — {todaySummaryDate === new Date().toISOString().slice(0, 10) ? 'Today' : todaySummaryDate}
+              </h3>
+
+              {/* View Mode Toggle */}
+              <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '3px', borderRadius: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setSummaryViewMode('user')}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: summaryViewMode === 'user' ? '#0ea5e9' : 'transparent',
+                    color: summaryViewMode === 'user' ? '#ffffff' : '#64748b',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  👤 By Raised By (Employee)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSummaryViewMode('dealer')}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: summaryViewMode === 'dealer' ? '#0ea5e9' : 'transparent',
+                    color: summaryViewMode === 'dealer' ? '#ffffff' : '#64748b',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  🏢 By Dealer ID
+                </button>
+              </div>
+            </div>
+
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               <select
-                value={selectedUserFilter}
+                value={selectedUserFilter ? `${selectedFilterType}:${selectedUserFilter}` : ''}
                 onChange={(e) => {
-                  setSelectedUserFilter(e.target.value);
+                  const val = e.target.value;
+                  if (!val) {
+                    setSelectedUserFilter('');
+                    setSelectedFilterType('creator');
+                  } else {
+                    const [type, id] = val.split(':');
+                    setSelectedFilterType(type);
+                    setSelectedUserFilter(id);
+                  }
                   setPage(1);
                 }}
                 style={{
@@ -686,17 +741,33 @@ const ActivationRequests = () => {
                   cursor: 'pointer',
                 }}
               >
-                <option value="">👤 All Users / Employees</option>
-                {todaySummary.users.map((u) => (
-                  <option key={u._id} value={u._id}>
-                    {u.userName || 'Unknown'} {u.username ? `(${u.username})` : ''} — {u.totalRequests} raised
-                  </option>
-                ))}
+                <option value="">All Users & Dealers</option>
+                {todaySummary.users && todaySummary.users.length > 0 && (
+                  <optgroup label="👤 Employees / Raised By">
+                    {todaySummary.users.map((u) => (
+                      <option key={`creator-${u._id}`} value={`creator:${u._id}`}>
+                        {u.userName || 'Unknown'} {u.username ? `(${u.username})` : ''} — {u.totalRequests} raised
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {todaySummary.dealers && todaySummary.dealers.length > 0 && (
+                  <optgroup label="🏢 Dealers / Dealer IDs">
+                    {todaySummary.dealers.map((d) => (
+                      <option key={`dealer-${d._id}`} value={`dealer:${d._id}`}>
+                        {d.userName || 'Unknown Dealer'} {d.username ? `(${d.username})` : ''} — {d.totalRequests} requests
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
 
               {selectedUserFilter && (
                 <button
-                  onClick={() => setSelectedUserFilter('')}
+                  onClick={() => {
+                    setSelectedUserFilter('');
+                    setSelectedFilterType('creator');
+                  }}
                   style={{
                     padding: '4px 10px',
                     borderRadius: '6px',
@@ -708,7 +779,7 @@ const ActivationRequests = () => {
                     cursor: 'pointer',
                   }}
                 >
-                  ✕ Clear User Filter
+                  ✕ Clear Filter
                 </button>
               )}
 
@@ -747,15 +818,21 @@ const ActivationRequests = () => {
             </div>
           </div>
 
-          {todaySummary.users.length === 0 ? (
-            <p style={{ color: '#94a3b8', fontSize: '13px', margin: '8px 0 0' }}>No raise requests found for this date.</p>
+          {((summaryViewMode === 'user' ? todaySummary.users : todaySummary.dealers) || []).length === 0 ? (
+            <p style={{ color: '#94a3b8', fontSize: '13px', margin: '8px 0 0' }}>
+              No raise requests found {summaryViewMode === 'dealer' ? 'for any Dealer' : 'by any User'} for this date.
+            </p>
           ) : (
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                 <thead>
                   <tr style={{ background: '#f1f5f9' }}>
-                    <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', color: '#475569', borderBottom: '2px solid #e2e8f0' }}>User Name</th>
-                    <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', color: '#475569', borderBottom: '2px solid #e2e8f0' }}>User ID</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', color: '#475569', borderBottom: '2px solid #e2e8f0' }}>
+                      {summaryViewMode === 'dealer' ? 'Dealer Name' : 'User Name'}
+                    </th>
+                    <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', color: '#475569', borderBottom: '2px solid #e2e8f0' }}>
+                      {summaryViewMode === 'dealer' ? 'Dealer ID' : 'User ID'}
+                    </th>
                     <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: '700', color: '#475569', borderBottom: '2px solid #e2e8f0' }}>Role</th>
                     <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: '700', color: '#475569', borderBottom: '2px solid #e2e8f0' }}>Total</th>
                     <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: '700', color: '#475569', borderBottom: '2px solid #e2e8f0' }}>Commercial</th>
@@ -767,13 +844,20 @@ const ActivationRequests = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {todaySummary.users.map((item, idx) => {
-                    const isSelected = selectedUserFilter === String(item._id);
+                  {((summaryViewMode === 'user' ? todaySummary.users : todaySummary.dealers) || []).map((item, idx) => {
+                    const targetFilterType = summaryViewMode === 'dealer' ? 'dealer' : 'creator';
+                    const isSelected = selectedUserFilter === String(item._id) && selectedFilterType === targetFilterType;
                     return (
                       <tr
                         key={item._id || idx}
                         onClick={() => {
-                          setSelectedUserFilter(isSelected ? '' : String(item._id));
+                          if (isSelected) {
+                            setSelectedUserFilter('');
+                            setSelectedFilterType('creator');
+                          } else {
+                            setSelectedFilterType(targetFilterType);
+                            setSelectedUserFilter(String(item._id));
+                          }
                           setPage(1);
                         }}
                         style={{
@@ -782,38 +866,38 @@ const ActivationRequests = () => {
                           cursor: 'pointer',
                           transition: 'background 0.2s',
                         }}
-                        title="Click to filter requests by this user"
+                        title={`Click to filter requests by this ${summaryViewMode === 'dealer' ? 'Dealer' : 'User'}`}
                       >
                         <td style={{ padding: '8px 10px', fontWeight: '600', color: '#1e293b' }}>{item.userName || 'Unknown'}</td>
                         <td style={{ padding: '8px 10px', color: '#64748b' }}>{item.username || '-'}</td>
-                      <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                        <span style={{
-                          background: item.userType === 'Administration' ? '#dbeafe' : item.userType === 'Dealer' ? '#fef3c7' : '#e0e7ff',
-                          color: item.userType === 'Administration' ? '#1e40af' : item.userType === 'Dealer' ? '#92400e' : '#3730a3',
-                          padding: '2px 8px',
-                          borderRadius: '10px',
-                          fontSize: '11px',
-                          fontWeight: '600',
-                        }}>
-                          {item.userType || 'Admin'}
-                        </span>
-                      </td>
-                      <td style={{ padding: '8px 10px', textAlign: 'center', fontWeight: '700', color: '#0ea5e9', fontSize: '14px' }}>{item.totalRequests}</td>
-                      <td style={{ padding: '8px 10px', textAlign: 'center', color: '#334155' }}>{item.commercialPlan || 0}</td>
-                      <td style={{ padding: '8px 10px', textAlign: 'center', color: '#334155' }}>{item.topUp || 0}</td>
-                      <td style={{ padding: '8px 10px', textAlign: 'center', color: '#334155' }}>{item.rechargePlan || 0}</td>
-                      <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                        <span style={{ background: '#fef9c3', color: '#a16207', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>
-                          {item.processing || 0}
-                        </span>
-                      </td>
-                      <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                        <span style={{ background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>
-                          {item.completed || 0}
-                        </span>
-                      </td>
-                      <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: '600', color: '#059669' }}>₹{(item.totalAmount || 0).toLocaleString('en-IN')}</td>
-                    </tr>
+                        <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                          <span style={{
+                            background: item.userType === 'Administration' ? '#dbeafe' : item.userType === 'Dealer' ? '#fef3c7' : '#e0e7ff',
+                            color: item.userType === 'Administration' ? '#1e40af' : item.userType === 'Dealer' ? '#92400e' : '#3730a3',
+                            padding: '2px 8px',
+                            borderRadius: '10px',
+                            fontSize: '11px',
+                            fontWeight: '600',
+                          }}>
+                            {item.userType || (summaryViewMode === 'dealer' ? 'Dealer' : 'Admin')}
+                          </span>
+                        </td>
+                        <td style={{ padding: '8px 10px', textAlign: 'center', fontWeight: '700', color: '#0ea5e9', fontSize: '14px' }}>{item.totalRequests}</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'center', color: '#334155' }}>{item.commercialPlan || 0}</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'center', color: '#334155' }}>{item.topUp || 0}</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'center', color: '#334155' }}>{item.rechargePlan || 0}</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                          <span style={{ background: '#fef9c3', color: '#a16207', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>
+                            {item.processing || 0}
+                          </span>
+                        </td>
+                        <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                          <span style={{ background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>
+                            {item.completed || 0}
+                          </span>
+                        </td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: '600', color: '#059669' }}>₹{(item.totalAmount || 0).toLocaleString('en-IN')}</td>
+                      </tr>
                     );
                   })}
                 </tbody>

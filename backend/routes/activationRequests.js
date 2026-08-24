@@ -84,6 +84,13 @@ router.get('/', async (req, res) => {
     if (req.query.createdBy) {
       query.createdBy = req.query.createdBy;
     }
+    if (req.query.dealerId) {
+      query.$or = [
+        { dealerId: req.query.dealerId },
+        { subDealerId: req.query.dealerId },
+        { userId: req.query.dealerId },
+      ];
+    }
 
     if (search) {
       query.$or = [
@@ -189,7 +196,7 @@ router.get('/today-summary', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) 
     const endOfDay = new Date(targetDate);
     endOfDay.setHours(23, 59, 59, 999);
 
-    const pipeline = [
+    const userPipeline = [
       {
         $match: {
           dateTime: { $gte: startOfDay, $lte: endOfDay },
@@ -272,16 +279,110 @@ router.get('/today-summary', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) 
       { $sort: { totalRequests: -1 } },
     ];
 
-    const summary = await ActivationRequest.aggregate(pipeline);
+    const dealerPipeline = [
+      {
+        $match: {
+          dateTime: { $gte: startOfDay, $lte: endOfDay },
+        },
+      },
+      {
+        $group: {
+          _id: { $ifNull: ['$dealerId', { $ifNull: ['$userId', '$dealerName'] }] },
+          totalRequests: { $sum: 1 },
+          totalAmount: { $sum: { $ifNull: ['$amount', 0] } },
+          statuses: { $push: '$status' },
+          requestTypes: { $push: '$requestType' },
+          latestRequest: { $max: '$dateTime' },
+          dealerNames: { $addToSet: '$dealerName' },
+        },
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'userInfo',
+        },
+      },
+      { $unwind: { path: '$userInfo', preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          _id: 1,
+          totalRequests: 1,
+          totalAmount: 1,
+          latestRequest: 1,
+          processing: {
+            $size: {
+              $filter: { input: '$statuses', as: 's', cond: { $eq: ['$$s', 'Processing'] } },
+            },
+          },
+          completed: {
+            $size: {
+              $filter: { input: '$statuses', as: 's', cond: { $eq: ['$$s', 'Completed'] } },
+            },
+          },
+          requested: {
+            $size: {
+              $filter: { input: '$statuses', as: 's', cond: { $eq: ['$$s', 'Requested'] } },
+            },
+          },
+          rejected: {
+            $size: {
+              $filter: { input: '$statuses', as: 's', cond: { $eq: ['$$s', 'Rejected'] } },
+            },
+          },
+          commercialPlan: {
+            $size: {
+              $filter: { input: '$requestTypes', as: 'rt', cond: { $eq: ['$$rt', 'Commercial Plan'] } },
+            },
+          },
+          topUp: {
+            $size: {
+              $filter: { input: '$requestTypes', as: 'rt', cond: { $eq: ['$$rt', 'Top-up'] } },
+            },
+          },
+          rechargePlan: {
+            $size: {
+              $filter: { input: '$requestTypes', as: 'rt', cond: { $eq: ['$$rt', 'Recharge Plan'] } },
+            },
+          },
+          userName: {
+            $ifNull: [
+              '$userInfo.displayName',
+              {
+                $ifNull: [
+                  '$userInfo.companyName',
+                  {
+                    $ifNull: [
+                      '$userInfo.username',
+                      { $ifNull: [{ $arrayElemAt: ['$dealerNames', 0] }, 'Unknown Dealer'] },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+          userType: { $ifNull: ['$userInfo.userType', 'Dealer'] },
+          username: { $ifNull: ['$userInfo.username', '-'] },
+        },
+      },
+      { $sort: { totalRequests: -1 } },
+    ];
 
-    const grandTotal = summary.reduce((acc, item) => acc + item.totalRequests, 0);
-    const grandAmount = summary.reduce((acc, item) => acc + item.totalAmount, 0);
+    const [userSummary, dealerSummary] = await Promise.all([
+      ActivationRequest.aggregate(userPipeline),
+      ActivationRequest.aggregate(dealerPipeline),
+    ]);
+
+    const grandTotal = userSummary.reduce((acc, item) => acc + item.totalRequests, 0);
+    const grandAmount = userSummary.reduce((acc, item) => acc + item.totalAmount, 0);
 
     res.json({
       date: startOfDay.toISOString().slice(0, 10),
       grandTotal,
       grandAmount,
-      users: summary,
+      users: userSummary,
+      dealers: dealerSummary,
     });
   } catch (error) {
     console.error('Today summary error:', error.message);
