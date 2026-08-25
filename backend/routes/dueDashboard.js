@@ -898,26 +898,9 @@ router.get('/summary', async (req, res) => {
       ]);
       const totalRenewalPaid = renewalPaidSummary[0]?.totalPaid || 0;
 
-      const deviceScopeQuery = buildDeviceScopeQuery(req.hierarchyScope);
-      const availableQuery = {
-        $and: [
-          deviceScopeQuery,
-          { status: { $ne: 'Activated' } },
-        ],
-      };
-
-      const [availableSummary] = await Device.aggregate([
-        { $match: availableQuery },
-        {
-          $group: {
-            _id: null,
-            totalBill: { $sum: { $ifNull: ['$billAmount', 0] } },
-          },
-        },
-      ]);
-      const availableBillSum = availableSummary?.totalBill || 0;
-
-      const deviceTotalBillAmount = availableBillSum;
+      // Use dueRecord.totalBillAmount (from syncDueForUser) which includes ALL devices
+      // (Activated + non-Activated) — consistent with the payment modal's totalOutstanding.
+      const deviceTotalBillAmount = dueRecord ? dueRecord.totalBillAmount || 0 : 0;
       const deviceTotalPaidAmount = dueRecord ? dueRecord.totalPaidAmount || 0 : 0;
 
       const totalBillAmount = deviceTotalBillAmount + totalRenewalDues;
