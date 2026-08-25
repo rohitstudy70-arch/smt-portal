@@ -736,6 +736,7 @@ const AddDevice = () => {
                 type="date"
                 name="presentDate"
                 value={formData.presentDate}
+                max={getLocalDateString()}
                 onChange={(event) => updateFormField('presentDate', event.target.value)}
               />
             </div>

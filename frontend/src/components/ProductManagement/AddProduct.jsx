@@ -624,6 +624,7 @@ const AddProduct = () => {
                     type="date"
                     name="activationDate"
                     value={formData.activationDate}
+                    max={getLocalDateString()}
                     onChange={(event) => updateFormField('activationDate', event.target.value)}
                   />
                 </div>

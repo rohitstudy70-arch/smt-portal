@@ -67,7 +67,8 @@ const normalizeDeviceInput = (body) => {
   if (body.presentDate) {
     const d = new Date(body.presentDate);
     if (!isNaN(d.getTime())) {
-      parsedPresentDate = d;
+      const now = new Date();
+      parsedPresentDate = d > now ? now : d;
     }
   }
   return {

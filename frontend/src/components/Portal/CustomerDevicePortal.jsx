@@ -2062,6 +2062,7 @@ const CustomerDevicePortal = () => {
             <input
               type="date"
               value={deviceForm.presentDate || getLocalDateString()}
+              max={getLocalDateString()}
               onChange={(event) => updateDeviceForm('presentDate', event.target.value)}
               required
             />
