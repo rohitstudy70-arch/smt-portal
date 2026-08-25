@@ -36,4 +36,5 @@ out/
 
 # Uploads
 backend/uploads/
+backend/storage/
 

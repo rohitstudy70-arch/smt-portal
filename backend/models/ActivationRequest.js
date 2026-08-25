@@ -110,7 +110,7 @@ const activationRequestSchema = new mongoose.Schema({
     {
       documentType: {
         type: String,
-        enum: ['PAN Card', 'Aadhar Card', 'RC Book'],
+        enum: ['PAN Card', 'Aadhar Card', 'Aadhaar Card', 'RC Book', 'Other'],
         required: true,
       },
       fileName: { type: String, required: true },
@@ -121,7 +121,6 @@ const activationRequestSchema = new mongoose.Schema({
       uploadedBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: true,
       },
       uploadedAt: { type: Date, default: Date.now },
     },

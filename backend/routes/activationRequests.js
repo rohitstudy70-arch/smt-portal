@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const mongoose = require('mongoose');
 const ActivationRequest = require('../models/ActivationRequest');
 const Device = require('../models/Device');
 const User = require('../models/User');
@@ -978,23 +979,211 @@ router.get('/kyc-by-imei/:imei', requireRoles(...operationsRoles), async (req, r
     const { imei } = req.params;
     if (!imei) return res.status(400).json({ message: 'IMEI required' });
 
+    const cleanImei = String(imei).trim();
     const request = await ActivationRequest.findOne({
-      imei: new RegExp('^' + String(imei).trim() + '$', 'i'),
+      imei: new RegExp('^' + cleanImei + '$', 'i'),
       kycDocuments: { $exists: true, $not: { $size: 0 } }
     }).sort({ dateTime: -1 });
 
-    if (!request) {
-      return res.json({ kycDocuments: [] });
+    let kycDocs = request?.kycDocuments || [];
+
+    if (kycDocs.length === 0) {
+      const device = await Device.findOne({
+        imei: new RegExp('^' + cleanImei + '$', 'i'),
+        kycDocuments: { $exists: true, $not: { $size: 0 } }
+      });
+      if (device && device.kycDocuments) {
+        kycDocs = device.kycDocuments;
+      }
     }
-    res.json({ kycDocuments: request.kycDocuments || [] });
+
+    res.json({ kycDocuments: kycDocs });
   } catch (error) {
     console.error('KYC by IMEI fetch error:', error.message);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
+// @route   POST /api/activation-requests/kyc-by-imei/:imei
+// @desc    Upload KYC document by IMEI (for search page)
+router.post('/kyc-by-imei/:imei', requireRoles(...operationsRoles), (req, res) => {
+  kycUpload.single('file')(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ message: err.message });
+    }
+    try {
+      const { imei } = req.params;
+      const cleanImei = String(imei).trim();
+
+      if (!req.file) {
+        return res.status(400).json({ message: 'Please select a file to upload.' });
+      }
+
+      const documentType = req.body.documentType || 'PAN Card';
+
+      let request = await ActivationRequest.findOne({
+        imei: new RegExp('^' + cleanImei + '$', 'i')
+      }).sort({ dateTime: -1 });
+
+      if (!request) {
+        // Create placeholder ActivationRequest if none exists
+        request = new ActivationRequest({
+          userId: req.user._id,
+          imei: cleanImei,
+          status: 'processing',
+          customerName: 'Customer',
+          regMobNo: '',
+        });
+      }
+
+      // Remove existing document of same type if present
+      const isAadhaar = ['Aadhar Card', 'Aadhaar Card'].includes(documentType);
+      const isSameType = (d) => isAadhaar ? ['Aadhar Card', 'Aadhaar Card'].includes(d.documentType) : d.documentType === documentType;
+
+      request.kycDocuments = (request.kycDocuments || []).filter(d => !isSameType(d));
+
+      const docObj = {
+        _id: new mongoose.Types.ObjectId(),
+        documentType,
+        fileName: req.file.filename,
+        originalName: req.file.originalname,
+        fileUrl: `/storage/kyc/${req.file.filename}`,
+        mimeType: req.file.mimetype,
+        fileSize: req.file.size,
+        uploadedBy: req.user._id,
+        uploadedAt: new Date(),
+      };
+
+      request.kycDocuments.push(docObj);
+      await request.save();
+
+      // Also sync to Device model if device exists
+      const device = await Device.findOne({ imei: new RegExp('^' + cleanImei + '$', 'i') });
+      if (device) {
+        device.kycDocuments = (device.kycDocuments || []).filter(d => !isSameType(d));
+        device.kycDocuments.push(docObj);
+        await device.save();
+      }
+
+      res.status(201).json({ message: `${documentType} uploaded successfully.`, kycDocuments: request.kycDocuments });
+    } catch (error) {
+      console.error('KYC upload by IMEI error:', error.message);
+      res.status(500).json({ message: 'Server error' });
+    }
+  });
+});
+
+// @route   PUT /api/activation-requests/kyc-by-imei/:imei/:docId
+// @desc    Replace a KYC document by IMEI (for search page)
+router.put('/kyc-by-imei/:imei/:docId', requireRoles(...operationsRoles), (req, res) => {
+  kycUpload.single('file')(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ message: err.message });
+    }
+    try {
+      const { imei, docId } = req.params;
+      const cleanImei = String(imei).trim();
+
+      if (!req.file) {
+        return res.status(400).json({ message: 'Please select a replacement file.' });
+      }
+
+      let request = await ActivationRequest.findOne({
+        imei: new RegExp('^' + cleanImei + '$', 'i')
+      }).sort({ dateTime: -1 });
+
+      const device = await Device.findOne({ imei: new RegExp('^' + cleanImei + '$', 'i') });
+
+      let targetDoc = null;
+      if (request && request.kycDocuments) {
+        targetDoc = request.kycDocuments.find(d => d._id.toString() === docId);
+      }
+      if (!targetDoc && device && device.kycDocuments) {
+        targetDoc = device.kycDocuments.find(d => d._id.toString() === docId);
+      }
+
+      if (!targetDoc) {
+        return res.status(404).json({ message: 'KYC document not found.' });
+      }
+
+      // Delete old file from disk if exists
+      const oldPath = path.join(kycStorageDir, targetDoc.fileName);
+      if (fs.existsSync(oldPath)) {
+        fs.unlinkSync(oldPath);
+      }
+
+      // Update doc fields
+      targetDoc.fileName = req.file.filename;
+      targetDoc.originalName = req.file.originalname;
+      targetDoc.fileUrl = `/storage/kyc/${req.file.filename}`;
+      targetDoc.mimeType = req.file.mimetype;
+      targetDoc.fileSize = req.file.size;
+      targetDoc.uploadedBy = req.user._id;
+      targetDoc.uploadedAt = new Date();
+
+      if (request) await request.save();
+      if (device) await device.save();
+
+      const finalDocs = request?.kycDocuments || device?.kycDocuments || [];
+      res.json({ message: 'KYC document replaced successfully.', kycDocuments: finalDocs });
+    } catch (error) {
+      console.error('KYC replace by IMEI error:', error.message);
+      res.status(500).json({ message: 'Server error' });
+    }
+  });
+});
+
+// @route   DELETE /api/activation-requests/kyc-by-imei/:imei/:docId
+// @desc    Delete a KYC document by IMEI (for search page)
+router.delete('/kyc-by-imei/:imei/:docId', requireRoles(...operationsRoles), async (req, res) => {
+  try {
+    const { imei, docId } = req.params;
+    const cleanImei = String(imei).trim();
+
+    const request = await ActivationRequest.findOne({
+      imei: new RegExp('^' + cleanImei + '$', 'i')
+    }).sort({ dateTime: -1 });
+
+    const device = await Device.findOne({ imei: new RegExp('^' + cleanImei + '$', 'i') });
+
+    let targetDoc = null;
+    if (request && request.kycDocuments) {
+      targetDoc = request.kycDocuments.find(d => d._id.toString() === docId);
+    }
+    if (!targetDoc && device && device.kycDocuments) {
+      targetDoc = device.kycDocuments.find(d => d._id.toString() === docId);
+    }
+
+    if (!targetDoc) {
+      return res.status(404).json({ message: 'KYC document not found.' });
+    }
+
+    // Delete file from disk
+    const filePath = path.join(kycStorageDir, targetDoc.fileName);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+
+    if (request) {
+      request.kycDocuments = (request.kycDocuments || []).filter(d => d._id.toString() !== docId);
+      await request.save();
+    }
+
+    if (device) {
+      device.kycDocuments = (device.kycDocuments || []).filter(d => d._id.toString() !== docId);
+      await device.save();
+    }
+
+    const finalDocs = request?.kycDocuments || device?.kycDocuments || [];
+    res.json({ message: 'KYC document deleted successfully.', kycDocuments: finalDocs });
+  } catch (error) {
+    console.error('KYC delete by IMEI error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // @route   DELETE /api/activation-requests/:id/kyc/:docId
-// @desc    Delete a KYC document
+// @desc    Delete a KYC document by request ID
 router.delete('/:id/kyc/:docId', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
   try {
     const request = await ActivationRequest.findById(req.params.id);

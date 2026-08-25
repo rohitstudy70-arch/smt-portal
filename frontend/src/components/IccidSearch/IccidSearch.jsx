@@ -22,6 +22,13 @@ const IccidSearch = () => {
   const [uploadError, setUploadError] = useState('');
   const [selectedDocType, setSelectedDocType] = useState('Fitment Letter');
   const [isReplacingDocId, setIsReplacingDocId] = useState(null);
+
+  // KYC Document Management States
+  const [selectedKycDocType, setSelectedKycDocType] = useState('PAN Card');
+  const [kycUploadProgress, setKycUploadProgress] = useState(0);
+  const [kycUploadStatus, setKycUploadStatus] = useState(''); // 'idle', 'uploading', 'success', 'failed'
+  const [kycUploadError, setKycUploadError] = useState('');
+  const [isReplacingKycDocId, setIsReplacingKycDocId] = useState(null);
   
   // Tracking Info States (Tracking ID & Software)
   const [trackingIdInput, setTrackingIdInput] = useState('');
@@ -541,6 +548,92 @@ Software: ${softwareInput || device?.software || latestRequest?.software || late
     }
   };
 
+  const handleKycFileUpload = async (event, replaceDocId = null, overrideDocType = null) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    const targetImei = device?.imei || latestRequest?.imei || latestRenewal?.imei;
+    if (!targetImei) {
+      alert('No device IMEI found for uploading KYC document.');
+      return;
+    }
+
+    const docTypeToUse = overrideDocType || selectedKycDocType;
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+    for (const file of files) {
+      if (!allowedTypes.includes(file.type)) {
+        alert(`File "${file.name}" has an unsupported format. Only JPG, JPEG, PNG, and PDF are allowed.`);
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        alert(`File "${file.name}" exceeds the maximum limit of 10MB.`);
+        return;
+      }
+    }
+
+    const formData = new FormData();
+    formData.append('file', files[0]);
+    formData.append('documentType', docTypeToUse);
+
+    try {
+      setKycUploadProgress(0);
+      setKycUploadStatus('uploading');
+      setKycUploadError('');
+
+      const url = replaceDocId
+        ? `/activation-requests/kyc-by-imei/${targetImei}/${replaceDocId}`
+        : `/activation-requests/kyc-by-imei/${targetImei}`;
+
+      const method = replaceDocId ? 'put' : 'post';
+
+      const res = await api({
+        method,
+        url,
+        data: formData,
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setKycUploadProgress(percentCompleted);
+        }
+      });
+
+      setKycUploadStatus('success');
+      setKycDocsList(res.data.kycDocuments || []);
+      setIsReplacingKycDocId(null);
+
+      setTimeout(() => {
+        setKycUploadStatus('idle');
+        setKycUploadProgress(0);
+      }, 3000);
+    } catch (err) {
+      console.error('KYC Upload failed:', err);
+      setKycUploadStatus('failed');
+      setKycUploadError(err.response?.data?.message || 'Failed to upload KYC document.');
+    }
+  };
+
+  const handleKycDelete = async (docId) => {
+    if (!window.confirm('Are you sure you want to delete this KYC document?')) {
+      return;
+    }
+
+    const targetImei = device?.imei || latestRequest?.imei || latestRenewal?.imei;
+    if (!targetImei) {
+      alert('No device IMEI found.');
+      return;
+    }
+
+    try {
+      const res = await api.delete(`/activation-requests/kyc-by-imei/${targetImei}/${docId}`);
+      setKycDocsList(res.data.kycDocuments || []);
+      alert('KYC document deleted successfully.');
+    } catch (err) {
+      console.error('Failed to delete KYC document:', err);
+      alert(err.response?.data?.message || 'Failed to delete KYC document.');
+    }
+  };
+
   const handleSaveTrackingInfo = async () => {
     const targetImei = device?.imei || latestRequest?.imei || latestRenewal?.imei;
     if (!targetImei) {
@@ -956,6 +1049,59 @@ Software: ${softwareInput || device?.software || latestRequest?.software || late
           {/* 5. Customer KYC Documents Section */}
           <div className="search-section-card" style={{ marginTop: '20px' }}>
             <div className="section-header-teal">Customer KYC Details (PAN Card, Aadhaar Card, RC Book)</div>
+            
+            {/* Upload Control Section */}
+            {role === 'ADMIN' && (
+              <div className="upload-controls-box">
+                <div className="upload-fields-row" style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <label style={{ fontWeight: 'bold', fontSize: '13px', color: '#374151' }}>Document Type:</label>
+                    <select 
+                      value={selectedKycDocType} 
+                      onChange={(e) => setSelectedKycDocType(e.target.value)}
+                      style={{ padding: '6px 12px', borderRadius: '4px', border: '1px solid #d1d5db', fontSize: '13px' }}
+                    >
+                      <option value="PAN Card">PAN Card</option>
+                      <option value="Aadhaar Card">Aadhaar Card</option>
+                      <option value="RC Book">RC Book</option>
+                    </select>
+                  </div>
+                  <div className="upload-button-wrapper">
+                    <input 
+                      type="file" 
+                      id="kyc-files-upload"
+                      onChange={(e) => handleKycFileUpload(e)}
+                      style={{ display: 'none' }}
+                      accept=".jpg,.jpeg,.png,.pdf"
+                    />
+                    <label htmlFor="kyc-files-upload" className="btn-upload-label">
+                      Upload KYC Document
+                    </label>
+                  </div>
+                </div>
+
+                {/* Upload Status / Progress Bar */}
+                {kycUploadStatus === 'uploading' && (
+                  <div className="progress-bar-container">
+                    <div className="progress-bar-label">Uploading... {kycUploadProgress}%</div>
+                    <div className="progress-bar-track">
+                      <div className="progress-bar-fill" style={{ width: `${kycUploadProgress}%` }}></div>
+                    </div>
+                  </div>
+                )}
+                {kycUploadStatus === 'success' && (
+                  <div className="upload-status-alert success-alert">
+                    Success: KYC document uploaded successfully!
+                  </div>
+                )}
+                {kycUploadStatus === 'failed' && (
+                  <div className="upload-status-alert danger-alert">
+                    Failed: {kycUploadError}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="card-body-table" style={{ marginTop: '15px' }}>
               <table className="portal-table wide">
                 <thead>
@@ -1008,6 +1154,31 @@ Software: ${softwareInput || device?.software || latestRequest?.software || late
                             >
                               Download
                             </button>
+                            {role === 'ADMIN' && (
+                              <>
+                                <input 
+                                  type="file" 
+                                  id={`replace-kyc-upload-${doc._id}`}
+                                  onChange={(e) => handleKycFileUpload(e, doc._id, doc.documentType)}
+                                  style={{ display: 'none' }}
+                                  accept=".jpg,.jpeg,.png,.pdf"
+                                />
+                                <label 
+                                  htmlFor={`replace-kyc-upload-${doc._id}`} 
+                                  className="btn-action-replace"
+                                  onClick={() => setIsReplacingKycDocId(doc._id)}
+                                >
+                                  Replace
+                                </label>
+                                <button 
+                                  type="button" 
+                                  className="btn-action-delete"
+                                  onClick={() => handleKycDelete(doc._id)}
+                                >
+                                  Delete
+                                </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1015,7 +1186,7 @@ Software: ${softwareInput || device?.software || latestRequest?.software || late
                   })}
                   {kycDocsList.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="portal-empty" style={{ padding: '24px' }}>
+                      <td colSpan={5} className="portal-empty" style={{ padding: '24px' }}>
                         No KYC documents (PAN Card, Aadhaar Card, RC Book) uploaded for this customer/device.
                       </td>
                     </tr>
