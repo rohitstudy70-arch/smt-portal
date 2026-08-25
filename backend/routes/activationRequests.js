@@ -1182,6 +1182,82 @@ router.delete('/kyc-by-imei/:imei/:docId', requireRoles(...operationsRoles), asy
   }
 });
 
+// @route   GET /api/activation-requests/kyc-by-imei/:imei/:docId/download
+// @desc    Securely download a KYC document by IMEI
+router.get('/kyc-by-imei/:imei/:docId/download', requireRoles(...operationsRoles), async (req, res) => {
+  try {
+    const { imei, docId } = req.params;
+    const cleanImei = String(imei).trim();
+
+    const request = await ActivationRequest.findOne({
+      imei: new RegExp('^' + cleanImei + '$', 'i')
+    }).sort({ dateTime: -1 });
+
+    const device = await Device.findOne({ imei: new RegExp('^' + cleanImei + '$', 'i') });
+
+    let doc = null;
+    if (request && request.kycDocuments) {
+      doc = request.kycDocuments.find(d => d._id.toString() === docId);
+    }
+    if (!doc && device && device.kycDocuments) {
+      doc = device.kycDocuments.find(d => d._id.toString() === docId);
+    }
+
+    if (!doc) {
+      return res.status(404).json({ message: 'KYC document not found.' });
+    }
+
+    const filePath = path.join(kycStorageDir, doc.fileName);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: 'Physical KYC file not found on server.' });
+    }
+
+    res.download(filePath, doc.originalName || doc.fileName || 'KYC_Document');
+  } catch (error) {
+    console.error('KYC download error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET /api/activation-requests/kyc-by-imei/:imei/:docId/preview
+// @desc    Securely preview/stream a KYC document inline
+router.get('/kyc-by-imei/:imei/:docId/preview', requireRoles(...operationsRoles), async (req, res) => {
+  try {
+    const { imei, docId } = req.params;
+    const cleanImei = String(imei).trim();
+
+    const request = await ActivationRequest.findOne({
+      imei: new RegExp('^' + cleanImei + '$', 'i')
+    }).sort({ dateTime: -1 });
+
+    const device = await Device.findOne({ imei: new RegExp('^' + cleanImei + '$', 'i') });
+
+    let doc = null;
+    if (request && request.kycDocuments) {
+      doc = request.kycDocuments.find(d => d._id.toString() === docId);
+    }
+    if (!doc && device && device.kycDocuments) {
+      doc = device.kycDocuments.find(d => d._id.toString() === docId);
+    }
+
+    if (!doc) {
+      return res.status(404).json({ message: 'KYC document not found.' });
+    }
+
+    const filePath = path.join(kycStorageDir, doc.fileName);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: 'Physical KYC file not found on server.' });
+    }
+
+    res.setHeader('Content-Type', doc.mimeType || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(doc.originalName || doc.fileName)}"`);
+    res.sendFile(filePath);
+  } catch (error) {
+    console.error('KYC preview error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // @route   DELETE /api/activation-requests/:id/kyc/:docId
 // @desc    Delete a KYC document by request ID
 router.delete('/:id/kyc/:docId', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {

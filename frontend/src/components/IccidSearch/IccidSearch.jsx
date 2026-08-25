@@ -497,13 +497,6 @@ Software: ${softwareInput || device?.software || latestRequest?.software || late
     }
   };
 
-  const getKycRequestUrl = (docUrl) => {
-    if (!docUrl) return '';
-    if (docUrl.startsWith('http')) return docUrl;
-    if (docUrl.startsWith('/api')) return docUrl;
-    return `/api${docUrl.startsWith('/') ? '' : '/'}${docUrl}`;
-  };
-
   const isKycImage = (doc) => {
     if (['image/jpeg', 'image/jpg', 'image/png'].includes(doc?.mimeType)) return true;
     const name = doc?.fileName || doc?.originalName || '';
@@ -511,9 +504,13 @@ Software: ${softwareInput || device?.software || latestRequest?.software || late
   };
 
   const handleViewKyc = async (doc) => {
+    const targetImei = device?.imei || latestRequest?.imei || latestRenewal?.imei;
+    if (!targetImei || !doc?._id) return;
+
     try {
-      const requestUrl = getKycRequestUrl(doc.fileUrl);
-      const response = await api.get(requestUrl, { responseType: 'blob' });
+      const response = await api.get(`/activation-requests/kyc-by-imei/${targetImei}/${doc._id}/preview`, {
+        responseType: 'blob',
+      });
       const blob = new Blob([response.data], { type: doc.mimeType || (isKycImage(doc) ? 'image/png' : 'application/pdf') });
       const objectUrl = URL.createObjectURL(blob);
 
@@ -526,45 +523,29 @@ Software: ${softwareInput || device?.software || latestRequest?.software || late
       }
     } catch (err) {
       console.error('Error previewing KYC:', err);
-      const backendBase = (api.defaults.baseURL || '').replace(/\/api$/, '');
-      const token = localStorage.getItem('token') || '';
-      const requestUrl = getKycRequestUrl(doc.fileUrl);
-      const fallbackUrl = requestUrl.startsWith('http')
-        ? requestUrl
-        : `${backendBase}${requestUrl}?token=${token}`;
-
-      if (isKycImage(doc)) {
-        setPreviewImage({ ...doc, url: fallbackUrl });
-        setZoomLevel(1);
-        setIsFullScreen(false);
-      } else {
-        setPreviewPdf({ ...doc, url: fallbackUrl });
-      }
+      alert('Failed to preview KYC document.');
     }
   };
 
   const handleDownloadKyc = async (doc) => {
+    const targetImei = device?.imei || latestRequest?.imei || latestRenewal?.imei;
+    if (!targetImei || !doc?._id) return;
+
     try {
-      const requestUrl = getKycRequestUrl(doc.fileUrl);
-      const response = await api.get(requestUrl, { responseType: 'blob' });
-      const blob = new Blob([response.data], { type: doc.mimeType || 'application/octet-stream' });
-      const url = URL.createObjectURL(blob);
+      const response = await api.get(`/activation-requests/kyc-by-imei/${targetImei}/${doc._id}/download`, {
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', doc.originalName || doc.fileName || 'KYC_Document');
       document.body.appendChild(link);
       link.click();
       link.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      setTimeout(() => window.URL.revokeObjectURL(url), 5000);
     } catch (err) {
       console.error('Error downloading KYC:', err);
-      const backendBase = (api.defaults.baseURL || '').replace(/\/api$/, '');
-      const token = localStorage.getItem('token') || '';
-      const requestUrl = getKycRequestUrl(doc.fileUrl);
-      const fallbackUrl = requestUrl.startsWith('http')
-        ? requestUrl
-        : `${backendBase}${requestUrl}?token=${token}`;
-      window.open(fallbackUrl, '_blank');
+      alert('Failed to download KYC document.');
     }
   };
 
