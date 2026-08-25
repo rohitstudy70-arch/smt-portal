@@ -1355,9 +1355,6 @@ router.post('/dealers/:userId/payments', requireRoles(PORTAL_ROLES.ADMIN), uploa
     let screenshotUrl = '';
     if (req.file) {
       screenshotUrl = `/uploads/screenshots/${req.file.filename}`;
-    } else if (paymentMode === 'UPI') {
-      // Require screenshot for UPI if admin records it
-      return res.status(400).json({ message: 'UPI screenshot receipt is required.' });
     }
 
     const renewalAmountApplied = 0;

@@ -406,10 +406,6 @@ const DueDashboard = () => {
     e.preventDefault();
     if (!selectedDealerDue) return;
 
-    if (paymentForm.paymentMode === 'UPI' && !selectedPaymentScreenshot) {
-      alert('Please upload the UPI screenshot.');
-      return;
-    }
 
     const targetUserId = selectedDealerDue.userId?._id || selectedDealerDue.userId;
     if (!targetUserId) return;
@@ -2027,18 +2023,15 @@ const DueDashboard = () => {
                     />
                   </div>
                 </div>
-                {paymentForm.paymentMode === 'UPI' && (
-                  <div className="form-group">
-                    <label>UPI Screenshot Proof <span className="required" style={{ color: 'red' }}>*</span></label>
-                    <input
-                      type="file"
-                      accept="image/*,application/pdf"
-                      required
-                      onChange={(e) => setSelectedPaymentScreenshot(e.target.files[0])}
-                      style={{ border: 'none', background: 'transparent', padding: '5px 0' }}
-                    />
-                  </div>
-                )}
+                <div className="form-group">
+                  <label>Screenshot Proof <span style={{ color: '#888', fontWeight: 'normal' }}>(Optional)</span></label>
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    onChange={(e) => setSelectedPaymentScreenshot(e.target.files[0])}
+                    style={{ border: 'none', background: 'transparent', padding: '5px 0' }}
+                  />
+                </div>
                 <div className="form-group">
                   <label>Remarks</label>
                   <textarea
