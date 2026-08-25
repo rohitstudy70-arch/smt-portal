@@ -64,7 +64,7 @@ const buildDeviceDueQuery = (user) => {
   return null;
 };
 
-// Query for ALL devices (no status filter) — used for totalBillAmount / totalDevicesAssigned
+// Query for ALL non-Activated devices — used for totalBillAmount / totalDevicesAssigned
 const buildAllDeviceQuery = (user) => {
   const role = getPortalRole(user);
 
@@ -73,13 +73,12 @@ const buildAllDeviceQuery = (user) => {
   }
 
   if (role === PORTAL_ROLES.DEALER) {
-    // No status filter here — ALL devices (including Activated) must be counted
-    // so that totalBillAmount reflects the full amount owed, not just pending ones.
     return {
       $or: [
         { dealerId: user._id },
         { userId: user._id, dealerId: null },
       ],
+      status: { $ne: 'Activated' },
     };
   }
 

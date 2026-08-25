@@ -898,14 +898,32 @@ router.get('/summary', async (req, res) => {
       ]);
       const totalRenewalPaid = renewalPaidSummary[0]?.totalPaid || 0;
 
-      // Use dueRecord.totalBillAmount (from syncDueForUser) which includes ALL devices
-      // (Activated + non-Activated) — consistent with the payment modal's totalOutstanding.
-      const deviceTotalBillAmount = dueRecord ? dueRecord.totalBillAmount || 0 : 0;
+      const deviceScopeQuery = buildDeviceScopeQuery(req.hierarchyScope);
+      const availableQuery = {
+        $and: [
+          deviceScopeQuery,
+          { status: { $ne: 'Activated' } },
+        ],
+      };
+
+      const [availableSummary] = await Device.aggregate([
+        { $match: availableQuery },
+        {
+          $group: {
+            _id: null,
+            totalBill: { $sum: { $ifNull: ['$billAmount', 0] } },
+          },
+        },
+      ]);
+      const availableBillSum = availableSummary?.totalBill || 0;
+
+      const deviceTotalBillAmount = availableBillSum;
       const deviceTotalPaidAmount = dueRecord ? dueRecord.totalPaidAmount || 0 : 0;
 
       const totalBillAmount = deviceTotalBillAmount + totalRenewalDues;
       const totalPaidAmount = deviceTotalPaidAmount;
       const remainingDues = Math.max(totalBillAmount - totalPaidAmount, 0);
+
 
       return res.json({
         totalOutstandingAmount: remainingDues, // Backward compatibility
@@ -1303,7 +1321,28 @@ router.post('/dealers/:userId/payments', requireRoles(PORTAL_ROLES.ADMIN), uploa
       return res.status(400).json({ message: 'Due account not found.' });
     }
 
-    const totalOutstandingLimit = due.totalOutstanding || 0;
+    // Calculate actual outstanding = device bills (non-Activated) + renewal dues - total paid
+    // This matches the dashboard "Remaining Dues" figure exactly.
+    const renewalDueAgg = await RenewalRequest.aggregate([
+      {
+        $match: {
+          dealerId: user._id,
+          status: { $ne: 'Rejected' },
+          paymentStatus: { $ne: 'Cancelled' },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalRenewalDues: { $sum: { $ifNull: ['$billAmount', 0] } },
+        },
+      },
+    ]);
+    const totalRenewalDues = renewalDueAgg[0]?.totalRenewalDues || 0;
+
+    const deviceBillAmount = due.totalBillAmount || 0;
+    const totalPaidAmount = due.totalPaidAmount || 0;
+    const totalOutstandingLimit = Math.max(deviceBillAmount + totalRenewalDues - totalPaidAmount, 0);
 
     if (totalOutstandingLimit <= 0) {
       return res.status(400).json({ message: 'This account has no pending outstanding balance.' });
