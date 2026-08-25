@@ -74,9 +74,11 @@ app.use(express.urlencoded({ extended: true }));
 // Sanitize inputs to prevent NoSQL Injection
 app.use(nosqlSanitizer);
 
-// Serve static uploads
+// Serve static uploads & storage (under root and /api for production proxy support)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/storage', express.static(path.join(__dirname, 'storage')));
+app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/api/storage', express.static(path.join(__dirname, 'storage')));
 
 // Mount routes
 app.use('/api/auth', authRateLimiter, require('./routes/auth'));

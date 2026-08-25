@@ -497,23 +497,27 @@ Software: ${softwareInput || device?.software || latestRequest?.software || late
     }
   };
 
+  const getKycRequestUrl = (docUrl) => {
+    if (!docUrl) return '';
+    if (docUrl.startsWith('http')) return docUrl;
+    if (docUrl.startsWith('/api')) return docUrl;
+    return `/api${docUrl.startsWith('/') ? '' : '/'}${docUrl}`;
+  };
+
+  const isKycImage = (doc) => {
+    if (['image/jpeg', 'image/jpg', 'image/png'].includes(doc?.mimeType)) return true;
+    const name = doc?.fileName || doc?.originalName || '';
+    return /\.(png|jpe?g)$/i.test(name);
+  };
+
   const handleViewKyc = async (doc) => {
     try {
-      let objectUrl = '';
-      const response = await api.get(doc.fileUrl, { responseType: 'blob' }).catch(() => null);
-      if (response && response.data) {
-        const blob = new Blob([response.data], { type: doc.mimeType || 'application/pdf' });
-        objectUrl = URL.createObjectURL(blob);
-      } else {
-        const backendBase = (api.defaults.baseURL || '').replace(/\/api$/, '');
-        const token = localStorage.getItem('token') || '';
-        objectUrl = doc.fileUrl.startsWith('http')
-          ? doc.fileUrl
-          : `${backendBase}${doc.fileUrl}?token=${token}`;
-      }
+      const requestUrl = getKycRequestUrl(doc.fileUrl);
+      const response = await api.get(requestUrl, { responseType: 'blob' });
+      const blob = new Blob([response.data], { type: doc.mimeType || (isKycImage(doc) ? 'image/png' : 'application/pdf') });
+      const objectUrl = URL.createObjectURL(blob);
 
-      const isImage = ['image/jpeg', 'image/jpg', 'image/png'].includes(doc.mimeType);
-      if (isImage) {
+      if (isKycImage(doc)) {
         setPreviewImage({ ...doc, url: objectUrl });
         setZoomLevel(1);
         setIsFullScreen(false);
@@ -522,12 +526,27 @@ Software: ${softwareInput || device?.software || latestRequest?.software || late
       }
     } catch (err) {
       console.error('Error previewing KYC:', err);
+      const backendBase = (api.defaults.baseURL || '').replace(/\/api$/, '');
+      const token = localStorage.getItem('token') || '';
+      const requestUrl = getKycRequestUrl(doc.fileUrl);
+      const fallbackUrl = requestUrl.startsWith('http')
+        ? requestUrl
+        : `${backendBase}${requestUrl}?token=${token}`;
+
+      if (isKycImage(doc)) {
+        setPreviewImage({ ...doc, url: fallbackUrl });
+        setZoomLevel(1);
+        setIsFullScreen(false);
+      } else {
+        setPreviewPdf({ ...doc, url: fallbackUrl });
+      }
     }
   };
 
   const handleDownloadKyc = async (doc) => {
     try {
-      const response = await api.get(doc.fileUrl, { responseType: 'blob' });
+      const requestUrl = getKycRequestUrl(doc.fileUrl);
+      const response = await api.get(requestUrl, { responseType: 'blob' });
       const blob = new Blob([response.data], { type: doc.mimeType || 'application/octet-stream' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -541,10 +560,11 @@ Software: ${softwareInput || device?.software || latestRequest?.software || late
       console.error('Error downloading KYC:', err);
       const backendBase = (api.defaults.baseURL || '').replace(/\/api$/, '');
       const token = localStorage.getItem('token') || '';
-      const fileUrl = doc.fileUrl.startsWith('http')
-        ? doc.fileUrl
-        : `${backendBase}${doc.fileUrl}?token=${token}`;
-      window.open(fileUrl, '_blank');
+      const requestUrl = getKycRequestUrl(doc.fileUrl);
+      const fallbackUrl = requestUrl.startsWith('http')
+        ? requestUrl
+        : `${backendBase}${requestUrl}?token=${token}`;
+      window.open(fallbackUrl, '_blank');
     }
   };
 
