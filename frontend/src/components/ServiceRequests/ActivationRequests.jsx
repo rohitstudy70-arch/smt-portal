@@ -301,15 +301,17 @@ const ActivationRequests = () => {
     }
   }, [formData.quantity, formData.deviceBillAmount]);
 
-  // Load Devices on Modal Open
+  // Load Devices on Modal Open & On Search Query Change
   useEffect(() => {
     if (showModal) {
       const fetchAvailableDevices = async () => {
         try {
           setLoadingDevices(true);
-          const response = await api.get('/devices', {
-            params: { limit: 1000, page: 1 }
-          });
+          const params = deviceSearch.trim()
+            ? { search: deviceSearch.trim(), limit: 500 }
+            : { limit: 'all' };
+
+          const response = await api.get('/devices', { params });
           setAvailableDevices(response.data.devices || []);
         } catch (err) {
           console.error('Error fetching devices:', err);
@@ -317,9 +319,14 @@ const ActivationRequests = () => {
           setLoadingDevices(false);
         }
       };
-      fetchAvailableDevices();
+
+      const timer = setTimeout(() => {
+        fetchAvailableDevices();
+      }, 250);
+
+      return () => clearTimeout(timer);
     }
-  }, [showModal]);
+  }, [showModal, deviceSearch]);
 
   // Click Outside Listener for Device Selector Dropdown
   useEffect(() => {
