@@ -136,7 +136,7 @@ const statKeysByRole = {
   SUB_DEALER: [
     'availableDevices',
     'renewalDueDevices',
-    'activeDevices',
+    'assignedDevices',
     'expiringThisMonth',
   ],
 };
@@ -1276,6 +1276,11 @@ const CustomerDevicePortal = () => {
               }).length;
             } else if (key === 'assignedDevices') {
               rawValue = devices.filter(d => {
+                if (role === 'SUB_DEALER') {
+                  if (!d.presentDate) return false;
+                  const dDate = new Date(d.presentDate);
+                  return (!fromD || dDate >= fromD) && (!toD || dDate <= toD);
+                }
                 const assignedId = d.assignedTo?._id || d.assignedTo;
                 if (!d.presentDate || !assignedId || assignedId === user._id) return false;
                 const dDate = new Date(d.presentDate);
@@ -1635,49 +1640,47 @@ const CustomerDevicePortal = () => {
         ) : null}
 
       <div className="portal-split">
-        {role !== 'SUB_DEALER' && (
-          <section className="portal-panel">
-            <div className="portal-panel-header">
-              <div>
-                <h2>Assigned Devices</h2>
-                <span>Role: {role.replace('_', ' ')}</span>
-              </div>
-              <button className="portal-icon-button" type="button" onClick={() => openView('devices')} title="Open devices">
-                <FaMobileAlt />
-              </button>
+        <section className="portal-panel">
+          <div className="portal-panel-header">
+            <div>
+              <h2>Assigned Devices</h2>
+              <span>Role: {role.replace('_', ' ')}</span>
             </div>
-            <div className="portal-table-wrap dashboard-scrollable-table">
-              <table className="portal-table">
-                <thead>
-                  <tr>
-                    <th>IMEI</th>
-                    <th>ICCID</th>
-                    <th>Assigned To</th>
-                    <th>Expiry Date</th>
-                    <th>Status</th>
+            <button className="portal-icon-button" type="button" onClick={() => openView('devices')} title="Open devices">
+              <FaMobileAlt />
+            </button>
+          </div>
+          <div className="portal-table-wrap dashboard-scrollable-table">
+            <table className="portal-table">
+              <thead>
+                <tr>
+                  <th>IMEI</th>
+                  <th>ICCID</th>
+                  <th>Assigned To</th>
+                  <th>Expiry Date</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedDashboardDevices.map((device) => (
+                  <tr key={device._id}>
+                    <td className="strong">{device.imei}</td>
+                    <td>{device.iccid || '-'}</td>
+                    <td>{getName(device.assignedTo)}</td>
+                    <td>{formatDate(device.expiryDate)}</td>
+                    <td>{renderStatus(device.status)}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {paginatedDashboardDevices.map((device) => (
-                    <tr key={device._id}>
-                      <td className="strong">{device.imei}</td>
-                      <td>{device.iccid || '-'}</td>
-                      <td>{getName(device.assignedTo)}</td>
-                      <td>{formatDate(device.expiryDate)}</td>
-                      <td>{renderStatus(device.status)}</td>
-                    </tr>
-                  ))}
-                  {paginatedDashboardDevices.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="portal-empty">No devices found.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-              {renderPagination(assignedDevicesPage, devices.length, setAssignedDevicesPage)}
-            </div>
-          </section>
-        )}
+                ))}
+                {paginatedDashboardDevices.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="portal-empty">No devices found.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+            {renderPagination(assignedDevicesPage, devices.length, setAssignedDevicesPage)}
+          </div>
+        </section>
 
         <section className="portal-panel">
           <div className="portal-panel-header">

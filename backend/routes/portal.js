@@ -323,6 +323,11 @@ router.get('/summary', protect, async (req, res) => {
     let totalDues = 0;
     let totalRenewalDues = 0;
 
+    if (scope.role === 'SUB_DEALER') {
+      dashboardAssignedDevices = totalDevices;
+      dashboardAvailableDevices = totalDevices;
+    }
+
     if (scope.role === 'DEALER') {
       const selfId = req.user._id;
 
