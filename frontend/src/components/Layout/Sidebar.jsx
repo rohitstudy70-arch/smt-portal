@@ -199,7 +199,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           <li className={`sidebar-menu-item ${location.pathname === '/add-device' ? 'active' : ''}`}>
             <NavLink to="/add-device">
               <FaPlusCircle className="menu-icon" />
-              <span className="menu-text">{role === 'SUB_DEALER' || role === 'DEALER' ? 'Assign Device' : 'Add Device'}</span>
+              <span className="menu-text">{role === 'SUB_DEALER' ? 'Assign Device' : 'Add Device'}</span>
             </NavLink>
           </li>
         )}

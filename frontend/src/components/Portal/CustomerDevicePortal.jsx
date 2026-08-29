@@ -2085,7 +2085,7 @@ const CustomerDevicePortal = () => {
           </label>
         </div>
         <div className="portal-actions">
-          <button className="portal-primary" type="submit"><FaSave /> {role === 'DEALER' ? 'Assign Device' : 'Save Device'}</button>
+          <button className="portal-primary" type="submit"><FaSave /> {role === 'SUB_DEALER' ? 'Assign Device' : 'Save Device'}</button>
           <button type="button" onClick={() => setDeviceForm(emptyDeviceForm)}><FaRedo /> Reset</button>
         </div>
       </form>
@@ -2387,8 +2387,8 @@ const CustomerDevicePortal = () => {
         <section className="portal-panel">
           <div className="portal-panel-header">
             <div>
-              <h2>{role === 'DEALER' ? 'Assign Device to Sub Dealer' : role === 'SUB_DEALER' ? 'Assign Device' : 'Add Device'}</h2>
-              <span>{role === 'DEALER' ? 'Enter device details to assign to sub dealer' : role === 'SUB_DEALER' ? 'Enter device details to assign' : 'SIM and validity details'}</span>
+              <h2>{role === 'SUB_DEALER' ? 'Assign Device' : 'Add Device'}</h2>
+              <span>{role === 'SUB_DEALER' ? 'Enter device details to assign' : 'SIM and validity details'}</span>
             </div>
             <FaMobileAlt className="portal-panel-icon" />
           </div>
