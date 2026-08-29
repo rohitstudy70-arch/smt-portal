@@ -697,32 +697,36 @@ const AddDevice = () => {
                 </select>
               </div>
 
-              <div className="form-group">
-                <label>Bill Amount</label>
-                <input
-                  type="number"
-                  name="billAmount"
-                  value={formData.billAmount}
-                  onChange={(event) => updateFormField('billAmount', event.target.value)}
-                  placeholder="Enter Bill Amount"
-                />
-              </div>
+              {role !== 'SUB_DEALER' && (
+                <div className="form-group">
+                  <label>Bill Amount</label>
+                  <input
+                    type="number"
+                    name="billAmount"
+                    value={formData.billAmount}
+                    onChange={(event) => updateFormField('billAmount', event.target.value)}
+                    placeholder="Enter Bill Amount"
+                  />
+                </div>
+              )}
 
-              <div className="form-group">
-                <label>Top Up Amount</label>
-                <input
-                  type="number"
-                  name="topUpAmount"
-                  value={formData.topUpAmount}
-                  onChange={(event) => updateFormField('topUpAmount', event.target.value)}
-                  placeholder="Enter Top Up Amount (Optional)"
-                />
-                {(formData.billAmount !== '' || formData.topUpAmount !== '') && (
-                  <small style={{ color: '#2563eb', fontWeight: 600, display: 'block', marginTop: '4px' }}>
-                    Total Bill Amount: ₹{(Number(formData.billAmount) || 0) + (Number(formData.topUpAmount) || 0)}
-                  </small>
-                )}
-              </div>
+              {role !== 'SUB_DEALER' && (
+                <div className="form-group">
+                  <label>Top Up Amount</label>
+                  <input
+                    type="number"
+                    name="topUpAmount"
+                    value={formData.topUpAmount}
+                    onChange={(event) => updateFormField('topUpAmount', event.target.value)}
+                    placeholder="Enter Top Up Amount (Optional)"
+                  />
+                  {(formData.billAmount !== '' || formData.topUpAmount !== '') && (
+                    <small style={{ color: '#2563eb', fontWeight: 600, display: 'block', marginTop: '4px' }}>
+                      Total Bill Amount: ₹{(Number(formData.billAmount) || 0) + (Number(formData.topUpAmount) || 0)}
+                    </small>
+                  )}
+                </div>
+              )}
 
               <div className="form-group">
                 <label>Activation Date</label>
