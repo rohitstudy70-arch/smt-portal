@@ -497,7 +497,7 @@ const AddDevice = () => {
           <span>{toast.message}</span>
         </div>
       )}
-      {(role === 'ADMIN' || role === 'DEALER' || role === 'SUB_DEALER') && (
+      {role !== 'SUB_DEALER' && (
         <div className="add-device-card">
           <div className="add-device-header">
             <FaMobileAlt className="header-icon" />
