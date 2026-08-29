@@ -1624,11 +1624,11 @@ const CustomerDevicePortal = () => {
           ) : null
         )}
 
-        {(role === 'ADMIN') ? (
+        {(role === 'ADMIN' || role === 'SUB_DEALER') ? (
           <div className="portal-dashboard-actions" key="add-device-actions">
             <Link className="portal-dashboard-card" to="/add-device">
               <FaPlus className="portal-dashboard-card-icon" />
-              <strong>Add Device</strong>
+              <strong>{role === 'SUB_DEALER' ? 'Assign Device' : 'Add Device'}</strong>
               <span>IMEI / ICCID / Serial No</span>
             </Link>
           </div>

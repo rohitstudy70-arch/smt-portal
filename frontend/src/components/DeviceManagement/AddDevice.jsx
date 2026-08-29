@@ -497,11 +497,11 @@ const AddDevice = () => {
           <span>{toast.message}</span>
         </div>
       )}
-      {(role === 'ADMIN' || role === 'DEALER') && (
+      {(role === 'ADMIN' || role === 'DEALER' || role === 'SUB_DEALER') && (
         <div className="add-device-card">
           <div className="add-device-header">
             <FaMobileAlt className="header-icon" />
-            <span>{editingDeviceId ? 'EDIT DEVICE' : (role === 'DEALER' ? 'ASSIGN DEVICE' : 'ADD NEW DEVICE')}</span>
+            <span>{editingDeviceId ? 'EDIT DEVICE' : (role === 'SUB_DEALER' || role === 'DEALER' ? 'ASSIGN DEVICE' : 'ADD NEW DEVICE')}</span>
           </div>
 
           <form className="add-device-form" onSubmit={handleSubmit}>
@@ -748,7 +748,7 @@ const AddDevice = () => {
                 </button>
               )}
               <button type="submit" className="btn-save" disabled={submitting}>
-                <FaSave /> {submitting ? 'Saving...' : editingDeviceId ? 'Update Device' : (role === 'DEALER' ? 'Assign Device' : 'Save Device')}
+                <FaSave /> {submitting ? 'Saving...' : editingDeviceId ? 'Update Device' : (role === 'DEALER' || role === 'SUB_DEALER' ? 'Assign Device' : 'Save Device')}
               </button>
               {(role === 'ADMIN' || role === 'DEALER') && (
                 <button
