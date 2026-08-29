@@ -136,7 +136,7 @@ const statKeysByRole = {
   SUB_DEALER: [
     'availableDevices',
     'renewalDueDevices',
-    'assignedDevices',
+    'activeDevices',
     'expiringThisMonth',
   ],
 };
@@ -1635,47 +1635,49 @@ const CustomerDevicePortal = () => {
         ) : null}
 
       <div className="portal-split">
-        <section className="portal-panel">
-          <div className="portal-panel-header">
-            <div>
-              <h2>Assigned Devices</h2>
-              <span>Role: {role.replace('_', ' ')}</span>
+        {role !== 'SUB_DEALER' && (
+          <section className="portal-panel">
+            <div className="portal-panel-header">
+              <div>
+                <h2>Assigned Devices</h2>
+                <span>Role: {role.replace('_', ' ')}</span>
+              </div>
+              <button className="portal-icon-button" type="button" onClick={() => openView('devices')} title="Open devices">
+                <FaMobileAlt />
+              </button>
             </div>
-            <button className="portal-icon-button" type="button" onClick={() => openView('devices')} title="Open devices">
-              <FaMobileAlt />
-            </button>
-          </div>
-          <div className="portal-table-wrap dashboard-scrollable-table">
-            <table className="portal-table">
-              <thead>
-                <tr>
-                  <th>IMEI</th>
-                  <th>ICCID</th>
-                  <th>Assigned To</th>
-                  <th>Expiry Date</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedDashboardDevices.map((device) => (
-                  <tr key={device._id}>
-                    <td className="strong">{device.imei}</td>
-                    <td>{device.iccid || '-'}</td>
-                    <td>{getName(device.assignedTo)}</td>
-                    <td>{formatDate(device.expiryDate)}</td>
-                    <td>{renderStatus(device.status)}</td>
-                  </tr>
-                ))}
-                {paginatedDashboardDevices.length === 0 && (
+            <div className="portal-table-wrap dashboard-scrollable-table">
+              <table className="portal-table">
+                <thead>
                   <tr>
-                    <td colSpan={5} className="portal-empty">No devices found.</td>
+                    <th>IMEI</th>
+                    <th>ICCID</th>
+                    <th>Assigned To</th>
+                    <th>Expiry Date</th>
+                    <th>Status</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
-            {renderPagination(assignedDevicesPage, devices.length, setAssignedDevicesPage)}
-          </div>
-        </section>
+                </thead>
+                <tbody>
+                  {paginatedDashboardDevices.map((device) => (
+                    <tr key={device._id}>
+                      <td className="strong">{device.imei}</td>
+                      <td>{device.iccid || '-'}</td>
+                      <td>{getName(device.assignedTo)}</td>
+                      <td>{formatDate(device.expiryDate)}</td>
+                      <td>{renderStatus(device.status)}</td>
+                    </tr>
+                  ))}
+                  {paginatedDashboardDevices.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="portal-empty">No devices found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+              {renderPagination(assignedDevicesPage, devices.length, setAssignedDevicesPage)}
+            </div>
+          </section>
+        )}
 
         <section className="portal-panel">
           <div className="portal-panel-header">
