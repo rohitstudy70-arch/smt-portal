@@ -497,209 +497,206 @@ const AddDevice = () => {
           <span>{toast.message}</span>
         </div>
       )}
+      {(role === 'ADMIN' || role === 'DEALER') && (
+        <div className="add-device-card">
+          <div className="add-device-header">
+            <FaMobileAlt className="header-icon" />
+            <span>{editingDeviceId ? 'EDIT DEVICE' : (role === 'DEALER' ? 'ASSIGN DEVICE' : 'ADD NEW DEVICE')}</span>
+          </div>
 
-      <div className="add-device-card">
-        <div className="add-device-header">
-          <FaMobileAlt className="header-icon" />
-          <span>{editingDeviceId ? 'EDIT DEVICE' : 'ADD NEW DEVICE'}</span>
-        </div>
-
-        <form className="add-device-form" onSubmit={handleSubmit}>
-          <div className="form-grid">
-            {role === 'ADMIN' && (
-              <div className={`form-group ${errors.dealerId ? 'has-error' : ''}`}>
-                <label>Dealer Name <span className="required">*</span></label>
-                <div className="searchable-dropdown" ref={dropdownRef}>
-                  <div
-                    className="dropdown-trigger"
-                    onClick={() => dealers.length > 1 && setDealerDropdownOpen(!dealerDropdownOpen)}
-                  >
-                    <span className={formData.dealerName ? '' : 'placeholder'}>
-                      {formData.dealerName || 'Select Dealer'}
-                    </span>
-                    <FaChevronDown className={`dropdown-arrow ${dealerDropdownOpen ? 'open' : ''}`} />
-                  </div>
-                  {dealerDropdownOpen && (
-                    <div className="dropdown-menu">
-                      <div className="dropdown-search">
-                        <FaSearch className="search-icon" />
-                        <input
-                          type="text"
-                          placeholder="Search dealer..."
-                          value={dealerSearch}
-                          onChange={(event) => setDealerSearch(event.target.value)}
-                          autoFocus
-                        />
-                      </div>
-                      <ul className="dropdown-list">
-                        {filteredDealers.length > 0 ? (
-                          filteredDealers.map((dealer) => (
-                            <li key={dealer._id} onClick={() => selectDealer(dealer)}>
-                              {getName(dealer)}
-                            </li>
-                          ))
-                        ) : (
-                          <li className="no-results">No dealers found</li>
-                        )}
-                      </ul>
+          <form className="add-device-form" onSubmit={handleSubmit}>
+            <div className="form-grid">
+              {role === 'ADMIN' && (
+                <div className={`form-group ${errors.dealerId ? 'has-error' : ''}`}>
+                  <label>Dealer Name <span className="required">*</span></label>
+                  <div className="searchable-dropdown" ref={dropdownRef}>
+                    <div
+                      className="dropdown-trigger"
+                      onClick={() => dealers.length > 1 && setDealerDropdownOpen(!dealerDropdownOpen)}
+                    >
+                      <span className={formData.dealerName ? '' : 'placeholder'}>
+                        {formData.dealerName || 'Select Dealer'}
+                      </span>
+                      <FaChevronDown className={`dropdown-arrow ${dealerDropdownOpen ? 'open' : ''}`} />
                     </div>
-                  )}
+                    {dealerDropdownOpen && (
+                      <div className="dropdown-menu">
+                        <div className="dropdown-search">
+                          <FaSearch className="search-icon" />
+                          <input
+                            type="text"
+                            placeholder="Search dealer..."
+                            value={dealerSearch}
+                            onChange={(event) => setDealerSearch(event.target.value)}
+                            autoFocus
+                          />
+                        </div>
+                        <ul className="dropdown-list">
+                          {filteredDealers.length > 0 ? (
+                            filteredDealers.map((dealer) => (
+                              <li key={dealer._id} onClick={() => selectDealer(dealer)}>
+                                {getName(dealer)}
+                              </li>
+                            ))
+                          ) : (
+                            <li className="no-results">No dealers found</li>
+                          )}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                  {errors.dealerId && <span className="error-text">{errors.dealerId}</span>}
                 </div>
-                {errors.dealerId && <span className="error-text">{errors.dealerId}</span>}
-              </div>
-            )}
+              )}
 
-            {(role === 'ADMIN' || role === 'DEALER') && (
+              {(role === 'ADMIN' || role === 'DEALER') && (
+                <div className="form-group">
+                  <label>Sub Dealer Name</label>
+                  <div className="searchable-dropdown" ref={subDealerDropdownRef}>
+                    <div
+                      className="dropdown-trigger"
+                      onClick={() => {
+                        if (!formData.dealerId) {
+                          showToast('error', 'Please select a Dealer first.');
+                          return;
+                        }
+                        if (availableSubDealers.length === 0) {
+                          showToast('error', 'No sub dealers found for this dealer.');
+                          return;
+                        }
+                        setSubDealerDropdownOpen(!subDealerDropdownOpen);
+                      }}
+                    >
+                      <span className={formData.subDealerName ? '' : 'placeholder'}>
+                        {formData.subDealerName || (formData.dealerId ? 'Select Sub Dealer' : 'Select Dealer First')}
+                      </span>
+                      <FaChevronDown className={`dropdown-arrow ${subDealerDropdownOpen ? 'open' : ''}`} />
+                    </div>
+                    {subDealerDropdownOpen && (
+                      <div className="dropdown-menu">
+                        <div className="dropdown-search">
+                          <FaSearch className="search-icon" />
+                          <input
+                            type="text"
+                            placeholder="Search sub dealer..."
+                            value={subDealerSearch}
+                            onChange={(event) => setSubDealerSearch(event.target.value)}
+                            autoFocus
+                          />
+                        </div>
+                        <ul className="dropdown-list">
+                          <li onClick={() => selectSubDealer(null)}>
+                            <em>None (No Sub Dealer)</em>
+                          </li>
+                          {filteredSubDealers.length > 0 ? (
+                            filteredSubDealers.map((subDealer) => (
+                              <li key={subDealer._id} onClick={() => selectSubDealer(subDealer)}>
+                                {getName(subDealer)}
+                              </li>
+                            ))
+                          ) : (
+                            <li className="no-results">No sub dealers found</li>
+                          )}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className={`form-group ${errors.vendor ? 'has-error' : ''}`}>
+                <label>Model <span className="required">*</span></label>
+                <select name="vendor" value={formData.vendor} onChange={(event) => updateFormField('vendor', event.target.value)}>
+                  <option value="">Select Model</option>
+                  {role === 'ADMIN' && <option value="iTriangle">iTriangle</option>}
+                  <option value="Acute">Acute</option>
+                  <option value="Markon">Markon</option>
+                  <option value="RDM">RDM</option>
+                  <option value="BB">BB</option>
+                  <option value="TrackNow">TrackNow</option>
+                  <option value="Road point">Road point</option>
+                </select>
+                {errors.vendor && <span className="error-text">{errors.vendor}</span>}
+              </div>
+
+              <div className={`form-group ${errors.imei ? 'has-error' : ''}`}>
+                <label>IMEI No. <span className="required">*</span></label>
+                <input
+                  type="text"
+                  name="imei"
+                  value={formData.imei}
+                  onChange={(event) => updateFormField('imei', event.target.value)}
+                  placeholder="Enter 15-digit IMEI"
+                  maxLength={15}
+                />
+                {errors.imei && <span className="error-text">{errors.imei}</span>}
+              </div>
+
+              <div className={`form-group ${errors.serialNo ? 'has-error' : ''}`}>
+                <label>Serial No.</label>
+                <input
+                  type="text"
+                  name="serialNo"
+                  value={formData.serialNo}
+                  onChange={(event) => updateFormField('serialNo', event.target.value)}
+                  placeholder="Enter Serial Number"
+                />
+                {errors.serialNo && <span className="error-text">{errors.serialNo}</span>}
+              </div>
+
+              <div className={`form-group ${errors.iccid ? 'has-error' : ''}`}>
+                <label>ICCID No.</label>
+                <input
+                  type="text"
+                  name="iccid"
+                  value={formData.iccid}
+                  onChange={(event) => updateFormField('iccid', event.target.value)}
+                  placeholder="Enter ICCID"
+                />
+                {errors.iccid && <span className="error-text">{errors.iccid}</span>}
+              </div>
+
               <div className="form-group">
-                <label>Sub Dealer Name</label>
-                <div className="searchable-dropdown" ref={subDealerDropdownRef}>
-                  <div
-                    className="dropdown-trigger"
-                    onClick={() => {
-                      if (!formData.dealerId) {
-                        showToast('error', 'Please select a Dealer first.');
-                        return;
-                      }
-                      if (availableSubDealers.length === 0) {
-                        showToast('error', 'No sub dealers found for this dealer.');
-                        return;
-                      }
-                      setSubDealerDropdownOpen(!subDealerDropdownOpen);
-                    }}
-                  >
-                    <span className={formData.subDealerName ? '' : 'placeholder'}>
-                      {formData.subDealerName || (formData.dealerId ? 'Select Sub Dealer' : 'Select Dealer First')}
-                    </span>
-                    <FaChevronDown className={`dropdown-arrow ${subDealerDropdownOpen ? 'open' : ''}`} />
-                  </div>
-                  {subDealerDropdownOpen && (
-                    <div className="dropdown-menu">
-                      <div className="dropdown-search">
-                        <FaSearch className="search-icon" />
-                        <input
-                          type="text"
-                          placeholder="Search sub dealer..."
-                          value={subDealerSearch}
-                          onChange={(event) => setSubDealerSearch(event.target.value)}
-                          autoFocus
-                        />
-                      </div>
-                      <ul className="dropdown-list">
-                        <li onClick={() => selectSubDealer(null)}>
-                          <em>None (No Sub Dealer)</em>
-                        </li>
-                        {filteredSubDealers.length > 0 ? (
-                          filteredSubDealers.map((subDealer) => (
-                            <li key={subDealer._id} onClick={() => selectSubDealer(subDealer)}>
-                              {getName(subDealer)}
-                            </li>
-                          ))
-                        ) : (
-                          <li className="no-results">No sub dealers found</li>
-                        )}
-                      </ul>
-                    </div>
-                  )}
-                </div>
+                <label>MSISDN 1</label>
+                <input
+                  type="text"
+                  name="msisdn1"
+                  value={formData.msisdn1}
+                  onChange={(event) => updateFormField('msisdn1', event.target.value)}
+                  placeholder="Enter MSISDN 1"
+                />
               </div>
-            )}
 
-            <div className={`form-group ${errors.vendor ? 'has-error' : ''}`}>
-              <label>Model <span className="required">*</span></label>
-              <select name="vendor" value={formData.vendor} onChange={(event) => updateFormField('vendor', event.target.value)}>
-                <option value="">Select Model</option>
-                {role === 'ADMIN' && <option value="iTriangle">iTriangle</option>}
-                <option value="Acute">Acute</option>
-                <option value="Markon">Markon</option>
-                <option value="RDM">RDM</option>
-                <option value="BB">BB</option>
-                <option value="TrackNow">TrackNow</option>
-                <option value="Road point">Road point</option>
-              </select>
-              {errors.vendor && <span className="error-text">{errors.vendor}</span>}
-            </div>
+              <div className="form-group">
+                <label>MSISDN 2</label>
+                <input
+                  type="text"
+                  name="msisdn2"
+                  value={formData.msisdn2}
+                  onChange={(event) => updateFormField('msisdn2', event.target.value)}
+                  placeholder="Enter MSISDN 2"
+                />
+              </div>
 
-            <div className={`form-group ${errors.imei ? 'has-error' : ''}`}>
-              <label>IMEI No. <span className="required">*</span></label>
-              <input
-                type="text"
-                name="imei"
-                value={formData.imei}
-                onChange={(event) => updateFormField('imei', event.target.value)}
-                placeholder="Enter 15-digit IMEI"
-                maxLength={15}
-              />
-              {errors.imei && <span className="error-text">{errors.imei}</span>}
-            </div>
+              <div className="form-group">
+                <label>ITR No.</label>
+                <input
+                  type="text"
+                  name="itrNo"
+                  value={formData.itrNo || ''}
+                  onChange={(event) => updateFormField('itrNo', event.target.value)}
+                  placeholder="Enter ITR Number"
+                />
+              </div>
 
-            <div className={`form-group ${errors.serialNo ? 'has-error' : ''}`}>
-              <label>Serial No. <span className="required"></span></label>
-              <input
-                type="text"
-                name="serialNo"
-                value={formData.serialNo}
-                onChange={(event) => updateFormField('serialNo', event.target.value)}
-                placeholder="Enter Serial Number"
-              />
-              {errors.serialNo && <span className="error-text">{errors.serialNo}</span>}
-            </div>
+              <div className="form-group">
+                <label>Validity</label>
+                <select name="validity" value={formData.validity} onChange={(event) => updateFormField('validity', event.target.value)}>
+                  <option value="1 Year">1 Year</option>
+                  <option value="2 Years">2 Years</option>
+                </select>
+              </div>
 
-            <div className={`form-group ${errors.iccid ? 'has-error' : ''}`}>
-              <label>ICCID No. <span className="required"></span></label>
-              <input
-                type="text"
-                name="iccid"
-                value={formData.iccid}
-                onChange={(event) => updateFormField('iccid', event.target.value)}
-                placeholder="Enter ICCID"
-              />
-              {errors.iccid && <span className="error-text">{errors.iccid}</span>}
-            </div>
-
-            <div className="form-group">
-              <label>MSISDN 1</label>
-              <input
-                type="text"
-                name="msisdn1"
-                value={formData.msisdn1}
-                onChange={(event) => updateFormField('msisdn1', event.target.value)}
-                placeholder="Enter MSISDN 1"
-              />
-            </div>
-
-
-
-            <div className="form-group">
-              <label>MSISDN 2</label>
-              <input
-                type="text"
-                name="msisdn2"
-                value={formData.msisdn2}
-                onChange={(event) => updateFormField('msisdn2', event.target.value)}
-                placeholder="Enter MSISDN 2"
-              />
-            </div>
-
-            <div className="form-group">
-              <label>ITR No.</label>
-              <input
-                type="text"
-                name="itrNo"
-                value={formData.itrNo || ''}
-                onChange={(event) => updateFormField('itrNo', event.target.value)}
-                placeholder="Enter ITR Number"
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Validity</label>
-              <select name="validity" value={formData.validity} onChange={(event) => updateFormField('validity', event.target.value)}>
-                <option value="1 Year">1 Year</option>
-                <option value="2 Years">2 Year</option>
-              </select>
-            </div>
-
-            {role !== 'SUB_DEALER' && (
               <div className="form-group">
                 <label>Bill Amount</label>
                 <input
@@ -710,9 +707,7 @@ const AddDevice = () => {
                   placeholder="Enter Bill Amount"
                 />
               </div>
-            )}
 
-            {role !== 'SUB_DEALER' && (
               <div className="form-group">
                 <label>Top Up Amount</label>
                 <input
@@ -728,48 +723,46 @@ const AddDevice = () => {
                   </small>
                 )}
               </div>
-            )}
 
-            <div className="form-group">
-              <label>Activation Date</label>
-              <input
-                type="date"
-                name="presentDate"
-                value={formData.presentDate}
-                max={getLocalDateString()}
-                onChange={(event) => updateFormField('presentDate', event.target.value)}
-              />
+              <div className="form-group">
+                <label>Activation Date</label>
+                <input
+                  type="date"
+                  name="presentDate"
+                  value={formData.presentDate}
+                  max={getLocalDateString()}
+                  onChange={(event) => updateFormField('presentDate', event.target.value)}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Expiry Date</label>
+                <input type="text" value={formatDate(expiryDate)} readOnly className="readonly-field" />
+              </div>
             </div>
 
-            <div className="form-group">
-              <label>Expiry Date</label>
-              <input type="text" value={formatDate(expiryDate)} readOnly className="readonly-field" />
+            <div className="form-actions">
+              {editingDeviceId && (
+                <button type="button" className="btn-reset" onClick={handleReset}>
+                  Cancel
+                </button>
+              )}
+              <button type="submit" className="btn-save" disabled={submitting}>
+                <FaSave /> {submitting ? 'Saving...' : editingDeviceId ? 'Update Device' : (role === 'DEALER' ? 'Assign Device' : 'Save Device')}
+              </button>
+              {(role === 'ADMIN' || role === 'DEALER') && (
+                <button
+                  type="button"
+                  className="btn-bulk-upload"
+                  onClick={() => setBulkModalOpen(true)}
+                >
+                  <FaCloudUploadAlt /> Bulk Upload
+                </button>
+              )}
             </div>
-
-
-          </div>
-
-          <div className="form-actions">
-            {editingDeviceId && (
-              <button type="button" className="btn-reset" onClick={handleReset}>
-                Cancel
-              </button>
-            )}
-            <button type="submit" className="btn-save" disabled={submitting}>
-              <FaSave /> {submitting ? 'Saving...' : editingDeviceId ? 'Update Device' : (role === 'DEALER' ? 'Assign Device' : 'Save Device')}
-            </button>
-            {(role === 'ADMIN' || role === 'DEALER') && (
-              <button
-                type="button"
-                className="btn-bulk-upload"
-                onClick={() => setBulkModalOpen(true)}
-              >
-                <FaCloudUploadAlt /> Bulk Upload
-              </button>
-            )}
-          </div>
-        </form>
-      </div>
+          </form>
+        </div>
+      )}
 
       <div className="add-device-card device-list-card">
         <div className="add-device-header">

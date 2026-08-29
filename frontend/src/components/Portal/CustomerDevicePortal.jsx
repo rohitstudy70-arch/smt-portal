@@ -1549,7 +1549,7 @@ const CustomerDevicePortal = () => {
 
           </>
         ) : (
-          isOps && dueSummary && user?.userType !== 'Dealer' ? (
+          role === 'DEALER' && dueSummary ? (
             <div className="portal-panel" style={{ marginTop: '10px' }} key="due-summary-panel">
               <div className="portal-panel-header">
                 <div>
@@ -1624,7 +1624,7 @@ const CustomerDevicePortal = () => {
           ) : null
         )}
 
-        {(role === 'ADMIN' || role === 'SUB_DEALER') ? (
+        {(role === 'ADMIN') ? (
           <div className="portal-dashboard-actions" key="add-device-actions">
             <Link className="portal-dashboard-card" to="/add-device">
               <FaPlus className="portal-dashboard-card-icon" />
@@ -2382,8 +2382,8 @@ const CustomerDevicePortal = () => {
         <section className="portal-panel">
           <div className="portal-panel-header">
             <div>
-              <h2>{role === 'DEALER' ? 'Assign Device to Sub Dealer' : 'Add Device'}</h2>
-              <span>{role === 'DEALER' ? 'Enter device details to assign to sub dealer' : 'SIM and validity details'}</span>
+              <h2>{role === 'DEALER' ? 'Assign Device to Sub Dealer' : role === 'SUB_DEALER' ? 'Assign Device' : 'Add Device'}</h2>
+              <span>{role === 'DEALER' ? 'Enter device details to assign to sub dealer' : role === 'SUB_DEALER' ? 'Enter device details to assign' : 'SIM and validity details'}</span>
             </div>
             <FaMobileAlt className="portal-panel-icon" />
           </div>

@@ -814,9 +814,24 @@ const sendPdf = (res, filename, title, headersOrSections, rows, totalsColumns) =
 
 router.get('/summary', async (req, res) => {
   try {
-    const isDealerOrSubDealer = req.portalRole === PORTAL_ROLES.DEALER || req.portalRole === PORTAL_ROLES.SUB_DEALER;
+    if (req.portalRole === PORTAL_ROLES.SUB_DEALER) {
+      return res.json({
+        totalOutstandingAmount: 0,
+        totalDueAmount: 0,
+        todaysRevenue: 0,
+        totalBillAmount: 0,
+        totalPaidAmount: 0,
+        remainingDues: 0,
+        totalDealers: 0,
+        totalSubDealers: 0,
+        totalPendingDevices: 0,
+        todaysCollection: 0,
+        monthlyCollection: 0,
+        monthlyRevenue: 0,
+      });
+    }
 
-    if (isDealerOrSubDealer) {
+    if (req.portalRole === PORTAL_ROLES.DEALER) {
       const selfId = req.user._id;
 
       // 1. Sync & get dealer's unpaid device dues.

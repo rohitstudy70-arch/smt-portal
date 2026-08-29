@@ -195,11 +195,11 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           </li>
         )}
 
-        {canShow(['ADMIN', 'DEALER', 'SUB_DEALER']) && (
+        {canShow(['ADMIN', 'DEALER']) && (
           <li className={`sidebar-menu-item ${location.pathname === '/add-device' ? 'active' : ''}`}>
             <NavLink to="/add-device">
               <FaPlusCircle className="menu-icon" />
-              <span className="menu-text">Add Device</span>
+              <span className="menu-text">{role === 'DEALER' ? 'Assign Device' : 'Add Device'}</span>
             </NavLink>
           </li>
         )}

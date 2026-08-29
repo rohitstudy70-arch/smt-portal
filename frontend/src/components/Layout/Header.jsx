@@ -106,7 +106,7 @@ const Header = ({ toggleSidebar }) => {
         <div className="breadcrumbs">
           <Link to="/dashboard">Home</Link>
           <span>/</span>
-          <span className="active-crumb">Add Device</span>
+          <span className="active-crumb">{user?.userType === 'Sub Dealer' ? 'Assign Device' : 'Add Device'}</span>
         </div>
       );
     }
