@@ -92,6 +92,17 @@ const syncDevicesToProducts = async () => {
     if (updatedAmtCount > 0) {
       console.log(`✅ [Migration] Updated billAmount for ${updatedAmtCount} devices from Renewal/Activation requests.`);
     }
+
+    // Cleanup any dummy placeholder ActivationRequests created without customer entry details
+    const deletedPlaceholders = await ActivationRequest.deleteMany({
+      customerName: 'Customer',
+      regMobNo: '',
+      vehicleNo: '',
+      chassisNo: ''
+    });
+    if (deletedPlaceholders.deletedCount > 0) {
+      console.log(`✅ [Migration] Cleaned up ${deletedPlaceholders.deletedCount} placeholder activation requests created without entry details.`);
+    }
   } catch (error) {
     console.error('❌ [Migration] Error syncing devices to products:', error.message);
   }

@@ -1021,26 +1021,15 @@ router.post('/kyc-by-imei/:imei', requireRoles(...operationsRoles), (req, res) =
 
       const documentType = req.body.documentType || 'PAN Card';
 
+      // Find actual activation request if exists (ignoring placeholder requests)
       let request = await ActivationRequest.findOne({
-        imei: new RegExp('^' + cleanImei + '$', 'i')
+        imei: new RegExp('^' + cleanImei + '$', 'i'),
+        customerName: { $ne: 'Customer' },
+        regMobNo: { $ne: '' }
       }).sort({ dateTime: -1 });
 
-      if (!request) {
-        // Create placeholder ActivationRequest if none exists
-        request = new ActivationRequest({
-          userId: req.user._id,
-          imei: cleanImei,
-          status: 'processing',
-          customerName: 'Customer',
-          regMobNo: '',
-        });
-      }
-
-      // Remove existing document of same type if present
       const isAadhaar = ['Aadhar Card', 'Aadhaar Card'].includes(documentType);
       const isSameType = (d) => isAadhaar ? ['Aadhar Card', 'Aadhaar Card'].includes(d.documentType) : d.documentType === documentType;
-
-      request.kycDocuments = (request.kycDocuments || []).filter(d => !isSameType(d));
 
       const docObj = {
         _id: new mongoose.Types.ObjectId(),
@@ -1054,18 +1043,29 @@ router.post('/kyc-by-imei/:imei', requireRoles(...operationsRoles), (req, res) =
         uploadedAt: new Date(),
       };
 
-      request.kycDocuments.push(docObj);
-      await request.save();
-
-      // Also sync to Device model if device exists
-      const device = await Device.findOne({ imei: new RegExp('^' + cleanImei + '$', 'i') });
-      if (device) {
-        device.kycDocuments = (device.kycDocuments || []).filter(d => !isSameType(d));
-        device.kycDocuments.push(docObj);
-        await device.save();
+      if (request) {
+        request.kycDocuments = (request.kycDocuments || []).filter(d => !isSameType(d));
+        request.kycDocuments.push(docObj);
+        await request.save();
       }
 
-      res.status(201).json({ message: `${documentType} uploaded successfully.`, kycDocuments: request.kycDocuments });
+      // Always save to Device model
+      let device = await Device.findOne({ imei: new RegExp('^' + cleanImei + '$', 'i') });
+      if (!device) {
+        device = new Device({
+          userId: req.user._id,
+          imei: cleanImei,
+          serialNo: cleanImei,
+          status: 'Activated',
+          deviceStatus: 'active'
+        });
+      }
+      device.kycDocuments = (device.kycDocuments || []).filter(d => !isSameType(d));
+      device.kycDocuments.push(docObj);
+      await device.save();
+
+      const returnDocs = (request && request.kycDocuments?.length > 0) ? request.kycDocuments : device.kycDocuments;
+      res.status(201).json({ message: `${documentType} uploaded successfully.`, kycDocuments: returnDocs });
     } catch (error) {
       console.error('KYC upload by IMEI error:', error.message);
       res.status(500).json({ message: 'Server error' });
