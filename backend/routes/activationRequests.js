@@ -420,9 +420,79 @@ router.get('/today-summary', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) 
       { $sort: { totalRequests: -1 } },
     ];
 
-    const [userSummary, dealerSummary] = await Promise.all([
+    const dailyPipeline = [
+      ...matchStage,
+      {
+        $group: {
+          _id: {
+            date: { $dateToString: { format: '%Y-%m-%d', date: '$dateTime', timezone: '+05:30' } },
+            userId: { $ifNull: ['$createdBy', '$userId'] },
+          },
+          totalRequests: { $sum: 1 },
+          totalAmount: { $sum: { $ifNull: ['$amount', 0] } },
+          processing: {
+            $sum: { $cond: [{ $eq: ['$status', 'Processing'] }, 1, 0] },
+          },
+          completed: {
+            $sum: { $cond: [{ $eq: ['$status', 'Completed'] }, 1, 0] },
+          },
+          requested: {
+            $sum: { $cond: [{ $eq: ['$status', 'Requested'] }, 1, 0] },
+          },
+          rejected: {
+            $sum: { $cond: [{ $eq: ['$status', 'Rejected'] }, 1, 0] },
+          },
+          commercialPlan: {
+            $sum: { $cond: [{ $eq: ['$requestType', 'Commercial Plan'] }, 1, 0] },
+          },
+          topUp: {
+            $sum: { $cond: [{ $eq: ['$requestType', 'Top-up'] }, 1, 0] },
+          },
+          rechargePlan: {
+            $sum: { $cond: [{ $eq: ['$requestType', 'Recharge Plan'] }, 1, 0] },
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id.userId',
+          foreignField: '_id',
+          as: 'userInfo',
+        },
+      },
+      { $unwind: { path: '$userInfo', preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          _id: 0,
+          date: '$_id.date',
+          userId: '$_id.userId',
+          totalRequests: 1,
+          totalAmount: 1,
+          processing: 1,
+          completed: 1,
+          requested: 1,
+          rejected: 1,
+          commercialPlan: 1,
+          topUp: 1,
+          rechargePlan: 1,
+          userName: {
+            $ifNull: [
+              '$userInfo.displayName',
+              { $ifNull: ['$userInfo.companyName', '$userInfo.username'] },
+            ],
+          },
+          userType: { $ifNull: ['$userInfo.userType', ''] },
+          username: { $ifNull: ['$userInfo.username', ''] },
+        },
+      },
+      { $sort: { date: -1, totalRequests: -1 } },
+    ];
+
+    const [userSummary, dealerSummary, dailySummary] = await Promise.all([
       ActivationRequest.aggregate(userPipeline),
       ActivationRequest.aggregate(dealerPipeline),
+      ActivationRequest.aggregate(dailyPipeline),
     ]);
 
     const grandTotal = userSummary.reduce((acc, item) => acc + item.totalRequests, 0);
@@ -434,6 +504,7 @@ router.get('/today-summary', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) 
       grandAmount,
       users: userSummary,
       dealers: dealerSummary,
+      daily: dailySummary,
     });
   } catch (error) {
     console.error('Today summary error:', error.message);
