@@ -132,18 +132,26 @@ const AddDevice = () => {
   );
 
   const availableSubDealers = useMemo(() => {
-    if (!formData.dealerId) return subDealers;
-    const dealerIdStr = String(formData.dealerId);
-    const matched = subDealers.filter((sd) => {
-      const parentIdStr = String(sd.parentId?._id || sd.parentId || '');
-      return parentIdStr === dealerIdStr;
-    });
-    // For Admin: if no subdealers strictly linked to this dealer, allow choosing from all subdealers
-    if (matched.length === 0 && role === 'ADMIN') {
-      return subDealers;
+    if (role === 'DEALER') {
+      const dealerIdStr = String(user?._id || formData.dealerId || '');
+      return subDealers.filter((sd) => String(sd.parentId?._id || sd.parentId || '') === dealerIdStr);
     }
-    return matched;
-  }, [subDealers, formData.dealerId, role]);
+    if (!formData.dealerId) return subDealers;
+    
+    // For Admin: prioritize selected dealer's sub-dealers at top, followed by all other sub-dealers
+    const dealerIdStr = String(formData.dealerId);
+    const thisDealerSubs = [];
+    const otherSubs = [];
+    subDealers.forEach((sd) => {
+      const parentIdStr = String(sd.parentId?._id || sd.parentId || '');
+      if (parentIdStr === dealerIdStr) {
+        thisDealerSubs.push(sd);
+      } else {
+        otherSubs.push(sd);
+      }
+    });
+    return [...thisDealerSubs, ...otherSubs];
+  }, [subDealers, formData.dealerId, role, user]);
 
   const filteredSubDealers = useMemo(() => {
     if (!subDealerSearch.trim()) return availableSubDealers;
@@ -622,12 +630,23 @@ const AddDevice = () => {
                             filteredSubDealers.map((subDealer) => {
                               const parentDealerId = subDealer.parentId?._id || subDealer.parentId;
                               const parentD = parentDealerId ? dealers.find((d) => String(d._id) === String(parentDealerId)) : null;
+                              const isBelongingToCurrentDealer = formData.dealerId && String(parentDealerId) === String(formData.dealerId);
+
                               return (
-                                <li key={subDealer._id} onClick={() => selectSubDealer(subDealer)}>
-                                  <span>{getName(subDealer)}</span>
-                                  {role === 'ADMIN' && parentD && (
-                                    <span style={{ fontSize: '11px', color: '#64748b', marginLeft: '6px' }}>
-                                      ({getName(parentD)})
+                                <li key={subDealer._id} onClick={() => selectSubDealer(subDealer)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                  <span style={{ fontWeight: isBelongingToCurrentDealer ? '700' : 'normal' }}>
+                                    {getName(subDealer)}
+                                  </span>
+                                  {role === 'ADMIN' && (
+                                    <span style={{
+                                      fontSize: '10.5px',
+                                      padding: '1px 6px',
+                                      borderRadius: '4px',
+                                      background: isBelongingToCurrentDealer ? '#dcfce7' : '#f1f5f9',
+                                      color: isBelongingToCurrentDealer ? '#166534' : '#64748b',
+                                      fontWeight: '600'
+                                    }}>
+                                      {parentD ? getName(parentD) : 'No Dealer'}
                                     </span>
                                   )}
                                 </li>
