@@ -251,8 +251,13 @@ const resolveDeviceOwnership = async (req, input) => {
       if (!subDealer || getPortalRole(subDealer) !== PORTAL_ROLES.SUB_DEALER) {
         return { error: { status: 400, message: 'Please select a valid sub dealer.' } };
       }
-      if (subDealer.parentId?.toString() !== dealer._id.toString()) {
-        return { error: { status: 400, message: 'Selected sub dealer does not belong to the selected dealer.' } };
+      if (subDealer.parentId && subDealer.parentId.toString() !== dealer._id.toString()) {
+        const parentDealer = await User.findById(subDealer.parentId);
+        if (parentDealer) {
+          dealer = parentDealer;
+        } else {
+          return { error: { status: 400, message: 'Selected sub dealer does not belong to the selected dealer.' } };
+        }
       }
     }
   }

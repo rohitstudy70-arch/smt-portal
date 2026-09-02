@@ -132,13 +132,26 @@ const AddDevice = () => {
   );
 
   const availableSubDealers = useMemo(() => {
-    if (!formData.dealerId) return [];
-    return subDealers.filter((sd) => sd.parentId === formData.dealerId);
-  }, [subDealers, formData.dealerId]);
+    if (!formData.dealerId) return subDealers;
+    const dealerIdStr = String(formData.dealerId);
+    const matched = subDealers.filter((sd) => {
+      const parentIdStr = String(sd.parentId?._id || sd.parentId || '');
+      return parentIdStr === dealerIdStr;
+    });
+    // For Admin: if no subdealers strictly linked to this dealer, allow choosing from all subdealers
+    if (matched.length === 0 && role === 'ADMIN') {
+      return subDealers;
+    }
+    return matched;
+  }, [subDealers, formData.dealerId, role]);
 
   const filteredSubDealers = useMemo(() => {
+    if (!subDealerSearch.trim()) return availableSubDealers;
+    const searchLower = subDealerSearch.toLowerCase().trim();
     return availableSubDealers.filter((subDealer) =>
-      getName(subDealer).toLowerCase().includes(subDealerSearch.toLowerCase())
+      getName(subDealer).toLowerCase().includes(searchLower) ||
+      (subDealer.username && subDealer.username.toLowerCase().includes(searchLower)) ||
+      (subDealer.companyName && subDealer.companyName.toLowerCase().includes(searchLower))
     );
   }, [availableSubDealers, subDealerSearch]);
 
@@ -277,14 +290,21 @@ const AddDevice = () => {
   };
 
   const selectDealer = (dealer) => {
+    const dealerIdStr = String(dealer._id);
+    const currentSubDealerMatches = formData.subDealerId && subDealers.some((sd) => {
+      const parentIdStr = String(sd.parentId?._id || sd.parentId || '');
+      return String(sd._id) === String(formData.subDealerId) && parentIdStr === dealerIdStr;
+    });
+
     setFormData((current) => ({
       ...current,
       dealerId: dealer._id,
       dealerName: getName(dealer),
-      subDealerId: '',
-      subDealerName: '',
+      subDealerId: currentSubDealerMatches ? current.subDealerId : '',
+      subDealerName: currentSubDealerMatches ? current.subDealerName : '',
     }));
-    setDealerSearch('');
+    setDealerSearch(getName(dealer));
+    if (!currentSubDealerMatches) setSubDealerSearch('');
     setDealerDropdownOpen(false);
     if (errors.dealerId || errors.dealerName) {
       setErrors((current) => ({ ...current, dealerId: '', dealerName: '' }));
@@ -292,12 +312,31 @@ const AddDevice = () => {
   };
 
   const selectSubDealer = (subDealer) => {
+    if (!subDealer) {
+      setFormData((current) => ({
+        ...current,
+        subDealerId: '',
+        subDealerName: '',
+      }));
+      setSubDealerSearch('');
+      setSubDealerDropdownOpen(false);
+      return;
+    }
+
+    const parentDealerId = subDealer.parentId?._id || subDealer.parentId;
+    const parentDealer = parentDealerId ? dealers.find((d) => String(d._id) === String(parentDealerId)) : null;
+
     setFormData((current) => ({
       ...current,
-      subDealerId: subDealer ? subDealer._id : '',
-      subDealerName: subDealer ? getName(subDealer) : '',
+      subDealerId: subDealer._id,
+      subDealerName: getName(subDealer),
+      dealerId: (role === 'ADMIN' && parentDealer) ? parentDealer._id : (current.dealerId || (parentDealer ? parentDealer._id : '')),
+      dealerName: (role === 'ADMIN' && parentDealer) ? getName(parentDealer) : (current.dealerName || (parentDealer ? getName(parentDealer) : '')),
     }));
-    setSubDealerSearch('');
+    if (role === 'ADMIN' && parentDealer) {
+      setDealerSearch(getName(parentDealer));
+    }
+    setSubDealerSearch(getName(subDealer));
     setSubDealerDropdownOpen(false);
   };
 
@@ -551,24 +590,14 @@ const AddDevice = () => {
 
               {(role === 'ADMIN' || role === 'DEALER') && (
                 <div className="form-group">
-                  <label>Sub Dealer Name</label>
+                  <label>Sub Dealer Name {editingDeviceId && <span style={{ fontSize: '11px', color: '#64748b' }}>(Optional)</span>}</label>
                   <div className="searchable-dropdown" ref={subDealerDropdownRef}>
                     <div
                       className="dropdown-trigger"
-                      onClick={() => {
-                        if (!formData.dealerId) {
-                          showToast('error', 'Please select a Dealer first.');
-                          return;
-                        }
-                        if (availableSubDealers.length === 0) {
-                          showToast('error', 'No sub dealers found for this dealer.');
-                          return;
-                        }
-                        setSubDealerDropdownOpen(!subDealerDropdownOpen);
-                      }}
+                      onClick={() => setSubDealerDropdownOpen(!subDealerDropdownOpen)}
                     >
                       <span className={formData.subDealerName ? '' : 'placeholder'}>
-                        {formData.subDealerName || (formData.dealerId ? 'Select Sub Dealer' : 'Select Dealer First')}
+                        {formData.subDealerName || 'Select Sub Dealer (Optional)'}
                       </span>
                       <FaChevronDown className={`dropdown-arrow ${subDealerDropdownOpen ? 'open' : ''}`} />
                     </div>
@@ -582,18 +611,28 @@ const AddDevice = () => {
                             value={subDealerSearch}
                             onChange={(event) => setSubDealerSearch(event.target.value)}
                             autoFocus
+                            onClick={(e) => e.stopPropagation()}
                           />
                         </div>
                         <ul className="dropdown-list">
-                          <li onClick={() => selectSubDealer(null)}>
-                            <em>None (No Sub Dealer)</em>
+                          <li onClick={() => selectSubDealer(null)} style={{ color: '#ef4444', fontWeight: '600' }}>
+                            <em>✕ None (No Sub Dealer / Remove)</em>
                           </li>
                           {filteredSubDealers.length > 0 ? (
-                            filteredSubDealers.map((subDealer) => (
-                              <li key={subDealer._id} onClick={() => selectSubDealer(subDealer)}>
-                                {getName(subDealer)}
-                              </li>
-                            ))
+                            filteredSubDealers.map((subDealer) => {
+                              const parentDealerId = subDealer.parentId?._id || subDealer.parentId;
+                              const parentD = parentDealerId ? dealers.find((d) => String(d._id) === String(parentDealerId)) : null;
+                              return (
+                                <li key={subDealer._id} onClick={() => selectSubDealer(subDealer)}>
+                                  <span>{getName(subDealer)}</span>
+                                  {role === 'ADMIN' && parentD && (
+                                    <span style={{ fontSize: '11px', color: '#64748b', marginLeft: '6px' }}>
+                                      ({getName(parentD)})
+                                    </span>
+                                  )}
+                                </li>
+                              );
+                            })
                           ) : (
                             <li className="no-results">No sub dealers found</li>
                           )}
