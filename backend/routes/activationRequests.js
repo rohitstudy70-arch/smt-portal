@@ -224,22 +224,37 @@ router.get('/device/:imei', requireRoles(...operationsRoles), async (req, res) =
 // @access  Admin only
 router.get('/today-summary', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
   try {
-    // Support optional date query param, default to today
-    const targetDate = req.query.date ? new Date(req.query.date) : new Date();
-    const startOfDay = new Date(targetDate);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(targetDate);
-    endOfDay.setHours(23, 59, 59, 999);
+    let dateMatch = {};
+    const mode = req.query.mode || (req.query.date === 'all' ? 'all' : 'date');
+
+    if (mode === 'all') {
+      dateMatch = {};
+    } else if (req.query.fromDate || req.query.toDate) {
+      const range = {};
+      if (req.query.fromDate) range.$gte = new Date(`${req.query.fromDate}T00:00:00+05:30`);
+      if (req.query.toDate)   range.$lte = new Date(`${req.query.toDate}T23:59:59.999+05:30`);
+      dateMatch = { dateTime: range };
+    } else if (mode === 'thisMonth') {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const startOfMonth = new Date(`${y}-${m}-01T00:00:00+05:30`);
+      dateMatch = { dateTime: { $gte: startOfMonth } };
+    } else {
+      // Single date (e.g. today or specified date)
+      const dateStr = req.query.date || new Date().toISOString().slice(0, 10);
+      const startOfDay = new Date(`${dateStr}T00:00:00+05:30`);
+      const endOfDay = new Date(`${dateStr}T23:59:59.999+05:30`);
+      dateMatch = { dateTime: { $gte: startOfDay, $lte: endOfDay } };
+    }
+
+    const matchStage = Object.keys(dateMatch).length > 0 ? [{ $match: dateMatch }] : [];
 
     const userPipeline = [
-      {
-        $match: {
-          dateTime: { $gte: startOfDay, $lte: endOfDay },
-        },
-      },
+      ...matchStage,
       {
         $group: {
-          _id: '$createdBy',
+          _id: { $ifNull: ['$createdBy', '$userId'] },
           totalRequests: { $sum: 1 },
           totalAmount: { $sum: { $ifNull: ['$amount', 0] } },
           statuses: {
@@ -315,11 +330,7 @@ router.get('/today-summary', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) 
     ];
 
     const dealerPipeline = [
-      {
-        $match: {
-          dateTime: { $gte: startOfDay, $lte: endOfDay },
-        },
-      },
+      ...matchStage,
       {
         $group: {
           _id: { $ifNull: ['$dealerId', { $ifNull: ['$userId', '$dealerName'] }] },

@@ -25,6 +25,7 @@ const ActivationRequests = () => {
   const [search, setSearch] = useState('');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [todaySummary, setTodaySummary] = useState(null);
+  const [summaryMode, setSummaryMode] = useState('all');
   const [todaySummaryDate, setTodaySummaryDate] = useState(new Date().toISOString().slice(0, 10));
   const [selectedUserFilter, setSelectedUserFilter] = useState('');
   const [selectedDealerFilter, setSelectedDealerFilter] = useState('');
@@ -285,21 +286,23 @@ const ActivationRequests = () => {
     fetchRequests();
   }, [page, limit, search, refreshTrigger, selectedUserFilter, selectedDealerFilter]);
 
-  // Fetch Today's Raise Request Summary (Admin Only)
+  // Fetch Raise Request Summary (Admin Only)
   useEffect(() => {
     if (role !== 'ADMIN') return;
     const fetchTodaySummary = async () => {
       try {
-        const res = await api.get('/activation-requests/today-summary', {
-          params: { date: todaySummaryDate },
-        });
+        const params = { mode: summaryMode };
+        if (summaryMode === 'custom' || summaryMode === 'today') {
+          params.date = todaySummaryDate;
+        }
+        const res = await api.get('/activation-requests/today-summary', { params });
         setTodaySummary(res.data);
       } catch (err) {
         console.error('Error fetching today summary:', err);
       }
     };
     fetchTodaySummary();
-  }, [role, refreshTrigger, todaySummaryDate]);
+  }, [role, refreshTrigger, todaySummaryDate, summaryMode]);
 
   // Fetch Dealers List for Dealer Filter — only for partner (super admin)
   useEffect(() => {
@@ -1097,7 +1100,7 @@ const ActivationRequests = () => {
         </button>
       </div>
 
-      {/* Today's Raise Request Summary (Admin Only) */}
+      {/* Raise Request Summary (Admin Only) */}
       {role === 'ADMIN' && todaySummary && (
         <div style={{
           background: '#ffffff',
@@ -1107,10 +1110,105 @@ const ActivationRequests = () => {
           marginBottom: '18px',
           boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
-            <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              📊 Raise Request Summary — {todaySummaryDate === new Date().toISOString().slice(0, 10) ? 'Today' : todaySummaryDate}
-            </h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                📊 Raise Request Summary
+              </h3>
+              
+              {/* Mode Toggle Buttons */}
+              <div style={{ display: 'inline-flex', background: '#f1f5f9', borderRadius: '8px', padding: '2px' }}>
+                <button
+                  type="button"
+                  onClick={() => setSummaryMode('all')}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: summaryMode === 'all' ? '#0ea5e9' : 'transparent',
+                    color: summaryMode === 'all' ? '#ffffff' : '#64748b',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  All Time
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSummaryMode('thisMonth')}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: summaryMode === 'thisMonth' ? '#0ea5e9' : 'transparent',
+                    color: summaryMode === 'thisMonth' ? '#ffffff' : '#64748b',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  This Month
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSummaryMode('today');
+                    setTodaySummaryDate(new Date().toISOString().slice(0, 10));
+                  }}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: summaryMode === 'today' ? '#0ea5e9' : 'transparent',
+                    color: summaryMode === 'today' ? '#ffffff' : '#64748b',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSummaryMode('custom')}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: summaryMode === 'custom' ? '#0ea5e9' : 'transparent',
+                    color: summaryMode === 'custom' ? '#ffffff' : '#64748b',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  Custom Date
+                </button>
+              </div>
+
+              {summaryMode === 'custom' && (
+                <input
+                  type="date"
+                  value={todaySummaryDate}
+                  onChange={(e) => setTodaySummaryDate(e.target.value)}
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    border: '1.5px solid #0ea5e9',
+                    fontSize: '11px',
+                    color: '#334155',
+                    outline: 'none',
+                    fontWeight: '600'
+                  }}
+                />
+              )}
+            </div>
+
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               <select
                 value={selectedUserFilter}
@@ -1129,7 +1227,7 @@ const ActivationRequests = () => {
                   cursor: 'pointer',
                 }}
               >
-                <option value="">👤 All Users / Employees</option>
+                <option value="">👤 All Users / IDs</option>
                 {(todaySummary.users || []).map((u) => (
                   <option key={u._id} value={u._id}>
                     {u.userName || 'Unknown'} {u.username ? `(${u.username})` : ''} — {u.totalRequests} raised
@@ -1151,22 +1249,10 @@ const ActivationRequests = () => {
                     cursor: 'pointer',
                   }}
                 >
-                  ✕ Clear User Filter
+                  ✕ Clear Filter
                 </button>
               )}
 
-              <input
-                type="date"
-                value={todaySummaryDate}
-                onChange={(e) => setTodaySummaryDate(e.target.value)}
-                style={{
-                  padding: '5px 10px',
-                  borderRadius: '6px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '12px',
-                  color: '#334155',
-                }}
-              />
               <span style={{
                 background: '#0ea5e9',
                 color: '#fff',
@@ -1175,7 +1261,7 @@ const ActivationRequests = () => {
                 fontSize: '12px',
                 fontWeight: '700',
               }}>
-                Total: {todaySummary.grandTotal}
+                Total Raised: {todaySummary.grandTotal}
               </span>
               <span style={{
                 background: '#10b981',
@@ -1191,7 +1277,7 @@ const ActivationRequests = () => {
           </div>
 
           {(todaySummary.users || []).length === 0 ? (
-            <p style={{ color: '#94a3b8', fontSize: '13px', margin: '8px 0 0' }}>No raise requests found for this date.</p>
+            <p style={{ color: '#94a3b8', fontSize: '13px', margin: '8px 0 0' }}>No raise requests found for this period.</p>
           ) : (
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
