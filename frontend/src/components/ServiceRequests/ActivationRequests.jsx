@@ -1277,7 +1277,64 @@ const ActivationRequests = () => {
           </div>
 
           {(todaySummary.users || []).length === 0 ? (
-            <p style={{ color: '#94a3b8', fontSize: '13px', margin: '8px 0 0' }}>No raise requests found for this period.</p>
+            <div style={{
+              padding: '16px 20px',
+              background: '#f8fafc',
+              borderRadius: '8px',
+              border: '1px dashed #cbd5e1',
+              marginTop: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '12px'
+            }}>
+              <div>
+                <p style={{ margin: '0 0 4px', color: '#1e293b', fontWeight: '700', fontSize: '13px' }}>
+                  ℹ️ Is selected date ({summaryMode === 'today' ? 'Today' : summaryMode === 'thisMonth' ? 'This Month' : todaySummaryDate}) par koi raise request nahi mili.
+                </p>
+                <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>
+                  Pichle dates ya overall ID wise summary dekhne ke liye All Time ya Latest Date par click karein.
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setSummaryMode('all')}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: '#0ea5e9',
+                    color: '#fff',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                  }}
+                >
+                  📊 View All Time Summary
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSummaryMode('custom');
+                    setTodaySummaryDate('2026-08-29');
+                  }}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '6px',
+                    border: '1px solid #cbd5e1',
+                    background: '#fff',
+                    color: '#334155',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                  }}
+                >
+                  📅 View Latest (29 Aug 2026)
+                </button>
+              </div>
+            </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
