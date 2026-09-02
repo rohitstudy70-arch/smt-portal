@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { FaSyncAlt, FaPlus, FaTimes, FaSpinner, FaSearch, FaChevronDown } from 'react-icons/fa';
+import { FaSyncAlt, FaPlus, FaTimes, FaSpinner, FaSearch, FaChevronDown, FaFileExcel } from 'react-icons/fa';
+import * as XLSX from 'xlsx-js-style';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import './ActivationRequests.css';
@@ -26,6 +27,11 @@ const ActivationRequests = () => {
   const [todaySummary, setTodaySummary] = useState(null);
   const [todaySummaryDate, setTodaySummaryDate] = useState(new Date().toISOString().slice(0, 10));
   const [selectedUserFilter, setSelectedUserFilter] = useState('');
+  const [selectedDealerFilter, setSelectedDealerFilter] = useState('');
+  const [dealersList, setDealersList] = useState([]);
+  const [excelDownloading, setExcelDownloading] = useState(false);
+  const [excelFromDate, setExcelFromDate] = useState('');
+  const [excelToDate, setExcelToDate] = useState('');
 
   // Initial Form State
   const initialFormState = {
@@ -263,6 +269,9 @@ const ActivationRequests = () => {
         if (selectedUserFilter) {
           params.createdBy = selectedUserFilter;
         }
+        if (selectedDealerFilter) {
+          params.dealerId = selectedDealerFilter;
+        }
         const response = await api.get('/activation-requests', { params });
         setRequests(response.data.requests);
         setTotalCount(response.data.total);
@@ -274,7 +283,7 @@ const ActivationRequests = () => {
     };
 
     fetchRequests();
-  }, [page, limit, search, refreshTrigger, selectedUserFilter]);
+  }, [page, limit, search, refreshTrigger, selectedUserFilter, selectedDealerFilter]);
 
   // Fetch Today's Raise Request Summary (Admin Only)
   useEffect(() => {
@@ -291,6 +300,163 @@ const ActivationRequests = () => {
     };
     fetchTodaySummary();
   }, [role, refreshTrigger, todaySummaryDate]);
+
+  // Fetch Dealers List for Dealer Filter — only for partner (super admin)
+  useEffect(() => {
+    if (user?.role !== 'partner') return;
+    const fetchDealers = async () => {
+      try {
+        const res = await api.get('/users/sub-users');
+        const dealers = (res.data || []).filter(u =>
+          u.userType === 'Dealer' || (u.role === 'partner' && !u.userType)
+        );
+        setDealersList(dealers);
+      } catch (err) {
+        console.error('Error fetching dealers:', err);
+      }
+    };
+    fetchDealers();
+  }, [user?.role]);
+
+  // Excel Download Handler
+  const handleExcelDownload = async () => {
+    if (!selectedDealerFilter) {
+      alert('Please select a Dealer first to download their customer data as Excel.');
+      return;
+    }
+    setExcelDownloading(true);
+    try {
+      // Build params — dealer + optional date range
+      const fetchParams = {
+        dealerId: selectedDealerFilter,
+        limit: 10000,
+        page: 1,
+      };
+      if (excelFromDate) fetchParams.fromDate = excelFromDate;
+      if (excelToDate)   fetchParams.toDate   = excelToDate;
+
+      const res = await api.get('/activation-requests', { params: fetchParams });
+      const allRequests = res.data.requests || [];
+
+      if (allRequests.length === 0) {
+        const rangeMsg = excelFromDate || excelToDate
+          ? ` for the selected date range (${excelFromDate || 'start'} → ${excelToDate || 'end'})`
+          : '';
+        alert(`No requests found for the selected dealer${rangeMsg}.`);
+        setExcelDownloading(false);
+        return;
+      }
+
+      // Column definitions — header + data key mapping + width
+      const columns = [
+        { header: 'SR_NO',                                              key: null,               width: 8  },
+        { header: 'DEVICE_IMEI*',                                       key: 'imei',             width: 20 },
+        { header: 'ENGINE_NO*',                                         key: 'engineNo',         width: 20 },
+        { header: 'CHASSIS_NO',                                         key: 'chassisNo',        width: 22 },
+        { header: 'Vehicle type Old/New*',                              key: 'vehicleCondition', width: 20 },
+        { header: 'Vehicle Make/Manufacturer*',                         key: 'vehicleMake',      width: 25 },
+        { header: 'Vehicle Model*',                                     key: 'vehicleModel',     width: 18 },
+        { header: 'End_Customer_NAME*',                                 key: 'customerName',     width: 25 },
+        { header: 'Registerd Mobile no. (RMN)*',                       key: 'regMobNo',         width: 22 },
+        { header: 'RTO State',                                          key: '_rtoState',        width: 15 },
+        { header: 'RTO No.(In which RTO vehicle go for registration)*', key: 'rto',              width: 40 },
+        { header: 'Address*',                                           key: 'address',          width: 35 },
+        { header: 'PROOF OF ADDRESS*',                                  key: '_poa',             width: 20 },
+        { header: 'POA No*',                                            key: 'aadharNo',         width: 20 },
+        { header: 'PROOF OF IDENTITY',                                  key: '_poi',             width: 20 },
+        { header: 'POI No',                                             key: '_poiNo',           width: 20 },
+        { header: 'Vehicle No*',                                        key: 'vehicleNo',        width: 15 },
+      ];
+
+      // Helper: make a TEXT cell (prevents number/scientific notation)
+      const t = (val) => ({
+        t: 's',
+        v: val === null || val === undefined ? '' : String(val),
+      });
+
+      // Header row
+      const headerRow = columns.map(col => ({
+        t: 's',
+        v: col.header,
+        s: {
+          font: { bold: true, sz: 11, color: { rgb: 'FFFFFF' } },
+          fill: { patternType: 'solid', fgColor: { rgb: '1D4ED8' } },
+          alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+          border: {
+            top:    { style: 'thin', color: { rgb: '000000' } },
+            bottom: { style: 'thin', color: { rgb: '000000' } },
+            left:   { style: 'thin', color: { rgb: '000000' } },
+            right:  { style: 'thin', color: { rgb: '000000' } },
+          },
+        },
+      }));
+
+      // Data rows
+      const dataRows = allRequests.map((req, idx) => {
+        const rtoFull = req.rto || '';
+        const rtoParts = rtoFull.trim().split(/\s+/);
+        const rtoState = rtoParts.length > 0 ? rtoParts[0] : rtoFull;
+
+        const poaType = req.aadharNo ? 'Aadhaar Card' : '';
+
+        return columns.map(col => {
+          let val = '';
+          if (col.key === null) {
+            val = String(idx + 1);               // SR_NO
+          } else if (col.key === '_rtoState') {
+            val = rtoState;
+          } else if (col.key === '_poa') {
+            val = poaType;
+          } else if (col.key === '_poi') {
+            val = poaType;
+          } else if (col.key === '_poiNo') {
+            val = req.aadharNo || '';
+          } else {
+            val = req[col.key] || '';
+          }
+          return t(val);
+        });
+      });
+
+      // Combine header + data into array-of-arrays
+      const aoa = [headerRow, ...dataRows];
+
+      // Create sheet from AoA
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+      // Column widths
+      ws['!cols'] = columns.map(col => ({ wch: col.width }));
+
+      // Freeze top row
+      ws['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft', state: 'frozen' };
+
+      // Row height for header
+      ws['!rows'] = [{ hpt: 36 }];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Customer Data');
+
+      // Dealer name for filename
+      const dealer = dealersList.find(d => d._id === selectedDealerFilter);
+      const dealerName = dealer?.displayName || dealer?.companyName || dealer?.username || 'Dealer';
+      const safeName = dealerName.replace(/[^a-zA-Z0-9]/g, '_');
+      const dateTag = excelFromDate && excelToDate
+        ? `_${excelFromDate}_to_${excelToDate}`
+        : excelFromDate
+          ? `_from_${excelFromDate}`
+          : excelToDate
+            ? `_till_${excelToDate}`
+            : `_${new Date().toISOString().slice(0, 10)}`;
+      const fileName = `${safeName}_CLA_CustomerData${dateTag}.xlsx`;
+
+      XLSX.writeFile(wb, fileName);
+    } catch (err) {
+      console.error('Excel download error:', err);
+      alert('Failed to download Excel. Please try again.');
+    } finally {
+      setExcelDownloading(false);
+    }
+  };
 
   // Amount Auto-calculation
   useEffect(() => {
@@ -646,6 +812,276 @@ const ActivationRequests = () => {
 
   return (
     <div className="requests-panel">
+
+      {/* ── CLA Request Download Panel (partner / super-admin only) ── */}
+      {user?.role === 'partner' && (
+        <div style={{
+          background: 'linear-gradient(135deg, #1e3a5f 0%, #1d4ed8 100%)',
+          borderRadius: '12px',
+          padding: '14px 20px',
+          marginBottom: '14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '14px',
+          flexWrap: 'wrap',
+          boxShadow: '0 4px 16px rgba(29,78,216,0.25)',
+        }}>
+          {/* Label */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '180px' }}>
+            <FaFileExcel style={{ color: '#4ade80', fontSize: '22px', flexShrink: 0 }} />
+            <div>
+              <div style={{ color: '#fff', fontWeight: '700', fontSize: '13px', letterSpacing: '0.3px' }}>
+                CLA Request Format
+              </div>
+              <div style={{ color: '#93c5fd', fontSize: '11px', fontWeight: '500' }}>
+                Download dealer customer data
+              </div>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div style={{ width: '1px', height: '36px', background: 'rgba(255,255,255,0.2)', flexShrink: 0 }} />
+
+          {/* Dealer Select */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: '1', minWidth: '180px' }}>
+            <label style={{ color: '#bfdbfe', fontSize: '10px', fontWeight: '600', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+              Select Dealer
+            </label>
+            <select
+              value={selectedDealerFilter}
+              onChange={(e) => {
+                setSelectedDealerFilter(e.target.value);
+                setPage(1);
+              }}
+              style={{
+                padding: '7px 12px',
+                borderRadius: '7px',
+                border: selectedDealerFilter ? '1.5px solid #4ade80' : '1.5px solid rgba(255,255,255,0.3)',
+                fontSize: '12px',
+                color: '#1e293b',
+                background: '#fff',
+                fontWeight: '600',
+                cursor: 'pointer',
+                minWidth: '200px',
+                outline: 'none',
+              }}
+            >
+              <option value="">🏢 -- Select Dealer --</option>
+              {dealersList.map((d) => (
+                <option key={d._id} value={d._id}>
+                  {d.displayName || d.companyName || d.username}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Divider */}
+          <div style={{ width: '1px', height: '36px', background: 'rgba(255,255,255,0.2)', flexShrink: 0 }} />
+
+          {/* Date Range — From */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+            <label style={{ color: '#bfdbfe', fontSize: '10px', fontWeight: '600', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+              From Date
+            </label>
+            <input
+              type="date"
+              value={excelFromDate}
+              onChange={(e) => setExcelFromDate(e.target.value)}
+              style={{
+                padding: '7px 10px',
+                borderRadius: '7px',
+                border: excelFromDate ? '1.5px solid #4ade80' : '1.5px solid rgba(255,255,255,0.3)',
+                fontSize: '12px',
+                color: '#1e293b',
+                background: '#fff',
+                fontWeight: '600',
+                outline: 'none',
+                cursor: 'pointer',
+                minWidth: '130px',
+              }}
+            />
+          </div>
+
+          {/* Arrow separator */}
+          <span style={{ color: '#93c5fd', fontWeight: '700', fontSize: '16px', flexShrink: 0, alignSelf: 'center', marginTop: '14px' }}>→</span>
+
+          {/* Date Range — To */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+            <label style={{ color: '#bfdbfe', fontSize: '10px', fontWeight: '600', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+              To Date
+            </label>
+            <input
+              type="date"
+              value={excelToDate}
+              onChange={(e) => setExcelToDate(e.target.value)}
+              style={{
+                padding: '7px 10px',
+                borderRadius: '7px',
+                border: excelToDate ? '1.5px solid #4ade80' : '1.5px solid rgba(255,255,255,0.3)',
+                fontSize: '12px',
+                color: '#1e293b',
+                background: '#fff',
+                fontWeight: '600',
+                outline: 'none',
+                cursor: 'pointer',
+                minWidth: '130px',
+              }}
+            />
+          </div>
+
+          {/* Quick Preset Buttons for Past Months */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap', marginTop: '14px' }}>
+            <button
+              type="button"
+              onClick={() => {
+                const now = new Date();
+                const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+                const todayStr = now.toISOString().slice(0, 10);
+                setExcelFromDate(firstDay);
+                setExcelToDate(todayStr);
+              }}
+              style={{
+                padding: '4px 8px',
+                borderRadius: '5px',
+                border: '1px solid rgba(255,255,255,0.25)',
+                background: 'rgba(255,255,255,0.1)',
+                color: '#e0e7ff',
+                fontSize: '10px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              This Month
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const now = new Date();
+                const firstDay = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 10);
+                const lastDay = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().slice(0, 10);
+                setExcelFromDate(firstDay);
+                setExcelToDate(lastDay);
+              }}
+              style={{
+                padding: '4px 8px',
+                borderRadius: '5px',
+                border: '1px solid rgba(255,255,255,0.25)',
+                background: 'rgba(255,255,255,0.1)',
+                color: '#e0e7ff',
+                fontSize: '10px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Last Month
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const now = new Date();
+                const firstDay = new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString().slice(0, 10);
+                const todayStr = now.toISOString().slice(0, 10);
+                setExcelFromDate(firstDay);
+                setExcelToDate(todayStr);
+              }}
+              style={{
+                padding: '4px 8px',
+                borderRadius: '5px',
+                border: '1px solid rgba(255,255,255,0.25)',
+                background: 'rgba(255,255,255,0.1)',
+                color: '#e0e7ff',
+                fontSize: '10px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Last 3 Months
+            </button>
+            {(excelFromDate || excelToDate) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setExcelFromDate('');
+                  setExcelToDate('');
+                }}
+                title="Reset Date Range (Select All Records)"
+                style={{
+                  padding: '4px 8px',
+                  borderRadius: '5px',
+                  border: '1px solid rgba(239,68,68,0.4)',
+                  background: 'rgba(239,68,68,0.2)',
+                  color: '#fca5a5',
+                  fontSize: '10px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                ✕ Reset Dates
+              </button>
+            )}
+          </div>
+
+          {/* Download Button */}
+          <button
+            onClick={handleExcelDownload}
+            disabled={excelDownloading || !selectedDealerFilter}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '9px 20px',
+              borderRadius: '8px',
+              border: 'none',
+              background: selectedDealerFilter
+                ? 'linear-gradient(135deg, #16a34a, #15803d)'
+                : 'rgba(255,255,255,0.15)',
+              color: selectedDealerFilter ? '#fff' : 'rgba(255,255,255,0.45)',
+              fontSize: '13px',
+              fontWeight: '700',
+              cursor: selectedDealerFilter && !excelDownloading ? 'pointer' : 'not-allowed',
+              transition: 'all 0.2s',
+              boxShadow: selectedDealerFilter ? '0 3px 10px rgba(22,163,74,0.4)' : 'none',
+              letterSpacing: '0.3px',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+            }}
+            title={selectedDealerFilter ? 'Download CLA Request Excel' : 'Select a dealer first'}
+          >
+            {excelDownloading
+              ? <><FaSpinner style={{ animation: 'spin 1s linear infinite' }} /> Downloading...</>
+              : <><FaFileExcel style={{ fontSize: '16px' }} /> ⬇ Download Excel</>
+            }
+          </button>
+
+          {/* Clear Filter */}
+          {selectedDealerFilter && (
+            <button
+              onClick={() => { setSelectedDealerFilter(''); setPage(1); }}
+              title="Clear dealer filter"
+              style={{
+                padding: '7px 12px',
+                borderRadius: '7px',
+                border: '1.5px solid rgba(255,255,255,0.3)',
+                background: 'rgba(239,68,68,0.15)',
+                color: '#fca5a5',
+                fontSize: '11px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+            >
+              ✕ Clear
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ── Main Header Bar ── */}
       <div className="requests-header">
         <span className="requests-title">
           <FaSyncAlt style={{ cursor: 'pointer' }} onClick={handleRefresh} />

@@ -85,31 +85,65 @@ router.get('/', async (req, res) => {
     if (req.query.createdBy) {
       query.createdBy = req.query.createdBy;
     }
+
+    // Dealer filter — use $and to avoid overwriting $or from search
+    const andConditions = [];
+
     if (req.query.dealerId) {
-      query.$or = [
-        { dealerId: req.query.dealerId },
-        { subDealerId: req.query.dealerId },
-        { userId: req.query.dealerId },
-      ];
+      let dealerObjId;
+      try {
+        dealerObjId = new mongoose.Types.ObjectId(req.query.dealerId);
+      } catch (e) {
+        dealerObjId = req.query.dealerId;
+      }
+      andConditions.push({
+        $or: [
+          { dealerId: dealerObjId },
+          { subDealerId: dealerObjId },
+          { userId: dealerObjId },
+        ],
+      });
     }
 
     if (search) {
-      query.$or = [
-        { requestId: { $regex: search, $options: 'i' } },
-        { requestType: { $regex: search, $options: 'i' } },
-        { plan: { $regex: search, $options: 'i' } },
-        { piNo: { $regex: search, $options: 'i' } },
-        { status: { $regex: search, $options: 'i' } },
-        { remarks: { $regex: search, $options: 'i' } },
-        { subDealerName: { $regex: search, $options: 'i' } },
-        { dealerName: { $regex: search, $options: 'i' } },
-        { imei: { $regex: search, $options: 'i' } },
-        { vehicleNo: { $regex: search, $options: 'i' } },
-        { customerName: { $regex: search, $options: 'i' } },
-        { regMobNo: { $regex: search, $options: 'i' } },
-        { regMobNo2: { $regex: search, $options: 'i' } },
-        { chassisNo: { $regex: search, $options: 'i' } },
-      ];
+      andConditions.push({
+        $or: [
+          { requestId: { $regex: search, $options: 'i' } },
+          { requestType: { $regex: search, $options: 'i' } },
+          { plan: { $regex: search, $options: 'i' } },
+          { piNo: { $regex: search, $options: 'i' } },
+          { status: { $regex: search, $options: 'i' } },
+          { remarks: { $regex: search, $options: 'i' } },
+          { subDealerName: { $regex: search, $options: 'i' } },
+          { dealerName: { $regex: search, $options: 'i' } },
+          { imei: { $regex: search, $options: 'i' } },
+          { vehicleNo: { $regex: search, $options: 'i' } },
+          { customerName: { $regex: search, $options: 'i' } },
+          { regMobNo: { $regex: search, $options: 'i' } },
+          { regMobNo2: { $regex: search, $options: 'i' } },
+          { chassisNo: { $regex: search, $options: 'i' } },
+        ],
+      });
+    }
+
+    // Date range filter (fromDate / toDate) — IST aware
+    if (req.query.fromDate || req.query.toDate) {
+      const dateFilter = {};
+      if (req.query.fromDate) {
+        // Start of day IST = fromDate 00:00:00 IST = fromDate minus 5h30m in UTC
+        const from = new Date(`${req.query.fromDate}T00:00:00+05:30`);
+        dateFilter.$gte = from;
+      }
+      if (req.query.toDate) {
+        // End of day IST = toDate 23:59:59 IST
+        const to = new Date(`${req.query.toDate}T23:59:59+05:30`);
+        dateFilter.$lte = to;
+      }
+      andConditions.push({ dateTime: dateFilter });
+    }
+
+    if (andConditions.length > 0) {
+      query.$and = andConditions;
     }
 
     const total = await ActivationRequest.countDocuments(query);
