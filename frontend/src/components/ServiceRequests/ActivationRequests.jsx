@@ -1135,7 +1135,7 @@ const ActivationRequests = () => {
                     transition: 'all 0.2s',
                   }}
                 >
-                  📅 Date-Wise (तारीख अनुसार)
+                  📅 Date-Wise
                 </button>
                 <button
                   type="button"
@@ -1340,7 +1340,7 @@ const ActivationRequests = () => {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                   <thead>
                     <tr style={{ background: '#f1f5f9' }}>
-                      <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', color: '#475569', borderBottom: '2px solid #e2e8f0' }}>Date (तारीख)</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', color: '#475569', borderBottom: '2px solid #e2e8f0' }}>Date</th>
                       <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', color: '#475569', borderBottom: '2px solid #e2e8f0' }}>Raised By (User / Employee)</th>
                       <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', color: '#475569', borderBottom: '2px solid #e2e8f0' }}>User ID</th>
                       <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: '700', color: '#475569', borderBottom: '2px solid #e2e8f0' }}>Role</th>
