@@ -225,27 +225,32 @@ router.get('/device/:imei', requireRoles(...operationsRoles), async (req, res) =
 router.get('/today-summary', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
   try {
     let dateMatch = {};
+    let dateLabel = 'All Time';
     const mode = req.query.mode || (req.query.date === 'all' ? 'all' : 'date');
 
     if (mode === 'all') {
       dateMatch = {};
+      dateLabel = 'All Time';
     } else if (req.query.fromDate || req.query.toDate) {
       const range = {};
       if (req.query.fromDate) range.$gte = new Date(`${req.query.fromDate}T00:00:00+05:30`);
       if (req.query.toDate)   range.$lte = new Date(`${req.query.toDate}T23:59:59.999+05:30`);
       dateMatch = { dateTime: range };
+      dateLabel = `${req.query.fromDate || ''} to ${req.query.toDate || ''}`;
     } else if (mode === 'thisMonth') {
       const now = new Date();
       const y = now.getFullYear();
       const m = String(now.getMonth() + 1).padStart(2, '0');
       const startOfMonth = new Date(`${y}-${m}-01T00:00:00+05:30`);
       dateMatch = { dateTime: { $gte: startOfMonth } };
+      dateLabel = 'This Month';
     } else {
       // Single date (e.g. today or specified date)
       const dateStr = req.query.date || new Date().toISOString().slice(0, 10);
       const startOfDay = new Date(`${dateStr}T00:00:00+05:30`);
       const endOfDay = new Date(`${dateStr}T23:59:59.999+05:30`);
       dateMatch = { dateTime: { $gte: startOfDay, $lte: endOfDay } };
+      dateLabel = dateStr;
     }
 
     const matchStage = Object.keys(dateMatch).length > 0 ? [{ $match: dateMatch }] : [];
@@ -424,7 +429,7 @@ router.get('/today-summary', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) 
     const grandAmount = userSummary.reduce((acc, item) => acc + item.totalAmount, 0);
 
     res.json({
-      date: startOfDay.toISOString().slice(0, 10),
+      date: dateLabel,
       grandTotal,
       grandAmount,
       users: userSummary,
