@@ -1050,7 +1050,7 @@ router.get('/payments', async (req, res) => {
 // @route   PUT /api/due-dashboard/payments/:paymentId
 // @desc    Edit a payment record
 // @access  Protected (Admin only)
-router.put('/payments/:paymentId', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
+router.put('/payments/:paymentId', requireRoles(PORTAL_ROLES.ADMIN), upload.single('screenshot'), async (req, res) => {
   try {
     const { paymentId } = req.params;
     const { paymentDate, amount, paymentMode, referenceNumber, remarks } = req.body;
@@ -1092,6 +1092,9 @@ router.put('/payments/:paymentId', requireRoles(PORTAL_ROLES.ADMIN), async (req,
     if (remarks !== undefined) {
       payment.remarks = String(remarks || '').trim();
     }
+    if (req.file) {
+      payment.screenshotUrl = `/uploads/screenshots/${req.file.filename}`;
+    }
 
     payment.updatedBy = req.user._id;
     await payment.save();
@@ -1111,7 +1114,8 @@ router.put('/payments/:paymentId', requireRoles(PORTAL_ROLES.ADMIN), async (req,
         newDate: payment.paymentDate,
         originalAmount,
         newAmount: payment.amount,
-        referenceNumber: payment.referenceNumber
+        referenceNumber: payment.referenceNumber,
+        screenshotUrl: payment.screenshotUrl,
       }
     }).catch((error) => console.error('Failed to log due payment edit audit event:', error.message));
 

@@ -91,6 +91,8 @@ const DueDashboard = () => {
   // Edit Payment Modal State
   const [editPaymentModalOpen, setEditPaymentModalOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
+  const [editPaymentScreenshot, setEditPaymentScreenshot] = useState(null);
+  const [editScreenshotPreview, setEditScreenshotPreview] = useState(null);
   const [editPaymentForm, setEditPaymentForm] = useState({
     paymentDate: '',
     amount: '',
@@ -453,16 +455,47 @@ const DueDashboard = () => {
       referenceNumber: p.referenceNumber || '',
       remarks: p.remarks || '',
     });
+    setEditPaymentScreenshot(null);
+    setEditScreenshotPreview(null);
     setEditPaymentModalOpen(true);
+  };
+
+  const handleEditScreenshotChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setEditPaymentScreenshot(file);
+      if (file.type.startsWith('image/')) {
+        setEditScreenshotPreview(URL.createObjectURL(file));
+      } else {
+        setEditScreenshotPreview(null);
+      }
+    } else {
+      setEditPaymentScreenshot(null);
+      setEditScreenshotPreview(null);
+    }
   };
 
   const handleEditPaymentSubmit = async (e) => {
     e.preventDefault();
     try {
       setLoading(true);
-      await api.put(`/due-dashboard/payments/${selectedPayment._id}`, editPaymentForm);
+      const formDataObj = new FormData();
+      formDataObj.append('paymentDate', editPaymentForm.paymentDate);
+      formDataObj.append('amount', editPaymentForm.amount);
+      formDataObj.append('paymentMode', editPaymentForm.paymentMode);
+      formDataObj.append('referenceNumber', editPaymentForm.referenceNumber);
+      formDataObj.append('remarks', editPaymentForm.remarks);
+      if (editPaymentScreenshot) {
+        formDataObj.append('screenshot', editPaymentScreenshot);
+      }
+
+      await api.put(`/due-dashboard/payments/${selectedPayment._id}`, formDataObj, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
       alert('Payment record updated successfully!');
       setEditPaymentModalOpen(false);
+      setEditPaymentScreenshot(null);
+      setEditScreenshotPreview(null);
       
       // Refresh views
       fetchSummary();
@@ -1943,6 +1976,46 @@ const DueDashboard = () => {
                     style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '13px', outline: 'none' }}
                   />
                 </div>
+
+                {/* Screenshot / Cheque Proof Upload for UPI & Bank Transfer */}
+                {(editPaymentForm.paymentMode === 'UPI' || editPaymentForm.paymentMode === 'Bank Transfer') && (
+                  <div className="form-group" style={{ marginTop: '12px', background: '#f8fafc', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <label style={{ margin: 0, fontWeight: '600', fontSize: '13px', color: '#1e293b' }}>
+                        {editPaymentForm.paymentMode === 'Bank Transfer' ? 'Cheque / Bank Transfer Proof' : 'UPI Payment Screenshot'}
+                        <span style={{ color: '#64748b', fontWeight: 'normal', fontSize: '12px', marginLeft: '6px' }}>
+                          (Optional / Add or replace)
+                        </span>
+                      </label>
+                      {selectedPayment.screenshotUrl && (
+                        <a
+                          href={`${(api.defaults.baseURL || '').replace(/\/api$/, '')}${selectedPayment.screenshotUrl}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: '#2563eb', fontSize: '12px', textDecoration: 'underline', fontWeight: '600' }}
+                        >
+                          View Current Proof
+                        </a>
+                      )}
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={handleEditScreenshotChange}
+                      style={{ border: '1px dashed #cbd5e1', padding: '8px', borderRadius: '4px', width: '100%', background: '#ffffff', cursor: 'pointer', fontSize: '12px' }}
+                    />
+                    {editScreenshotPreview && (
+                      <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <img 
+                          src={editScreenshotPreview} 
+                          alt="Screenshot Preview" 
+                          style={{ maxHeight: '70px', maxWidth: '120px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #cbd5e1' }} 
+                        />
+                        <span style={{ fontSize: '12px', color: '#16a34a', fontWeight: '500' }}>✓ New image selected</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="due-modal-footer">
                 <button type="button" className="due-action-btn secondary" onClick={() => setEditPaymentModalOpen(false)}>
