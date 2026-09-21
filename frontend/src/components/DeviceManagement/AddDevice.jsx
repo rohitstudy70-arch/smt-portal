@@ -227,18 +227,24 @@ const AddDevice = () => {
         const response = await api.get('/users/sub-users');
         const allUsers = response.data || [];
 
-        // Identify dealers
+        // Identify dealers strictly (exclude Admin accounts)
         let dealerList = [];
         if (role === 'ADMIN') {
-          const listFromDb = allUsers.filter(
-            (item) => item.userType === 'Dealer' || item.userType === '' || item.role === 'partner'
-          );
-          if (user && !listFromDb.some((u) => u._id === user._id)) {
-            listFromDb.unshift(user);
+          try {
+            const dealersRes = await api.get('/users/dealers');
+            if (dealersRes.data && Array.isArray(dealersRes.data)) {
+              dealerList = dealersRes.data;
+            }
+          } catch (e) {
+            console.error('Error fetching /users/dealers:', e);
           }
-          dealerList = listFromDb;
+          if (dealerList.length === 0) {
+            dealerList = allUsers.filter(
+              (item) => item.userType === 'Dealer' && item.role !== 'partner' && item.userType !== 'Administration'
+            );
+          }
         } else {
-          dealerList = user ? [user] : [];
+          dealerList = (user && user.userType === 'Dealer') ? [user] : [];
         }
 
         // Identify sub-dealers

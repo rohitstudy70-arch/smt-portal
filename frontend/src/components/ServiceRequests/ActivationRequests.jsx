@@ -1927,6 +1927,33 @@ const ActivationRequests = () => {
                       />
                     </div>
 
+                    <div className="form-group-custom">
+                      <label>Tracking ID</label>
+                      <input 
+                        type="text" 
+                        value={formData.trackingId}
+                        onChange={(e) => setFormData({...formData, trackingId: e.target.value})}
+                        placeholder="Enter Tracking ID"
+                      />
+                    </div>
+
+                    <div className="form-group-custom">
+                      <label>Software</label>
+                      <select 
+                        value={formData.software}
+                        onChange={(e) => setFormData({...formData, software: e.target.value})}
+                      >
+                        <option value="">Select Software</option>
+                        <option value="CAR ONLINE">CAR ONLINE</option>
+                        <option value="TRAQUELITE">TRAQUELITE</option>
+                        <option value="CHASETRACK">CHASETRACK</option>
+                        <option value="I PLUS">I PLUS</option>
+                        <option value="TRACKFEY">TRACKFEY</option>
+                        <option value="RTMS">RTMS</option>
+                        <option value="OTHERS">OTHERS</option>
+                      </select>
+                    </div>
+
                     <div className="form-group-custom full-width-group">
                       <label>Customer Address <span className="required-star">*</span></label>
                       <textarea 
