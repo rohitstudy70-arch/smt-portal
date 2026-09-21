@@ -52,7 +52,7 @@ const Layout = ({ children }) => {
           {children}
         </div>
         <footer className="footer">
-          2026 &copy; Arshi Enterprises. All rights reserved.
+          {new Date().getFullYear()} &copy; CDB Portal V2. All rights reserved.
         </footer>
       </div>
     </div>

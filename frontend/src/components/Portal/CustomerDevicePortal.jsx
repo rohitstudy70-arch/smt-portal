@@ -1049,7 +1049,7 @@ const CustomerDevicePortal = () => {
         <div class="invoice-box">
           <div class="invoice-header">
             <div class="company-details">
-              <h1>ARSHI ENTERPRISES</h1>
+              <h1>CDB PORTAL V2</h1>
               <p>GPS Tracking & IoT Solutions</p>
             </div>
             <div class="invoice-title">
@@ -3389,7 +3389,7 @@ const CustomerDevicePortal = () => {
 
       <div className="portal-titlebar">
         <div>
-          <span className="portal-kicker">Customer Database &amp; Device Management Portal</span>
+          <span className="portal-kicker">CDB Portal V2 - Device &amp; Customer Management</span>
           <h1>{viewTitles[activeView] || 'Dashboard'}</h1>
         </div>
         <div className="portal-title-actions">

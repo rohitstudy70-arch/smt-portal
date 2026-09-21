@@ -1,6 +1,6 @@
 const COMPANY_SENDER = {
-  brandName: 'Arshi Enterprises',
-  companyName: 'Arshi Enterprises',
+  brandName: 'CDB Portal V2',
+  companyName: 'CDB Portal V2',
   address: 'Near Brajesh Automobiles (Mahindra Showroom), NH-31, Maranga',
   cityStatePin: 'Purnea, Bihar - 854303',
   phone: 'Ph: +91 7782808063, +91 9905959287',
@@ -8,7 +8,7 @@ const COMPANY_SENDER = {
 };
 
 const BANK_DETAILS = {
-  accountName: 'ARSHI ENTERPRISES',
+  accountName: 'CDB PORTAL V2',
   accountNo: '071205500764',
   bankBranch: 'ICICI, Purnea',
   ifscCode: 'ICIC0000712',
@@ -86,7 +86,7 @@ export const getSenderDetails = (userObj) => {
   }
 
   return {
-    brandName: userObj.companyName || userObj.displayName || userObj.username || 'Arshi Enterprises',
+    brandName: userObj.companyName || userObj.displayName || userObj.username || 'CDB Portal V2',
     companyName: userObj.companyName || userObj.displayName || '',
     address: userObj.address || '',
     cityStatePin: `${userObj.city || ''}${userObj.city && userObj.state ? ', ' : ''}${userObj.state || ''}${userObj.pincode ? ', ' : ''}${userObj.pincode || ''}`,
@@ -255,7 +255,7 @@ export const buildProformaInvoiceData = (invoice = {}) => {
       total,
     },
     amountInWords: numberToWords(total),
-    downloadFileName: `Arshi_Enterprises_Proforma_Invoice_${sanitizeFilenamePart(piNo)}.html`,
+    downloadFileName: `CDB_Portal_V2_Proforma_Invoice_${sanitizeFilenamePart(piNo)}.html`,
   };
 };
 
@@ -311,7 +311,7 @@ export const renderProformaInvoiceHtml = (invoice, { logo, includeActions = true
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Arshi Enterprises - Proforma Invoice</title>
+<title>CDB Portal V2 - Proforma Invoice</title>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
@@ -445,7 +445,7 @@ ${includeActions ? renderActionBar() : ''}
   <div class="header">
     <div>
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-        <img src="${escapeHtml(logo || '')}" style="height:48px;width:auto;object-fit:contain;border-radius:6px" alt="Arshi Enterprises Logo">
+        <img src="${escapeHtml(logo || '')}" style="height:48px;width:auto;object-fit:contain;border-radius:6px" alt="CDB Portal V2 Logo">
         <div class="brand-name">${escapeHtml(data.sender.brandName)}</div>
       </div>
       <div class="brand-sub">${senderAddressHtml}</div>
