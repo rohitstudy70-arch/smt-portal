@@ -7,21 +7,39 @@
 
 .login-top-bar {
   display: flex;
-  justify-content: flex-end;
-  padding: 14px 40px;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 40px;
   background: #ffffff;
   border-bottom: 1px solid var(--border-color);
   box-shadow: 0 1px 3px rgba(0,0,0,0.02);
 }
 
-.login-top-bar a {
+.portal-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  color: #f59e0b;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.partner-link {
   color: var(--primary-blue);
   font-size: 13px;
   font-weight: 600;
   transition: color 0.2s;
+  display: inline-flex;
+  align-items: center;
 }
 
-.login-top-bar a:hover {
+.partner-link:hover {
   color: var(--primary-blue-hover);
   text-decoration: underline;
 }
@@ -46,16 +64,47 @@
 
 .login-header {
   background: var(--primary-gradient);
-  padding: 45px 30px;
+  padding: 40px 30px;
   text-align: center;
   position: relative;
   overflow: hidden;
   border-bottom: 3px solid var(--accent-color);
 }
 
+.login-brand-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+.brand-badge-text {
+  font-size: 12px;
+  font-weight: 900;
+  color: #0f172a;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  padding: 3px 12px;
+  border-radius: 12px;
+  letter-spacing: 2px;
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.4);
+  margin-bottom: 8px;
+}
+
+.login-header .map-icon {
+  font-size: 42px;
+  color: var(--accent-color);
+  margin-bottom: 0;
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 2px 8px rgba(245,158,11,0.3));
+}
+
 .login-header h1 {
   color: #ffffff;
-  font-size: 21px;
+  font-size: 24px;
   font-weight: 800;
   letter-spacing: 1.5px;
   text-transform: uppercase;
@@ -63,15 +112,17 @@
   z-index: 1;
   text-shadow: 0 2px 4px rgba(0,0,0,0.3);
   font-family: 'Outfit', sans-serif;
+  margin: 0;
 }
 
-.login-header .map-icon {
-  font-size: 52px;
-  color: var(--accent-color);
-  margin-bottom: 15px;
+.login-subtitle {
+  color: var(--text-gray-light);
+  font-size: 13px;
+  font-weight: 500;
+  margin-top: 6px;
+  letter-spacing: 0.5px;
   position: relative;
   z-index: 1;
-  filter: drop-shadow(0 2px 8px rgba(245,158,11,0.3));
 }
 
 .login-body {

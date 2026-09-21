@@ -40,14 +40,19 @@ const Login = () => {
   return (
     <div className="login-page">
       <div className="login-top-bar">
-        <a href="#">SI Partner Login Click here</a>
+        <span className="portal-badge">CDB PORTAL V2</span>
+        <a href="#" className="partner-link">SI Partner Login</a>
       </div>
 
       <div className="login-container">
         <div className="login-card">
           <div className="login-header">
-            <FaMapMarkerAlt className="map-icon" />
-            <h1>Customer Self Service Portal</h1>
+            <div className="login-brand-icon">
+              <span className="brand-badge-text">CDB</span>
+              <FaMapMarkerAlt className="map-icon" />
+            </div>
+            <h1>CDB Portal V2</h1>
+            <p className="login-subtitle">Customer Self Service Portal</p>
           </div>
 
           <div className="login-body">
@@ -94,7 +99,7 @@ const Login = () => {
           </div>
 
           <div className="login-footer">
-            <p>2026 &copy; Arshi Enterprises. All rights reserved.</p>
+            <p>{new Date().getFullYear()} &copy; CDB Portal V2. All rights reserved.</p>
           </div>
         </div>
       </div>
