@@ -289,9 +289,7 @@ Mobile No 1: ${latestRenewal?.customerMobile || latestRequest?.regMobNo || devic
 Mobile No 2: ${latestRequest?.regMobNo2 || device?.regMobNo2 || '—'}
 Aadhar No: ${latestRequest?.aadharNo || device?.aadharNo || '—'}
 Address: ${latestRequest?.address || device?.address || '—'}
-State: ${latestRequest?.userId?.state || device?.dealerId?.state || device?.state || '—'}
-Tracking ID: ${trackingIdInput || device?.trackingId || latestRequest?.trackingId || latestRenewal?.trackingId || '—'}
-Software: ${softwareInput || device?.software || latestRequest?.software || latestRenewal?.software || '—'}`;
+State: ${latestRequest?.userId?.state || device?.dealerId?.state || device?.state || '—'}`;
 
     navigator.clipboard.writeText(details)
       .then(() => {
@@ -888,17 +886,6 @@ Software: ${softwareInput || device?.software || latestRequest?.software || late
                       <div className="grid-cell-label">State</div>
                       <div className="grid-cell-value">{latestRequest?.userId?.state || device?.dealerId?.state || device?.state || '—'}</div>
                     </td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <div className="grid-cell-label">Tracking ID</div>
-                      <div className="grid-cell-value bold">{latestRequest?.trackingId || device?.trackingId || trackingIdInput || latestRenewal?.trackingId || '—'}</div>
-                    </td>
-                    <td>
-                      <div className="grid-cell-label">Software</div>
-                      <div className="grid-cell-value bold">{latestRequest?.software || device?.software || softwareInput || latestRenewal?.software || '—'}</div>
-                    </td>
-                    <td></td>
                   </tr>
                 </tbody>
               </table>
