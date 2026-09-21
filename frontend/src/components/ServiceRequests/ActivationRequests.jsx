@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { FaSyncAlt, FaPlus, FaTimes, FaSpinner, FaSearch, FaChevronDown, FaFileExcel } from 'react-icons/fa';
+import { FaSyncAlt, FaPlus, FaTimes, FaSpinner, FaSearch, FaChevronDown, FaFileExcel, FaUpload, FaDownload, FaCheckCircle, FaExclamationCircle } from 'react-icons/fa';
 import * as XLSX from 'xlsx-js-style';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
+import AIFormFiller from './AIFormFiller';
 import './ActivationRequests.css';
 
 const getRole = (user) => {
@@ -34,6 +35,16 @@ const ActivationRequests = () => {
   const [excelDownloading, setExcelDownloading] = useState(false);
   const [excelFromDate, setExcelFromDate] = useState('');
   const [excelToDate, setExcelToDate] = useState('');
+
+  // Bulk Upload State
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [bulkFile, setBulkFile] = useState(null);
+  const [bulkRows, setBulkRows] = useState([]);
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [bulkResult, setBulkResult] = useState(null);
+
+  // AI Form Filler State
+  const [aiFillerOpen, setAiFillerOpen] = useState(false);
 
   // Initial Form State
   const initialFormState = {
@@ -805,6 +816,213 @@ const ActivationRequests = () => {
     });
   };
 
+  const handleDownloadTemplate = () => {
+    const templateData = [
+      {
+        'IMEI': '861234567890123',
+        'Activation Type': 'NIC',
+        'Vehicle Condition': 'New',
+        'Vehicle Make': 'Tata Motors',
+        'Vehicle Model': 'Goods carrier',
+        'Registration Year': '2024',
+        'Vehicle Number': 'RJ14-GA-1234',
+        'RTO': 'RJ14',
+        'Engine Number': 'ENG987654',
+        'Chassis Number': 'MAT123456789',
+        'Customer Name': 'Rahul Sharma',
+        'Aadhar Number': '123456789012',
+        'Reg. Mobile No': '9876543210',
+        'Reg. Mobile No 2': '9876543211',
+        'Tracking ID': 'TRK1001',
+        'Software': 'CAR ONLINE',
+        'Customer Address': 'Plot 12, Vaishali Nagar, Jaipur',
+        'Plan': '1 Year',
+        'Remarks': 'Sample entry (Replace or delete this row)'
+      },
+      {
+        'IMEI': '861234567890124',
+        'Activation Type': 'NIC',
+        'Vehicle Condition': 'New',
+        'Vehicle Make': 'Mahindra',
+        'Vehicle Model': 'Cab',
+        'Registration Year': '2023',
+        'Vehicle Number': '',
+        'RTO': 'RJ14',
+        'Engine Number': '',
+        'Chassis Number': '',
+        'Customer Name': 'Amit Kumar',
+        'Aadhar Number': '',
+        'Reg. Mobile No': '9829012345',
+        'Reg. Mobile No 2': '',
+        'Tracking ID': '',
+        'Software': 'TRAQUELITE',
+        'Customer Address': 'C-Scheme, Jaipur',
+        'Plan': '1 Year',
+        'Remarks': ''
+      }
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    ws['!cols'] = [
+      { wch: 18 }, // IMEI
+      { wch: 16 }, // Activation Type
+      { wch: 16 }, // Vehicle Condition
+      { wch: 16 }, // Vehicle Make
+      { wch: 16 }, // Vehicle Model
+      { wch: 16 }, // Registration Year
+      { wch: 18 }, // Vehicle Number
+      { wch: 10 }, // RTO
+      { wch: 16 }, // Engine Number
+      { wch: 18 }, // Chassis Number
+      { wch: 20 }, // Customer Name
+      { wch: 16 }, // Aadhar Number
+      { wch: 16 }, // Reg. Mobile No
+      { wch: 16 }, // Reg. Mobile No 2
+      { wch: 15 }, // Tracking ID
+      { wch: 16 }, // Software
+      { wch: 30 }, // Customer Address
+      { wch: 12 }, // Plan
+      { wch: 30 }  // Remarks
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Activation_Template');
+    XLSX.writeFile(wb, 'Activation_Requests_Template.xlsx');
+  };
+
+  const handleBulkFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBulkFile(file);
+    setBulkResult(null);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const firstSheetName = wb.SheetNames[0];
+        const ws = wb.Sheets[firstSheetName];
+        const rawJson = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+        if (!rawJson || rawJson.length === 0) {
+          alert('Uploaded Excel sheet is empty.');
+          setBulkRows([]);
+          return;
+        }
+
+        const normalizedRows = rawJson.map((row, idx) => {
+          const findVal = (...keys) => {
+            for (const key of keys) {
+              const targetKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+              for (const [k, v] of Object.entries(row)) {
+                if (k.toLowerCase().replace(/[^a-z0-9]/g, '') === targetKey) {
+                  return String(v !== undefined && v !== null ? v : '').trim();
+                }
+              }
+            }
+            return '';
+          };
+
+          const imei = findVal('imei', 'imeino', 'imeinumber');
+          const activationMode = findVal('activationtype', 'activationmode', 'mode', 'type') || 'NIC';
+          const vehicleCondition = findVal('vehiclecondition', 'condition', 'status') || 'New';
+          const vehicleMake = findVal('vehiclemake', 'make', 'brand');
+          const vehicleModel = findVal('vehiclemodel', 'model');
+          const registrationYear = findVal('registrationyear', 'regyear', 'year');
+          const vehicleNo = findVal('vehiclenumber', 'vehicleno', 'vehicle', 'registrationno');
+          const rto = findVal('rto', 'rtocode', 'rtooffice');
+          const engineNo = findVal('enginenumber', 'engineno', 'engine');
+          const chassisNo = findVal('chassisnumber', 'chassisno', 'chassis', 'vin');
+          const customerName = findVal('customername', 'customer', 'name', 'clientname');
+          const aadharNo = findVal('aadharnumber', 'aadharno', 'aadhar', 'aadhaarno', 'aadhaar');
+          const regMobNo = findVal('regmobileno', 'regmobno', 'regmobilenumber', 'mobilenumber', 'mobile', 'mobileno', 'phone', 'contact');
+          const regMobNo2 = findVal('regmobileno2', 'regmobno2', 'regmobilenumber2', 'mobilenumber2', 'mobileno2', 'alternativecontact', 'altmobile', 'altphone');
+          const trackingId = findVal('trackingid', 'trackingno', 'trackerid');
+          const software = findVal('software', 'soft');
+          const address = findVal('customeraddress', 'address', 'custaddress');
+          const plan = findVal('plan', 'validity') || '1 Year';
+          const remarks = findVal('remarks', 'remark', 'note');
+
+          return {
+            rowNum: idx + 2,
+            imei,
+            activationMode,
+            vehicleCondition,
+            vehicleMake,
+            vehicleModel,
+            registrationYear,
+            vehicleNo,
+            rto,
+            engineNo,
+            chassisNo,
+            customerName,
+            aadharNo,
+            regMobNo,
+            regMobNo2,
+            trackingId,
+            software,
+            address,
+            plan,
+            remarks
+          };
+        }).filter(r => r.imei);
+
+        if (normalizedRows.length === 0) {
+          alert('No valid rows with IMEI found in the uploaded sheet. Please verify column header is "IMEI".');
+        }
+
+        setBulkRows(normalizedRows);
+      } catch (err) {
+        console.error('Error parsing Excel:', err);
+        alert('Failed to parse Excel file: ' + err.message);
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const handleBulkSubmit = async () => {
+    if (!bulkRows || bulkRows.length === 0) {
+      alert('Please upload an Excel sheet with valid IMEIs.');
+      return;
+    }
+
+    try {
+      setBulkProcessing(true);
+      const payload = {
+        requests: bulkRows.map(r => ({
+          imei: r.imei,
+          activationMode: r.activationMode || 'NIC',
+          vehicleCondition: r.vehicleCondition || 'New',
+          vehicleMake: r.vehicleMake || '',
+          vehicleModel: r.vehicleModel || '',
+          registrationYear: r.registrationYear || '',
+          vehicleNo: r.vehicleNo || '',
+          rto: r.rto || '',
+          engineNo: r.engineNo || '',
+          chassisNo: r.chassisNo || '',
+          customerName: r.customerName || '',
+          aadharNo: r.aadharNo || '',
+          regMobNo: r.regMobNo || '',
+          regMobNo2: r.regMobNo2 || '',
+          trackingId: r.trackingId || '',
+          software: r.software || '',
+          address: r.address || '',
+          plan: r.plan || '1 Year',
+          remarks: r.remarks || 'Bulk Excel Upload'
+        }))
+      };
+
+      const res = await api.post('/activation-requests/bulk-create', payload);
+      setBulkResult(res.data);
+      handleRefresh();
+    } catch (err) {
+      console.error('Error submitting bulk requests:', err);
+      alert(err.response?.data?.message || 'Error creating bulk activation requests.');
+    } finally {
+      setBulkProcessing(false);
+    }
+  };
+
   const filteredDevices = availableDevices.filter(device => {
     const searchLower = deviceSearch.toLowerCase();
     return (
@@ -1091,14 +1309,59 @@ const ActivationRequests = () => {
           <FaSyncAlt style={{ cursor: 'pointer' }} onClick={handleRefresh} />
           LATEST UPLOADED REQUESTS
         </span>
-        <button className="btn-raise" onClick={() => {
-          setFormData(initialFormState);
-          setIsEditing(false);
-          setEditRequestId(null);
-          setShowModal(true);
-        }}>
-          <FaPlus /> Raise Request
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button 
+            type="button" 
+            className="btn-raise" 
+            style={{ 
+              background: '#059669', 
+              borderColor: '#047857', 
+              color: '#ffffff',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+            onClick={() => {
+              setBulkModalOpen(true);
+              setBulkFile(null);
+              setBulkRows([]);
+              setBulkResult(null);
+            }}
+          >
+            <FaFileExcel /> Bulk Excel Upload
+          </button>
+          <button className="btn-raise" onClick={() => {
+            setFormData(initialFormState);
+            setIsEditing(false);
+            setEditRequestId(null);
+            setAiFillerOpen(false);
+            setShowModal(true);
+          }}>
+            <FaPlus /> Raise Request
+          </button>
+          <button
+            type="button"
+            className="btn-raise"
+            style={{
+              background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
+              borderColor: '#5b21b6',
+              color: '#fff',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+            onClick={() => {
+              setFormData(initialFormState);
+              setIsEditing(false);
+              setEditRequestId(null);
+              setAiFillerOpen(true);
+              setShowModal(true);
+            }}
+            title="AI Smart Form Filler — Sirf IMEI bolo, baaki AI bharega!"
+          >
+            🤖 AI Fill
+          </button>
+        </div>
       </div>
 
       {/* Raise Request Summary (Admin Only) */}
@@ -1544,18 +1807,396 @@ const ActivationRequests = () => {
         </div>
       )}
 
+      {/* ── Bulk Excel Upload Modal ── */}
+      {bulkModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-container" style={{ maxWidth: '850px', width: '95%', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div className="modal-header" style={{ background: 'linear-gradient(135deg, #065f46 0%, #059669 100%)', color: '#ffffff' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <FaFileExcel style={{ fontSize: '20px', color: '#6ee7b7' }} />
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#ffffff' }}>Bulk Activation Requests (Excel Upload)</h3>
+                  <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#a7f3d0' }}>Upload an Excel file to raise multiple activation requests in 1-Click</p>
+                </div>
+              </div>
+              <FaTimes 
+                className="modal-close-icon" 
+                style={{ color: '#ffffff', opacity: 0.9, cursor: 'pointer' }}
+                onClick={() => {
+                  if (bulkProcessing) return;
+                  setBulkModalOpen(false);
+                  setBulkFile(null);
+                  setBulkRows([]);
+                  setBulkResult(null);
+                }} 
+              />
+            </div>
+
+            <div style={{ padding: '20px' }}>
+              {/* Step 1: Download Template */}
+              <div style={{
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                padding: '14px 18px',
+                marginBottom: '18px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '12px'
+              }}>
+                <div>
+                  <strong style={{ fontSize: '13px', color: '#1e293b', display: 'block' }}>1. Download Excel Sample Format</strong>
+                  <span style={{ fontSize: '12px', color: '#64748b' }}>Fill your IMEIs and optional customer details in this template</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDownloadTemplate}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 16px',
+                    background: '#0284c7',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'background 0.2s'
+                  }}
+                >
+                  <FaDownload /> Download Sample Template (.xlsx)
+                </button>
+              </div>
+
+              {/* Step 2: Upload Excel */}
+              <div style={{ marginBottom: '18px' }}>
+                <strong style={{ fontSize: '13px', color: '#1e293b', display: 'block', marginBottom: '8px' }}>
+                  2. Select / Upload Excel File (.xlsx, .xls, .csv)
+                </strong>
+                <div style={{
+                  border: '2px dashed #cbd5e1',
+                  borderRadius: '8px',
+                  padding: '24px',
+                  textAlign: 'center',
+                  background: bulkFile ? '#ecfdf5' : '#ffffff',
+                  borderColor: bulkFile ? '#10b981' : '#cbd5e1',
+                  cursor: 'pointer',
+                  position: 'relative'
+                }}>
+                  <input
+                    type="file"
+                    accept=".xlsx, .xls, .csv"
+                    onChange={handleBulkFileChange}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      opacity: 0,
+                      cursor: 'pointer'
+                    }}
+                  />
+                  <FaUpload style={{ fontSize: '28px', color: bulkFile ? '#059669' : '#94a3b8', marginBottom: '8px' }} />
+                  {bulkFile ? (
+                    <div>
+                      <div style={{ fontWeight: '700', color: '#065f46', fontSize: '14px' }}>{bulkFile.name}</div>
+                      <div style={{ fontSize: '12px', color: '#059669', marginTop: '4px' }}>
+                        ✓ {bulkRows.length} valid requests detected (Click to change file)
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={{ fontWeight: '600', color: '#334155', fontSize: '13px' }}>Click to choose an Excel file or drag and drop</div>
+                      <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>Supports .xlsx, .xls, .csv</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Preview Table if rows parsed */}
+              {bulkRows.length > 0 && !bulkResult && (
+                <div style={{ marginBottom: '18px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <strong style={{ fontSize: '13px', color: '#1e293b' }}>
+                      📋 Preview Data ({bulkRows.length} Requests)
+                    </strong>
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>Device inventory details will be auto-linked by IMEI</span>
+                  </div>
+                  <div style={{ maxHeight: '240px', overflowY: 'auto', overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11.5px', textAlign: 'left', minWidth: '1100px' }}>
+                      <thead style={{ background: '#f1f5f9', position: 'sticky', top: 0, color: '#475569', fontWeight: '700', zIndex: 1 }}>
+                        <tr>
+                          <th style={{ padding: '8px 10px', borderBottom: '1px solid #cbd5e1' }}>#</th>
+                          <th style={{ padding: '8px 10px', borderBottom: '1px solid #cbd5e1' }}>IMEI</th>
+                          <th style={{ padding: '8px 10px', borderBottom: '1px solid #cbd5e1' }}>Type / Condition</th>
+                          <th style={{ padding: '8px 10px', borderBottom: '1px solid #cbd5e1' }}>Vehicle No / RTO</th>
+                          <th style={{ padding: '8px 10px', borderBottom: '1px solid #cbd5e1' }}>Make / Model</th>
+                          <th style={{ padding: '8px 10px', borderBottom: '1px solid #cbd5e1' }}>Reg Year</th>
+                          <th style={{ padding: '8px 10px', borderBottom: '1px solid #cbd5e1' }}>Chassis / Engine</th>
+                          <th style={{ padding: '8px 10px', borderBottom: '1px solid #cbd5e1' }}>Customer</th>
+                          <th style={{ padding: '8px 10px', borderBottom: '1px solid #cbd5e1' }}>Mobile</th>
+                          <th style={{ padding: '8px 10px', borderBottom: '1px solid #cbd5e1' }}>Aadhar</th>
+                          <th style={{ padding: '8px 10px', borderBottom: '1px solid #cbd5e1' }}>Tracking / Software</th>
+                          <th style={{ padding: '8px 10px', borderBottom: '1px solid #cbd5e1' }}>Address</th>
+                          <th style={{ padding: '8px 10px', borderBottom: '1px solid #cbd5e1' }}>Plan</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bulkRows.slice(0, 50).map((r, idx) => (
+                          <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#fff' : '#fafafa' }}>
+                            <td style={{ padding: '6px 10px', color: '#64748b' }}>{r.rowNum}</td>
+                            <td style={{ padding: '6px 10px', fontWeight: '700', color: '#0f172a' }}>{r.imei}</td>
+                            <td style={{ padding: '6px 10px', color: '#334155' }}>
+                              <span style={{ fontWeight: '600', color: '#0369a1' }}>{r.activationMode || 'NIC'}</span>
+                              <span style={{ color: '#94a3b8', margin: '0 4px' }}>/</span>
+                              <span style={{ color: '#059669', fontSize: '11px' }}>{r.vehicleCondition || 'New'}</span>
+                            </td>
+                            <td style={{ padding: '6px 10px', color: '#0f172a', fontWeight: '600' }}>
+                              {r.vehicleNo || '—'} {r.rto ? <span style={{ color: '#64748b', fontSize: '10.5px' }}>({r.rto})</span> : ''}
+                            </td>
+                            <td style={{ padding: '6px 10px', color: '#334155' }}>
+                              {r.vehicleMake ? `${r.vehicleMake} ${r.vehicleModel || ''}`.trim() : '—'}
+                            </td>
+                            <td style={{ padding: '6px 10px', color: '#64748b' }}>{r.registrationYear || '—'}</td>
+                            <td style={{ padding: '6px 10px', color: '#475569', fontSize: '11px' }}>
+                              <div>C: {r.chassisNo || '—'}</div>
+                              <div>E: {r.engineNo || '—'}</div>
+                            </td>
+                            <td style={{ padding: '6px 10px', fontWeight: '600', color: '#1e293b' }}>{r.customerName || '—'}</td>
+                            <td style={{ padding: '6px 10px', color: '#334155' }}>
+                              <div>{r.regMobNo || '—'}</div>
+                              {r.regMobNo2 && <div style={{ fontSize: '10.5px', color: '#94a3b8' }}>Alt: {r.regMobNo2}</div>}
+                            </td>
+                            <td style={{ padding: '6px 10px', color: '#64748b', fontSize: '11px' }}>{r.aadharNo || '—'}</td>
+                            <td style={{ padding: '6px 10px', color: '#475569', fontSize: '11px' }}>
+                              <div>ID: {r.trackingId || '—'}</div>
+                              <div>SW: {r.software || '—'}</div>
+                            </td>
+                            <td style={{ padding: '6px 10px', color: '#475569', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.address}>
+                              {r.address || '—'}
+                            </td>
+                            <td style={{ padding: '6px 10px', color: '#0369a1', fontWeight: '600' }}>{r.plan}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {bulkRows.length > 50 && (
+                    <div style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'right', marginTop: '4px' }}>
+                      Showing first 50 of {bulkRows.length} rows...
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Processing Spinner */}
+              {bulkProcessing && (
+                <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                  <FaSpinner style={{ fontSize: '32px', color: '#059669', animation: 'spin 1s linear infinite', marginBottom: '8px' }} />
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: '#065f46' }}>
+                    Raising {bulkRows.length} Activation Requests...
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                    Please wait while the system validates devices and generates requests.
+                  </div>
+                </div>
+              )}
+
+              {/* Result Summary */}
+              {bulkResult && (
+                <div style={{
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  padding: '16px',
+                  marginBottom: '16px'
+                }}>
+                  <div style={{ display: 'flex', gap: '16px', marginBottom: '14px', flexWrap: 'wrap' }}>
+                    <div style={{
+                      flex: 1,
+                      background: '#ecfdf5',
+                      border: '1px solid #a7f3d0',
+                      borderRadius: '6px',
+                      padding: '10px 14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px'
+                    }}>
+                      <FaCheckCircle style={{ color: '#059669', fontSize: '20px' }} />
+                      <div>
+                        <div style={{ fontSize: '11px', color: '#065f46', fontWeight: '600' }}>SUCCESSFUL</div>
+                        <div style={{ fontSize: '18px', fontWeight: '800', color: '#047857' }}>{bulkResult.successCount}</div>
+                      </div>
+                    </div>
+                    <div style={{
+                      flex: 1,
+                      background: bulkResult.failedCount > 0 ? '#fef2f2' : '#f8fafc',
+                      border: `1px solid ${bulkResult.failedCount > 0 ? '#fca5a5' : '#e2e8f0'}`,
+                      borderRadius: '6px',
+                      padding: '10px 14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px'
+                    }}>
+                      <FaExclamationCircle style={{ color: bulkResult.failedCount > 0 ? '#dc2626' : '#94a3b8', fontSize: '20px' }} />
+                      <div>
+                        <div style={{ fontSize: '11px', color: bulkResult.failedCount > 0 ? '#991b1b' : '#64748b', fontWeight: '600' }}>FAILED / SKIPPED</div>
+                        <div style={{ fontSize: '18px', fontWeight: '800', color: bulkResult.failedCount > 0 ? '#b91c1c' : '#64748b' }}>{bulkResult.failedCount}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Detailed Results List */}
+                  <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                      <thead style={{ background: '#f1f5f9', position: 'sticky', top: 0 }}>
+                        <tr>
+                          <th style={{ padding: '6px 10px', textAlign: 'left' }}>#</th>
+                          <th style={{ padding: '6px 10px', textAlign: 'left' }}>IMEI</th>
+                          <th style={{ padding: '6px 10px', textAlign: 'left' }}>Status</th>
+                          <th style={{ padding: '6px 10px', textAlign: 'left' }}>Detail</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bulkResult.results.map((r, idx) => (
+                          <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                            <td style={{ padding: '5px 10px' }}>{r.row}</td>
+                            <td style={{ padding: '5px 10px', fontWeight: '600' }}>{r.imei}</td>
+                            <td style={{ padding: '5px 10px' }}>
+                              <span style={{
+                                padding: '2px 8px',
+                                borderRadius: '12px',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                background: r.status === 'Success' ? '#dcfce7' : '#fee2e2',
+                                color: r.status === 'Success' ? '#166534' : '#991b1b'
+                              }}>
+                                {r.status}
+                              </span>
+                            </td>
+                            <td style={{ padding: '5px 10px', color: r.status === 'Success' ? '#15803d' : '#b91c1c', fontSize: '11px' }}>
+                              {r.status === 'Success' ? `Request ID: ${r.requestId}` : r.reason}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons Footer */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
+                <button
+                  type="button"
+                  disabled={bulkProcessing}
+                  onClick={() => {
+                    setBulkModalOpen(false);
+                    setBulkFile(null);
+                    setBulkRows([]);
+                    setBulkResult(null);
+                  }}
+                  style={{
+                    padding: '8px 18px',
+                    borderRadius: '6px',
+                    border: '1px solid #cbd5e1',
+                    background: '#ffffff',
+                    color: '#475569',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    cursor: bulkProcessing ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {bulkResult ? 'Close' : 'Cancel'}
+                </button>
+
+                {!bulkResult && (
+                  <button
+                    type="button"
+                    disabled={bulkProcessing || bulkRows.length === 0}
+                    onClick={handleBulkSubmit}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '8px 22px',
+                      borderRadius: '6px',
+                      border: 'none',
+                      background: bulkRows.length > 0 && !bulkProcessing ? '#059669' : '#94a3b8',
+                      color: '#ffffff',
+                      fontSize: '13px',
+                      fontWeight: '700',
+                      cursor: bulkRows.length > 0 && !bulkProcessing ? 'pointer' : 'not-allowed',
+                      boxShadow: bulkRows.length > 0 ? '0 2px 6px rgba(5,150,105,0.4)' : 'none'
+                    }}
+                  >
+                    {bulkProcessing ? (
+                      <><FaSpinner style={{ animation: 'spin 1s linear infinite' }} /> Processing...</>
+                    ) : (
+                      <>⚡ Submit {bulkRows.length > 0 ? `${bulkRows.length} Requests` : 'Requests'}</>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showModal && (
         <div className="modal-overlay">
           <div className="modal-container">
             <div className="modal-header">
-              <h3>{isEditing ? 'Edit Activation Request' : 'Raise Activation Request'}</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <h3>{isEditing ? 'Edit Activation Request' : 'Raise Activation Request'}</h3>
+                {!isEditing && (
+                  <button
+                    type="button"
+                    onClick={() => setAiFillerOpen(prev => !prev)}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: aiFillerOpen
+                        ? 'linear-gradient(135deg, #7c3aed, #6d28d9)'
+                        : 'rgba(124,58,237,0.15)',
+                      color: aiFillerOpen ? '#fff' : '#7c3aed',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                    }}
+                    title="AI Smart Form Filler toggle"
+                  >
+                    🤖 {aiFillerOpen ? 'AI ON' : 'AI Fill'}
+                  </button>
+                )}
+              </div>
               <FaTimes className="modal-close-icon" onClick={() => {
                 setShowModal(false);
                 setIsEditing(false);
                 setEditRequestId(null);
                 setFormData(initialFormState);
+                setAiFillerOpen(false);
               }} />
             </div>
+
+            {/* ── AI Smart Form Filler Panel ── */}
+            {aiFillerOpen && !isEditing && (
+              <div style={{ padding: '12px 16px 0' }}>
+                <AIFormFiller
+                  formData={formData}
+                  setFormData={setFormData}
+                  onSelectDevice={handleSelectDevice}
+                  onClose={() => setAiFillerOpen(false)}
+                />
+              </div>
+            )}
 
             <form onSubmit={handleSubmitRequest} className="activation-form">
               <div className="form-columns-container">

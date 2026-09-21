@@ -8,6 +8,9 @@ const { securityHeaders, nosqlSanitizer, authRateLimiter } = require('./middlewa
 
 // Load environment variables
 dotenv.config();
+if (fs.existsSync(path.join(__dirname, '.env.local'))) {
+  dotenv.config({ path: path.join(__dirname, '.env.local'), override: true });
+}
 
 // Connect to MongoDB & ensure default admin exists
 connectDB().then(async () => {

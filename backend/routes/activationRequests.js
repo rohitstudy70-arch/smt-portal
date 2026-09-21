@@ -512,6 +512,349 @@ router.get('/today-summary', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) 
   }
 });
 
+// @route   POST /api/activation-requests/ai-extract-text
+// @desc    Extract form fields from user text/speech using Groq LLM
+// @access  Protected
+router.post('/ai-extract-text', requireRoles(...operationsRoles), async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text || !text.trim()) {
+      return res.status(400).json({ message: 'Text input is required' });
+    }
+    const groqKey = process.env.GROQ_API_KEY;
+    if (!groqKey) {
+      return res.status(500).json({ message: 'Groq API key not configured on server' });
+    }
+
+    const systemPrompt = `You are a smart data extraction assistant for a vehicle tracking device activation form.
+The user will speak or type information in Hindi, English, or Hinglish (mix of both).
+Extract ALL available field values from their input and return ONLY a valid JSON object with these exact keys:
+{
+  "imei": "",
+  "vehicleNo": "",
+  "vehicleMake": "",
+  "vehicleModel": "",
+  "registrationYear": "",
+  "chassisNo": "",
+  "engineNo": "",
+  "customerName": "",
+  "regMobNo": "",
+  "aadharNo": "",
+  "address": "",
+  "rto": ""
+}
+Rules:
+- vehicleNo: uppercase, no spaces (e.g. MH12AB1234)
+- aadharNo: digits only, 12 digits
+- regMobNo: digits only, 10 digits
+- registrationYear: 4-digit year only
+- chassisNo, engineNo: uppercase, no spaces
+- imei: digits only, 15 digits
+- If a field is not mentioned, leave it as empty string ""
+- Return ONLY the JSON. No explanation, no markdown, no extra text.`;
+
+    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${groqKey}`,
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        temperature: 0,
+        max_tokens: 512,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: text },
+        ],
+      }),
+    });
+
+    if (!groqRes.ok) {
+      const err = await groqRes.json().catch(() => ({}));
+      return res.status(500).json({ message: err?.error?.message || 'Groq API error' });
+    }
+
+    const data = await groqRes.json();
+    const content = data.choices[0]?.message?.content?.trim() || '{}';
+    const clean = content.replace(/```json?/gi, '').replace(/```/g, '').trim();
+    const extracted = JSON.parse(clean);
+    res.json({ data: extracted });
+  } catch (error) {
+    console.error('AI extract text error:', error.message);
+    res.status(500).json({ message: error.message || 'Server error' });
+  }
+});
+
+// @route   POST /api/activation-requests/ai-extract-image
+// @desc    Extract form fields from image (RC book, document) using Groq Vision
+// @access  Protected
+router.post('/ai-extract-image', requireRoles(...operationsRoles), async (req, res) => {
+  try {
+    const { base64Image, mimeType } = req.body;
+    if (!base64Image) {
+      return res.status(400).json({ message: 'base64Image is required' });
+    }
+    const groqKey = process.env.GROQ_API_KEY;
+    if (!groqKey) {
+      return res.status(500).json({ message: 'Groq API key not configured on server' });
+    }
+
+    const visionPrompt = `You are an expert OCR system for Indian vehicle registration documents, RC books, fitness certificates, insurance papers, and activation forms.
+
+Extract ALL visible information and return ONLY a valid JSON object with these exact keys:
+{
+  "imei": "",
+  "vehicleNo": "",
+  "vehicleMake": "",
+  "vehicleModel": "",
+  "registrationYear": "",
+  "chassisNo": "",
+  "engineNo": "",
+  "customerName": "",
+  "regMobNo": "",
+  "aadharNo": "",
+  "address": "",
+  "rto": "",
+  "iccid": "",
+  "serialNo": ""
+}
+
+Rules:
+- vehicleNo: uppercase, no spaces (e.g. MH12AB1234). Look for "Reg No", "Registration Number", "Vehicle No"
+- chassisNo: Look for "Chassis No", "VIN", "CIN" — uppercase no spaces
+- engineNo: Look for "Engine No" — uppercase no spaces
+- registrationYear: 4-digit year from registration date or manufacturing year
+- customerName: Look for "Owner Name", "Name of Owner", "Registered Owner"
+- address: Full address of owner
+- aadharNo: 12 digit number
+- regMobNo: 10 digit mobile number
+- imei: 15 digit number labeled IMEI
+- iccid: 19-20 digit number labeled ICCID or SIM
+- serialNo: Device serial number
+- rto: RTO office name or code
+- If a field is not visible or not present, leave it as ""
+- Return ONLY the JSON. No explanation, no markdown, no extra text.`;
+
+    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${groqKey}`,
+      },
+      body: JSON.stringify({
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        temperature: 0,
+        max_tokens: 1024,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image_url',
+                image_url: { url: `data:${mimeType || 'image/jpeg'};base64,${base64Image}` },
+              },
+              {
+                type: 'text',
+                text: visionPrompt,
+              },
+            ],
+          },
+        ],
+      }),
+    });
+
+    if (!groqRes.ok) {
+      const err = await groqRes.json().catch(() => ({}));
+      return res.status(500).json({ message: err?.error?.message || 'Groq Vision API error' });
+    }
+
+    const data = await groqRes.json();
+    const content = data.choices[0]?.message?.content?.trim() || '{}';
+    const clean = content.replace(/```json?/gi, '').replace(/```/g, '').trim();
+    const extracted = JSON.parse(clean);
+    res.json({ data: extracted });
+  } catch (error) {
+    console.error('AI extract image error:', error.message);
+    res.status(500).json({ message: error.message || 'Server error' });
+  }
+});
+
+// @route   POST /api/activation-requests/bulk-create
+// @desc    Bulk create activation requests from Excel upload
+// @access  Protected
+router.post('/bulk-create', requireRoles(...operationsRoles), async (req, res) => {
+  try {
+    const { requests } = req.body;
+    if (!Array.isArray(requests) || requests.length === 0) {
+      return res.status(400).json({ message: 'No request items provided.' });
+    }
+
+    if (requests.length > 500) {
+      return res.status(400).json({ message: 'Maximum 500 requests can be uploaded at once.' });
+    }
+
+    const userRole = (req.user.role || '').toUpperCase();
+    const isSuperUser = userRole === 'PARTNER' || userRole === 'ADMIN' || req.user.username === 'bulbala123';
+    const userIdStr = req.user._id.toString();
+
+    let currentMaxNum = 10000 + Math.floor(Math.random() * 1000);
+    const lastRequest = await ActivationRequest.findOne().sort({ requestId: -1 }).select('requestId');
+    if (lastRequest && lastRequest.requestId) {
+      const numPart = parseInt(lastRequest.requestId.replace('REQUEST', ''), 10);
+      if (!isNaN(numPart)) {
+        currentMaxNum = numPart;
+      }
+    }
+
+    const results = [];
+    let successCount = 0;
+    let failedCount = 0;
+
+    for (let i = 0; i < requests.length; i++) {
+      const item = requests[i];
+      const rawImei = String(item.imei || '').trim();
+
+      if (!rawImei) {
+        results.push({ row: i + 1, imei: rawImei, status: 'Failed', reason: 'IMEI is required' });
+        failedCount++;
+        continue;
+      }
+
+      const device = await Device.findOne({ imei: rawImei }).populate('dealerId subDealerId');
+      if (!device) {
+        results.push({ row: i + 1, imei: rawImei, status: 'Failed', reason: 'Device not found in inventory' });
+        failedCount++;
+        continue;
+      }
+
+      // Check permission/scope
+      if (!isSuperUser) {
+        const deviceDealerStr = device.dealerId?._id ? device.dealerId._id.toString() : (device.dealerId ? device.dealerId.toString() : '');
+        const deviceSubDealerStr = device.subDealerId?._id ? device.subDealerId._id.toString() : (device.subDealerId ? device.subDealerId.toString() : '');
+        const deviceCreatedByStr = device.createdBy ? device.createdBy.toString() : '';
+
+        const isAssignedToUser = (deviceDealerStr === userIdStr) ||
+                                 (deviceSubDealerStr === userIdStr) ||
+                                 (deviceCreatedByStr === userIdStr) ||
+                                 (req.hierarchyScope && req.hierarchyScope.userIds && req.hierarchyScope.userIds.some(id => id.toString() === deviceDealerStr || id.toString() === deviceSubDealerStr));
+
+        if (!isAssignedToUser) {
+          results.push({ row: i + 1, imei: rawImei, status: 'Failed', reason: 'Device not assigned to your account' });
+          failedCount++;
+          continue;
+        }
+      }
+
+      const requestType = item.requestType || 'Commercial Plan';
+
+      // Check duplicate
+      if (requestType === 'Commercial Plan') {
+        const existingRequest = await ActivationRequest.findOne({
+          imei: rawImei,
+          requestType: 'Commercial Plan',
+          status: { $ne: 'Rejected' }
+        });
+        if (existingRequest) {
+          results.push({ row: i + 1, imei: rawImei, status: 'Failed', reason: `Already exists (Status: ${existingRequest.status})` });
+          failedCount++;
+          continue;
+        }
+      }
+
+      const targetUserId = device.subDealerId?._id || device.dealerId?._id || device.subDealerId || device.dealerId || req.user._id;
+      const targetUser = await User.findById(targetUserId);
+
+      const reqAmount = Number(item.amount !== undefined && item.amount !== '' ? item.amount : (device.billAmount || 0));
+      if (targetUser && reqAmount > 0) {
+        targetUser.availableBalance = (targetUser.availableBalance || 0) - reqAmount;
+        await targetUser.save();
+      }
+
+      // Dealer Details Formatting
+      let dName = item.dealerName || device.dealerName || '';
+      let dealerAddressStr = item.dealerAddress || '';
+      const dealerObj = device.dealerId;
+      if (dealerObj && typeof dealerObj === 'object') {
+        dName = dealerObj.displayName || dealerObj.companyName || dealerObj.username || dName;
+        if (!dealerAddressStr) {
+          const parts = [dealerObj.address, dealerObj.city, dealerObj.state, dealerObj.pincode].filter(Boolean);
+          dealerAddressStr = parts.join(', ');
+        }
+      }
+
+      currentMaxNum++;
+      const requestId = `REQUEST${currentMaxNum}`;
+
+      await ActivationRequest.create({
+        requestId,
+        userId: targetUserId,
+        dealerId: device.dealerId?._id || device.dealerId || null,
+        subDealerId: device.subDealerId?._id || device.subDealerId || null,
+        createdBy: req.user._id,
+        dateTime: new Date(),
+        isSubDealer: !!(device.subDealerId || device.subDealerName),
+        subDealerName: item.subDealerName || device.subDealerName || device.subDealerId?.displayName || device.subDealerId?.companyName || device.subDealerId?.username || '',
+        quantity: 1,
+        requestType,
+        plan: item.plan || device.validity || '1 Year',
+        piNo: item.piNo || '',
+        amount: reqAmount,
+        remarks: item.remarks || 'Bulk Excel Upload',
+        status: 'Processing',
+        dealerName: dName,
+        dealerAddress: dealerAddressStr,
+        imei: rawImei,
+        iccid: device.iccid || item.iccid || '',
+        serialNo: device.serialNo || item.serialNo || '',
+        msisdn1: device.msisdn1 || item.msisdn1 || '',
+        msisdn2: device.msisdn2 || item.msisdn2 || '',
+        validity: item.validity || device.validity || '1 Year',
+        expiryDate: device.expiryDate || null,
+        itrNo: item.itrNo || device.itrNo || '',
+        vendor: device.vendor || item.vendor || '',
+        installationDate: item.installationDate ? new Date(item.installationDate) : new Date(),
+        activationMode: item.activationMode || item.activationType || 'NIC',
+        vehicleCondition: item.vehicleCondition || 'New',
+        vehicleMake: item.vehicleMake || '',
+        vehicleModel: item.vehicleModel || '',
+        registrationYear: item.registrationYear || '',
+        vehicleNo: item.vehicleNo ? String(item.vehicleNo).trim().toUpperCase() : '',
+        rto: item.rto ? String(item.rto).trim().toUpperCase() : '',
+        engineNo: item.engineNo ? String(item.engineNo).trim() : '',
+        chassisNo: item.chassisNo ? String(item.chassisNo).trim().toUpperCase() : '',
+        regMobNo: item.regMobNo || item.mobileNo || '',
+        regMobNo2: item.regMobNo2 || item.alternativeContact || '',
+        customerName: item.customerName || '',
+        aadharNo: item.aadharNo ? String(item.aadharNo).trim() : '',
+        address: item.address || item.customerAddress || '',
+        trackingId: item.trackingId || device.trackingId || '',
+        software: item.software || device.software || '',
+      });
+
+      if (item.trackingId || item.software) {
+        await Device.updateOne(
+          { imei: rawImei },
+          { $set: { trackingId: item.trackingId || device.trackingId || '', software: item.software || device.software || '' } }
+        ).catch(err => console.error('Error syncing tracking info to Device:', err));
+      }
+
+      results.push({ row: i + 1, imei: rawImei, requestId, status: 'Success' });
+      successCount++;
+    }
+
+    res.json({
+      message: `Bulk processing completed. ${successCount} succeeded, ${failedCount} failed.`,
+      successCount,
+      failedCount,
+      results
+    });
+  } catch (error) {
+    console.error('Bulk activation requests error:', error.message);
+    res.status(500).json({ message: 'Server error: ' + error.message });
+  }
+});
+
 // @route   POST /api/activation-requests
 // @desc    Create a new activation request
 // @access  Protected
