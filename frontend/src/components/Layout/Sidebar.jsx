@@ -52,19 +52,19 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   );
 
   const getInitials = (name) => {
-    if (!name) return 'CDB';
+    if (!name) return 'AE';
     const cleanName = name.replace(/[^a-zA-Z0-9\s]/g, '').trim();
     const parts = cleanName.split(/\s+/).filter(Boolean);
-    if (parts.length === 0) return 'CDB';
-    if (parts.length === 1) return parts[0].substring(0, 3).toUpperCase();
+    if (parts.length === 0) return 'AE';
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
     return (parts[0][0] + parts[1][0]).toUpperCase();
   };
 
   const brandName = role === 'ADMIN'
-    ? 'CDB Portal V2'
-    : (user?.companyName || user?.displayName || user?.username || 'CDB Portal V2');
+    ? 'Arshi Enterprises'
+    : (user?.companyName || user?.displayName || user?.username || 'Arshi Enterprises');
 
-  const brandLogoText = role === 'ADMIN' ? 'CDB' : getInitials(brandName);
+  const brandLogoText = role === 'ADMIN' ? 'AE' : getInitials(brandName);
 
   return (
     <div className={`sidebar ${isOpen ? 'open' : ''}`}>
@@ -74,7 +74,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         </div>
         <div className="brand-title-group">
           <h2>{brandName}</h2>
-          <span>CDB Device Portal V2</span>
+          <span>Customer Device Portal</span>
         </div>
         <button className="sidebar-close-btn" onClick={() => setIsOpen(false)} aria-label="Close sidebar">
           <FaTimes />

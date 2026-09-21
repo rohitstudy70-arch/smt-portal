@@ -1,9 +1,14 @@
 import axios from 'axios';
 
-// Get API URL from environment variable or use production Render default
-let API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.MODE === 'production' || window.location.hostname !== 'localhost' ? 'https://cdb-portal-v2.onrender.com/api' : 'http://localhost:5000/api');
+// Get API URL from environment variable or default to Live VPS / Localhost
+let API_BASE_URL = import.meta.env.VITE_API_URL;
 
-// Safety: ensure URL ends with /api (in case env var is set without it)
+if (!API_BASE_URL) {
+  const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  API_BASE_URL = isLocal ? 'http://localhost:5000/api' : 'https://cdbportal.cloud/api';
+}
+
+// Safety: ensure URL ends with /api
 if (!API_BASE_URL.endsWith('/api')) {
   API_BASE_URL = API_BASE_URL.replace(/\/+$/, '') + '/api';
 }
