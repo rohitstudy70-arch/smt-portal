@@ -7,11 +7,18 @@ const mongoose = require('mongoose');
 const { protect } = require('../middleware/auth');
 const { PORTAL_ROLES, requireRoles } = require('../middleware/hierarchy');
 
-// Ensure backup storage directory exists
-const backupDir = path.join(__dirname, '../storage/backups');
-if (!fs.existsSync(backupDir)) {
-  fs.mkdirSync(backupDir, { recursive: true });
-}
+// Helper: Ensure backup storage directory exists safely
+const getBackupDir = () => {
+  const dir = path.join(__dirname, '../storage/backups');
+  try {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  } catch (err) {
+    console.error('Error creating backup storage directory:', err.message);
+  }
+  return dir;
+};
 
 // Import models directly to prevent MissingSchemaError
 const User = require('../models/User');
@@ -42,6 +49,7 @@ const getCollectionsMap = () => ({
 // Helper: Create a Gzip Compressed Backup
 const performBackup = async (label = 'monthly') => {
   try {
+    const backupDir = getBackupDir();
     const collectionsMap = getCollectionsMap();
     const backupData = {
       metadata: {
@@ -94,6 +102,7 @@ const performBackup = async (label = 'monthly') => {
 // Scheduler: Run monthly automatic backup check
 const checkAndRunMonthlyBackup = async () => {
   try {
+    const backupDir = getBackupDir();
     const files = fs.readdirSync(backupDir);
     const now = new Date();
     const currentMonthPrefix = `smt_backup_monthly_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -123,7 +132,8 @@ router.post('/create', protect, requireRoles(PORTAL_ROLES.ADMIN), async (req, re
       backup: result,
     });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to create backup', error: error.message });
+    console.error('Create backup API error:', error);
+    res.status(500).json({ message: `Backup creation failed: ${error.message}` });
   }
 });
 
@@ -132,6 +142,7 @@ router.post('/create', protect, requireRoles(PORTAL_ROLES.ADMIN), async (req, re
 // @access  Private (Admin)
 router.get('/', protect, requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
   try {
+    const backupDir = getBackupDir();
     if (!fs.existsSync(backupDir)) {
       return res.json([]);
     }
@@ -151,7 +162,8 @@ router.get('/', protect, requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
 
     res.json(list);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to list backups', error: error.message });
+    console.error('List backups API error:', error);
+    res.status(500).json({ message: `Failed to list backups: ${error.message}` });
   }
 });
 
@@ -160,6 +172,7 @@ router.get('/', protect, requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
 // @access  Private (Admin)
 router.get('/download/:filename', protect, requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
   try {
+    const backupDir = getBackupDir();
     const filename = path.basename(req.params.filename);
     const filepath = path.join(backupDir, filename);
 
@@ -171,7 +184,8 @@ router.get('/download/:filename', protect, requireRoles(PORTAL_ROLES.ADMIN), asy
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     fs.createReadStream(filepath).pipe(res);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to download backup', error: error.message });
+    console.error('Download backup API error:', error);
+    res.status(500).json({ message: `Failed to download backup: ${error.message}` });
   }
 });
 
