@@ -25,10 +25,7 @@ services:
         - VITE_API_URL=/api
     container_name: cdb_frontend
     restart: always
-    ports:
-      - "8080:80"
-    depends_on:
-      - backend
+    network_mode: host
 
 volumes:
   backend_uploads:
