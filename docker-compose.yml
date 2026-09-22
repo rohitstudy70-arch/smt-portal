@@ -7,13 +7,10 @@ services:
       dockerfile: Dockerfile
     container_name: cdb_backend
     restart: always
-    ports:
-      - "5001:5000"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    network_mode: host
     environment:
-      - PORT=5000
-      - MONGO_URI=${MONGO_URI:-mongodb://host.docker.internal:27017/smt_portal}
+      - PORT=5001
+      - MONGO_URI=${MONGO_URI:-mongodb://127.0.0.1:27017/smt_portal}
       - JWT_SECRET=${JWT_SECRET:-cdb_portal_secret_key_2024}
       - FRONTEND_URL=${FRONTEND_URL:-http://srv1775038.hstgr.cloud}
     volumes:
