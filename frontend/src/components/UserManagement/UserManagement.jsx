@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaUserPlus, FaUser, FaList, FaEdit, FaCheck, FaTimes, FaSearch, FaTrash } from 'react-icons/fa';
+import { FaUserPlus, FaUser, FaList, FaEdit, FaCheck, FaTimes, FaSearch, FaTrash, FaDatabase, FaDownload, FaRedo } from 'react-icons/fa';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import './UserManagement.css';
@@ -28,6 +28,11 @@ const UserManagement = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   
+  // Database Backup States
+  const [backups, setBackups] = useState([]);
+  const [backupsLoading, setBackupsLoading] = useState(false);
+  const [creatingBackup, setCreatingBackup] = useState(false);
+
   // Form State
   const [userType, setUserType] = useState(allowedUserTypes[0] || 'Sub Dealer');
   const [displayName, setDisplayName] = useState('');
@@ -54,6 +59,75 @@ const UserManagement = () => {
     } catch (err) {
       console.error(err);
       setError('Failed to fetch users list. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  const fetchBackups = async () => {
+    if (role !== 'ADMIN') return;
+    try {
+      setBackupsLoading(true);
+      const res = await api.get('/backups');
+      setBackups(res.data || []);
+    } catch (err) {
+      console.error('Fetch backups error:', err);
+    } finally {
+      setBackupsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSubUsers();
+    if (role === 'ADMIN') {
+      fetchBackups();
+    }
+  }, [role]);
+
+  const handleCreateBackup = async () => {
+    try {
+      setCreatingBackup(true);
+      setError('');
+      const res = await api.post('/backups/create');
+      setSuccess(res.data.message || 'Backup created successfully!');
+      fetchBackups();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to create backup.');
+    } finally {
+      setCreatingBackup(false);
+    }
+  };
+
+  const handleDownloadBackup = async (filename) => {
+    try {
+      const res = await api.get(`/backups/download/${filename}`, { responseType: 'blob' });
+      const blob = new Blob([res.data], { type: 'application/gzip' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError('Failed to download backup file.');
+    }
+  };
+
+  const handleRestoreBackup = async (filename) => {
+    if (!window.confirm(`⚠️ CAUTION: Restoring database from backup "${filename}" will overwrite current data. Do you want to proceed?`)) {
+      return;
+    }
+    try {
+      setLoading(true);
+      setError('');
+      const res = await api.post(`/backups/restore/${filename}`);
+      setSuccess(res.data.message || 'Database restored successfully!');
+      fetchSubUsers();
+      fetchBackups();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to restore database.');
+    } finally {
       setLoading(false);
     }
   };
@@ -439,6 +513,79 @@ const UserManagement = () => {
               </div>
             </div>
           </div>
+
+          {role === 'ADMIN' && (
+            <div className="card shadow-sm mt-4" style={{ marginTop: '24px' }}>
+              <div className="card-header bg-dark text-white d-flex justify-content-between align-items-center" style={{ backgroundColor: '#1e293b', color: '#fff', padding: '14px 20px', borderRadius: '8px 8px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h5 className="mb-0 d-flex align-items-center gap-2" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '16px', fontWeight: 600 }}>
+                  <FaDatabase style={{ color: '#38bdf8' }} /> Automated Monthly Database Backups & 1-Click Restore
+                </h5>
+                <button
+                  className="btn btn-primary btn-sm d-flex align-items-center gap-1"
+                  onClick={handleCreateBackup}
+                  disabled={creatingBackup}
+                  style={{ backgroundColor: '#0284c7', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <FaDatabase /> {creatingBackup ? 'Creating Backup...' : 'Create Backup Now'}
+                </button>
+              </div>
+              <div className="card-body" style={{ padding: '20px', backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '0 0 8px 8px' }}>
+                <p className="text-muted small mb-3" style={{ color: '#64748b', fontSize: '13px', marginBottom: '16px' }}>
+                  Automated monthly database snapshots are generated on the 1st of every month. You can download compressed backup files (`.json.gz`) directly to your computer or restore database state anytime.
+                </p>
+                
+                <div className="table-responsive">
+                  <table className="user-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Backup File Name</th>
+                        <th>Created Date</th>
+                        <th>File Size</th>
+                        <th style={{ textAlign: 'right' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {backupsLoading ? (
+                        <tr><td colSpan={5} className="text-center">Loading backups list...</td></tr>
+                      ) : backups.length > 0 ? (
+                        backups.map((b, idx) => (
+                          <tr key={b.filename}>
+                            <td>{idx + 1}</td>
+                            <td className="text-semibold" style={{ fontWeight: 600, color: '#0f172a' }}>{b.filename}</td>
+                            <td>{new Date(b.createdAt).toLocaleString('en-IN')}</td>
+                            <td><span className="badge" style={{ backgroundColor: '#e2e8f0', color: '#334155', padding: '4px 8px', borderRadius: '4px', fontWeight: 600 }}>{b.sizeFormatted}</span></td>
+                            <td style={{ textAlign: 'right' }}>
+                              <div className="action-buttons" style={{ justifyContent: 'flex-end', display: 'flex', gap: '8px' }}>
+                                <button
+                                  className="btn-action edit"
+                                  title="Download Backup"
+                                  onClick={() => handleDownloadBackup(b.filename)}
+                                  style={{ backgroundColor: '#10b981', color: '#fff', padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 500 }}
+                                >
+                                  <FaDownload /> Download
+                                </button>
+                                <button
+                                  className="btn-action delete"
+                                  title="Restore Database"
+                                  onClick={() => handleRestoreBackup(b.filename)}
+                                  style={{ backgroundColor: '#f59e0b', color: '#fff', padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 500 }}
+                                >
+                                  <FaRedo /> Restore
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr><td colSpan={5} className="text-center" style={{ padding: '20px', color: '#64748b' }}>No backup files created yet. Click "Create Backup Now" to make the first snapshot.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
