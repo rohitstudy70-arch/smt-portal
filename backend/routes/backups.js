@@ -13,18 +13,30 @@ if (!fs.existsSync(backupDir)) {
   fs.mkdirSync(backupDir, { recursive: true });
 }
 
+// Import models directly to prevent MissingSchemaError
+const User = require('../models/User');
+const Device = require('../models/Device');
+const Product = require('../models/Product');
+const ActivationRequest = require('../models/ActivationRequest');
+const RenewalRequest = require('../models/RenewalRequest');
+const Transaction = require('../models/Transaction');
+const Invoice = require('../models/Invoice');
+const DealerDue = require('../models/DealerDue');
+const AuditLog = require('../models/AuditLog');
+const PaymentVerificationRequest = require('../models/PaymentVerificationRequest');
+
 // Collections to backup
 const getCollectionsMap = () => ({
-  users: mongoose.model('User'),
-  devices: mongoose.model('Device'),
-  products: mongoose.model('Product'),
-  activationrequests: mongoose.model('ActivationRequest'),
-  renewalrequests: mongoose.model('RenewalRequest'),
-  transactions: mongoose.model('Transaction'),
-  invoices: mongoose.model('Invoice'),
-  dealerdues: mongoose.model('DealerDue'),
-  auditlogs: mongoose.model('AuditLog'),
-  paymentverificationrequests: mongoose.model('PaymentVerificationRequest'),
+  users: User,
+  devices: Device,
+  products: Product,
+  activationrequests: ActivationRequest,
+  renewalrequests: RenewalRequest,
+  transactions: Transaction,
+  invoices: Invoice,
+  dealerdues: DealerDue,
+  auditlogs: AuditLog,
+  paymentverificationrequests: PaymentVerificationRequest,
 });
 
 // Helper: Create a Gzip Compressed Backup
@@ -42,11 +54,17 @@ const performBackup = async (label = 'monthly') => {
     };
 
     for (const [key, model] of Object.entries(collectionsMap)) {
-      if (model) {
-        const docs = await model.find({}).lean();
-        backupData.data[key] = docs;
-        backupData.metadata.collections[key] = docs.length;
-        backupData.metadata.totalDocuments += docs.length;
+      try {
+        if (model) {
+          const docs = await model.find({}).lean();
+          backupData.data[key] = docs;
+          backupData.metadata.collections[key] = docs.length;
+          backupData.metadata.totalDocuments += docs.length;
+        }
+      } catch (colErr) {
+        console.error(`Warning: Collection ${key} backup query error:`, colErr.message);
+        backupData.data[key] = [];
+        backupData.metadata.collections[key] = 0;
       }
     }
 
