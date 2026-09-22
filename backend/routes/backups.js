@@ -120,6 +120,12 @@ const performBackup = async (label = 'monthly') => {
 
 // Scheduler: Run monthly automatic backup check
 const checkAndRunMonthlyBackup = async () => {
+  // First, ensure MongoDB is actually connected
+  if (mongoose.connection.readyState !== 1) {
+    console.log('⏳ [Automated Backup] MongoDB not ready yet, skipping this cycle...');
+    return;
+  }
+
   try {
     const backupDir = getBackupDir();
     const files = fs.readdirSync(backupDir);
@@ -130,14 +136,36 @@ const checkAndRunMonthlyBackup = async () => {
     if (!monthBackupExists) {
       console.log(`📅 [Automated Backup] No backup found for current month (${currentMonthPrefix}). Creating automatic monthly backup...`);
       await performBackup('monthly');
+    } else {
+      console.log(`✅ [Automated Backup] Monthly backup already exists for ${currentMonthPrefix}.`);
     }
   } catch (err) {
     console.error('Error checking monthly backup schedule:', err.message);
   }
 };
 
-// Run monthly backup check on startup and every 24 hours
-setTimeout(checkAndRunMonthlyBackup, 5000);
+// Wait for MongoDB to connect, then run monthly backup check
+const waitForDbAndRunMonthlyBackup = () => {
+  let attempts = 0;
+  const maxAttempts = 30; // Try for up to 5 minutes (30 x 10s)
+
+  const interval = setInterval(async () => {
+    attempts++;
+    if (mongoose.connection.readyState === 1) {
+      clearInterval(interval);
+      console.log('🔗 [Automated Backup] MongoDB connected! Running monthly backup check...');
+      await checkAndRunMonthlyBackup();
+    } else if (attempts >= maxAttempts) {
+      clearInterval(interval);
+      console.error('❌ [Automated Backup] MongoDB did not connect within 5 minutes. Skipping automatic backup.');
+    }
+  }, 10000); // Check every 10 seconds
+};
+
+// Start waiting for DB connection on startup
+waitForDbAndRunMonthlyBackup();
+
+// Also run daily check every 24 hours (only if DB is connected)
 setInterval(checkAndRunMonthlyBackup, 24 * 60 * 60 * 1000);
 
 // @route   POST /api/backups/create
@@ -145,6 +173,9 @@ setInterval(checkAndRunMonthlyBackup, 24 * 60 * 60 * 1000);
 // @access  Private (Admin)
 router.post('/create', protect, requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ message: 'Database not connected. Please wait a moment and try again.' });
+    }
     const result = await performBackup('manual');
     res.json({
       message: 'Backup created successfully!',
