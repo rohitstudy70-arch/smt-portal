@@ -7,17 +7,36 @@ const mongoose = require('mongoose');
 const { protect } = require('../middleware/auth');
 const { PORTAL_ROLES, requireRoles } = require('../middleware/hierarchy');
 
-// Helper: Ensure backup storage directory exists safely
+// Helper: Ensure backup storage directory exists safely with permission fallback
 const getBackupDir = () => {
-  const dir = path.join(__dirname, '../storage/backups');
-  try {
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+  const candidateDirs = [
+    path.join(__dirname, '../storage/backups'),
+    path.join(__dirname, '../uploads/backups'),
+    path.join(process.cwd(), 'storage/backups'),
+    path.join(process.cwd(), 'uploads/backups'),
+    '/tmp/smt_backups'
+  ];
+
+  for (const dir of candidateDirs) {
+    try {
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      const testFile = path.join(dir, '.perm_test');
+      fs.writeFileSync(testFile, 'test');
+      fs.unlinkSync(testFile);
+      return dir;
+    } catch (err) {
+      console.warn(`[Backup Dir] Cannot write to ${dir}:`, err.message);
     }
-  } catch (err) {
-    console.error('Error creating backup storage directory:', err.message);
   }
-  return dir;
+
+  // Final fallback to process.cwd()
+  const defaultDir = path.join(process.cwd(), 'backups');
+  if (!fs.existsSync(defaultDir)) {
+    fs.mkdirSync(defaultDir, { recursive: true });
+  }
+  return defaultDir;
 };
 
 // Import models directly to prevent MissingSchemaError
