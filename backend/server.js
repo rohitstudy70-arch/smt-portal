@@ -95,6 +95,7 @@ app.use('/api/portal', require('./routes/portal'));
 app.use('/api/due-dashboard', require('./routes/dueDashboard'));
 app.use('/api/payment-verification-requests', require('./routes/paymentVerificationRequests'));
 app.use('/api/certificates', require('./routes/certificates'));
+app.use('/api/backups', require('./routes/backups').router);
 
 // Health check route
 app.get('/api/health', (req, res) => {
