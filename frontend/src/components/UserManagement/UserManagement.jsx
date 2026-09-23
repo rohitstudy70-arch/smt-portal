@@ -33,8 +33,6 @@ const UserManagement = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   
-  // Layout mode: 'stacked' (full-width cards) or 'split' (side-by-side)
-  const [layoutMode, setLayoutMode] = useState('stacked');
 
   // Filter & Search states
   const [roleFilter, setRoleFilter] = useState('ALL');
@@ -363,8 +361,8 @@ const UserManagement = () => {
         )}
       </div>
 
-      {/* Main Content Area: Stacked or Split mode */}
-      <div className={layoutMode === 'stacked' ? 'layout-stacked' : 'layout-split'}>
+      {/* Main Content Area: Split layout (Side-by-side) */}
+      <div className="layout-split">
         
         {/* ==================================================================
             1. USER DETAILS FORM (Create / Edit User)
@@ -389,25 +387,6 @@ const UserManagement = () => {
                 <span className="required-note">* All fields required</span>
               )}
 
-              {/* Layout Switcher */}
-              <div style={{ display: 'flex', gap: '6px' }}>
-                <button
-                  type="button"
-                  className={`layout-switcher-btn ${layoutMode === 'stacked' ? 'active' : ''}`}
-                  onClick={() => setLayoutMode('stacked')}
-                  title="Full Width Stacked View"
-                >
-                  <FaThLarge /> Stacked
-                </button>
-                <button
-                  type="button"
-                  className={`layout-switcher-btn ${layoutMode === 'split' ? 'active' : ''}`}
-                  onClick={() => setLayoutMode('split')}
-                  title="Side by Side Split View"
-                >
-                  <FaColumns /> Split
-                </button>
-              </div>
             </div>
           </div>
 
@@ -621,13 +600,13 @@ const UserManagement = () => {
               <table className="table-custom">
                 <thead>
                   <tr>
-                    <th style={{ width: '50px', textAlign: 'center' }}>#</th>
-                    <th style={{ minWidth: '220px' }}>User Details</th>
-                    <th style={{ minWidth: '130px' }}>Role / Type</th>
-                    <th style={{ minWidth: '130px' }}>Mobile No</th>
-                    <th style={{ minWidth: '160px' }}>User ID / Username</th>
-                    <th style={{ minWidth: '110px' }}>Status</th>
-                    <th style={{ minWidth: '220px', textAlign: 'center' }}>Actions</th>
+                    <th style={{ width: '36px', textAlign: 'center' }}>#</th>
+                    <th>User Details</th>
+                    <th style={{ width: '105px' }}>Role / Type</th>
+                    <th style={{ width: '110px' }}>Mobile No</th>
+                    <th style={{ width: '130px' }}>User ID</th>
+                    <th style={{ width: '75px', textAlign: 'center' }}>Status</th>
+                    <th style={{ width: '175px', textAlign: 'center' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
