@@ -267,6 +267,7 @@ router.get('/download/:filename', protect, requireRoles(PORTAL_ROLES.ADMIN), asy
 // @access  Private (Admin)
 router.post('/restore/:filename', protect, requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
   try {
+    const backupDir = getBackupDir();
     const filename = path.basename(req.params.filename);
     const filepath = path.join(backupDir, filename);
 
@@ -291,11 +292,16 @@ router.post('/restore/:filename', protect, requireRoles(PORTAL_ROLES.ADMIN), asy
     for (const [key, docs] of Object.entries(backupObj.data)) {
       const model = collectionsMap[key];
       if (model && Array.isArray(docs)) {
-        await model.deleteMany({});
-        if (docs.length > 0) {
-          await model.insertMany(docs);
+        try {
+          await model.deleteMany({});
+          if (docs.length > 0) {
+            await model.insertMany(docs, { ordered: false });
+          }
+          restoredSummary[key] = docs.length;
+        } catch (colErr) {
+          console.warn(`Warning: Collection ${key} partial restore:`, colErr.message);
+          restoredSummary[key] = `${docs.length} (partial/indexed)`;
         }
-        restoredSummary[key] = docs.length;
       }
     }
 
