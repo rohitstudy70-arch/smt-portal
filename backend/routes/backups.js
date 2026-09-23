@@ -118,8 +118,17 @@ const performBackup = async (label = 'monthly') => {
   }
 };
 
-// Scheduler: Run monthly automatic backup check
-const checkAndRunMonthlyBackup = async () => {
+// Helper: Get ISO week number
+const getWeekNumber = (date) => {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+};
+
+// Scheduler: Run weekly + monthly automatic backup checks
+const checkAndRunScheduledBackups = async () => {
   // First, ensure MongoDB is actually connected
   if (mongoose.connection.readyState !== 1) {
     console.log('⏳ [Automated Backup] MongoDB not ready yet, skipping this cycle...');
@@ -130,6 +139,20 @@ const checkAndRunMonthlyBackup = async () => {
     const backupDir = getBackupDir();
     const files = fs.readdirSync(backupDir);
     const now = new Date();
+
+    // --- Weekly Backup Check ---
+    const weekNum = getWeekNumber(now);
+    const weekPrefix = `smt_backup_weekly_${now.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+    const weekBackupExists = files.some((f) => f.startsWith(weekPrefix));
+
+    if (!weekBackupExists) {
+      console.log(`📅 [Automated Backup] No backup found for current week (${weekPrefix}). Creating automatic weekly backup...`);
+      await performBackup(`weekly_${now.getFullYear()}-W${String(weekNum).padStart(2, '0')}`);
+    } else {
+      console.log(`✅ [Automated Backup] Weekly backup already exists for ${weekPrefix}.`);
+    }
+
+    // --- Monthly Backup Check ---
     const currentMonthPrefix = `smt_backup_monthly_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const monthBackupExists = files.some((f) => f.startsWith(currentMonthPrefix));
 
@@ -140,12 +163,12 @@ const checkAndRunMonthlyBackup = async () => {
       console.log(`✅ [Automated Backup] Monthly backup already exists for ${currentMonthPrefix}.`);
     }
   } catch (err) {
-    console.error('Error checking monthly backup schedule:', err.message);
+    console.error('Error checking backup schedule:', err.message);
   }
 };
 
-// Wait for MongoDB to connect, then run monthly backup check
-const waitForDbAndRunMonthlyBackup = () => {
+// Wait for MongoDB to connect, then run backup checks
+const waitForDbAndRunBackups = () => {
   let attempts = 0;
   const maxAttempts = 30; // Try for up to 5 minutes (30 x 10s)
 
@@ -153,8 +176,8 @@ const waitForDbAndRunMonthlyBackup = () => {
     attempts++;
     if (mongoose.connection.readyState === 1) {
       clearInterval(interval);
-      console.log('🔗 [Automated Backup] MongoDB connected! Running monthly backup check...');
-      await checkAndRunMonthlyBackup();
+      console.log('🔗 [Automated Backup] MongoDB connected! Running backup schedule check...');
+      await checkAndRunScheduledBackups();
     } else if (attempts >= maxAttempts) {
       clearInterval(interval);
       console.error('❌ [Automated Backup] MongoDB did not connect within 5 minutes. Skipping automatic backup.');
@@ -163,10 +186,10 @@ const waitForDbAndRunMonthlyBackup = () => {
 };
 
 // Start waiting for DB connection on startup
-waitForDbAndRunMonthlyBackup();
+waitForDbAndRunBackups();
 
-// Also run daily check every 24 hours (only if DB is connected)
-setInterval(checkAndRunMonthlyBackup, 24 * 60 * 60 * 1000);
+// Run backup check every 12 hours (catches weekly + monthly)
+setInterval(checkAndRunScheduledBackups, 12 * 60 * 60 * 1000);
 
 // @route   POST /api/backups/create
 // @desc    Manually trigger a full database backup (Admin only)
