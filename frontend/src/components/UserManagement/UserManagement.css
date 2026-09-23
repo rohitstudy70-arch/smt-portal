@@ -96,9 +96,10 @@
 
 .layout-split {
   display: grid;
-  grid-template-columns: 315px 1fr;
-  gap: 18px;
-  width: 100%;
+  grid-template-columns: 320px 1fr;
+  gap: 20px;
+  width: 100% !important;
+  max-width: 100% !important;
   align-items: start;
 }
 
@@ -116,7 +117,8 @@
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  width: 100%;
+  width: 100% !important;
+  max-width: 100% !important;
   overflow: hidden;
   transition: box-shadow 0.2s;
 }
