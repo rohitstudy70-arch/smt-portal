@@ -145,7 +145,10 @@ const UserManagement = () => {
       fetchSubUsers();
       fetchBackups();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to restore database.');
+      const errorMsg = err.response?.data?.error 
+        ? `${err.response.data.message || 'Failed to restore database'}: ${err.response.data.error}`
+        : (err.response?.data?.message || 'Failed to restore database.');
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }

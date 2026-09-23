@@ -293,14 +293,20 @@ router.post('/restore/:filename', protect, requireRoles(PORTAL_ROLES.ADMIN), asy
       const model = collectionsMap[key];
       if (model && Array.isArray(docs)) {
         try {
-          await model.deleteMany({});
+          await model.collection.deleteMany({});
           if (docs.length > 0) {
-            await model.insertMany(docs, { ordered: false });
+            const preparedDocs = docs.map((doc) => {
+              if (doc._id && typeof doc._id === 'string' && mongoose.Types.ObjectId.isValid(doc._id)) {
+                return { ...doc, _id: new mongoose.Types.ObjectId(doc._id) };
+              }
+              return doc;
+            });
+            await model.collection.insertMany(preparedDocs, { ordered: false });
           }
           restoredSummary[key] = docs.length;
         } catch (colErr) {
           console.warn(`Warning: Collection ${key} partial restore:`, colErr.message);
-          restoredSummary[key] = `${docs.length} (partial/indexed)`;
+          restoredSummary[key] = `${docs.length} (partial: ${colErr.message})`;
         }
       }
     }
