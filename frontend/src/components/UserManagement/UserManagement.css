@@ -4,7 +4,7 @@
 
 .layout-columns {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1.8fr;
   gap: 20px;
 }
 
