@@ -244,11 +244,29 @@ const DealerBillGenerator = ({ onBillSaved }) => {
   const toggleItemSelection = (catKey, itemKey) => {
     setSelectedItemsByCat(prev => {
       const nextSet = new Set(prev[catKey]);
-      if (nextSet.has(itemKey)) {
-        nextSet.delete(itemKey);
-      } else {
+      const isSelecting = !nextSet.has(itemKey);
+      if (isSelecting) {
         nextSet.add(itemKey);
+      } else {
+        nextSet.delete(itemKey);
       }
+
+      // If user selected this item and it has a positive billAmount, sync category rate with it
+      if (isSelecting) {
+        const itemObj = (categoryItems[catKey] || []).find((it, idx) => getItemKey(it, idx) === itemKey);
+        const itemAmt = Number(itemObj?.billAmount || itemObj?.amount || 0);
+        if (itemAmt > 0) {
+          setCatState(cPrev => ({
+            ...cPrev,
+            [catKey]: {
+              ...cPrev[catKey],
+              priceWithGst: itemAmt,
+              unitPrice: roundCurrency(itemAmt / 1.18),
+            }
+          }));
+        }
+      }
+
       return {
         ...prev,
         [catKey]: nextSet,
@@ -591,6 +609,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
                       <th style={{ width: '50px' }}>#</th>
                       <th>IMEI Number</th>
                       <th>Device / Details</th>
+                      <th style={{ minWidth: '120px' }}>Device Amount</th>
                       <th>Customer / Vehicle</th>
                       <th>Date</th>
                       <th style={{ width: '40px' }}></th>
@@ -610,7 +629,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
                         >
                           <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
                             <input 
-                              type="checkbox"
+                              type="checkbox" 
                               className="row-checkbox"
                               checked={isSelected}
                               onChange={() => toggleItemSelection(catKey, itemKey)}
@@ -621,6 +640,15 @@ const DealerBillGenerator = ({ onBillSaved }) => {
                             {it.imei || 'N/A'}
                           </td>
                           <td>{it.deviceName || it.plan || it.validity || 'VLTD Device'}</td>
+                          <td>
+                            {Number(it.billAmount || it.amount) > 0 ? (
+                              <strong style={{ color: '#0f766e', fontSize: '13px' }}>
+                                ₹{formatCurrency(it.billAmount || it.amount)}
+                              </strong>
+                            ) : (
+                              <span style={{ color: '#94a3b8' }}>-</span>
+                            )}
+                          </td>
                           <td>
                             {it.customerName ? <strong>{it.customerName}</strong> : ''}
                             {it.vehicleNo ? ` (${it.vehicleNo})` : ''}

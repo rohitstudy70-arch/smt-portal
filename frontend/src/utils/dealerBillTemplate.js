@@ -365,7 +365,7 @@ export const renderDealerBillHtml = ({
           </div>
         </td>
         <td style="width: 30%; vertical-align: middle;">
-          <div class="bill-heading">CONSOLIDATED DEALER BILL</div>
+          <div class="bill-heading">PROFORMA INVOICE</div>
           <div style="font-size: 11px; text-align: right; color: #334155; margin-top: 4px;">
             <strong>Bill / Inv No:</strong> ${escapeHtml(invoice.invoiceNo || 'DRAFT-INV')}<br/>
             <strong>PI Ref:</strong> ${escapeHtml(invoice.piNo || 'AE-PI')}<br/>

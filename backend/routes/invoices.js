@@ -345,7 +345,8 @@ router.get('/dealer-billable-items', async (req, res) => {
         iccid: dev.iccid || dev.iccidNumber || '',
         deviceName: dev.deviceName || 'VLTD Device',
         validity: dev.validity || '1 Year',
-        billAmount: dev.billAmount || 0,
+        billAmount: Number(dev.billAmount) || 0,
+        amount: Number(dev.billAmount) || 0,
         date: dev.presentDate || dev.createdAt,
         type: 'Device',
       };
@@ -470,12 +471,34 @@ router.get('/dealer-billable-items', async (req, res) => {
       }
     });
 
-    // Suggested standard pricing (editable on UI)
+    // Calculate suggested rates dynamically from devices/requests added for this dealer
+    const getSuggestedRate = (items, fallback) => {
+      const itemsWithAmt = items.filter((it) => Number(it.billAmount || it.amount || 0) > 0);
+      if (itemsWithAmt.length === 0) return fallback;
+
+      // Count occurrences to pick the most common price
+      const counts = {};
+      itemsWithAmt.forEach((it) => {
+        const val = Number(it.billAmount || it.amount);
+        counts[val] = (counts[val] || 0) + 1;
+      });
+
+      let bestVal = Number(itemsWithAmt[0].billAmount || itemsWithAmt[0].amount);
+      let maxCount = 0;
+      Object.entries(counts).forEach(([val, count]) => {
+        if (count > maxCount) {
+          maxCount = count;
+          bestVal = Number(val);
+        }
+      });
+      return bestVal;
+    };
+
     const suggestedRates = {
-      twoYearPriceWithGst: 4200,
-      oneYearPriceWithGst: 2370,
-      topupPriceWithGst: 590,
-      renewalPriceWithGst: 1770,
+      twoYearPriceWithGst: getSuggestedRate(twoYearList, 4200),
+      oneYearPriceWithGst: getSuggestedRate(oneYearList, 2370),
+      topupPriceWithGst: getSuggestedRate(topupList, 590),
+      renewalPriceWithGst: getSuggestedRate(renewalList, 1770),
     };
 
     res.json({
