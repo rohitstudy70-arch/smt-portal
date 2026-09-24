@@ -418,10 +418,11 @@
 }
 
 .row-checkbox {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   accent-color: #0f766e;
   cursor: pointer;
+  vertical-align: middle;
 }
 
 .selected-count-badge {

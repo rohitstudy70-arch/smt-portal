@@ -11,8 +11,6 @@ import {
   FaCheckCircle, 
   FaExclamationTriangle,
   FaSearch,
-  FaCheckSquare,
-  FaRegSquare,
   FaPlus,
   FaTrash
 } from 'react-icons/fa';
@@ -45,31 +43,27 @@ const DealerBillGenerator = ({ onBillSaved }) => {
   const [loadingBillables, setLoadingBillables] = useState(false);
   const [billableData, setBillableData] = useState(null);
 
-  // Category Configuration (prices & active state)
+  // Category Configuration (prices & expanded state)
   const [catState, setCatState] = useState({
     twoYear: {
-      active: true,
       description: 'AIS-140 VLTD - 2 Year Activation Plan',
       unitPrice: 3559.32,
       priceWithGst: 4200,
       expanded: true,
     },
     oneYear: {
-      active: true,
       description: 'AIS-140 VLTD - 1 Year Activation Plan',
       unitPrice: 2008.47,
       priceWithGst: 2370,
       expanded: false,
     },
     topup: {
-      active: true,
       description: 'VLTD Top-up / Data Recharge Plan',
       unitPrice: 500,
       priceWithGst: 590,
       expanded: false,
     },
     renewal: {
-      active: true,
       description: 'VLTD Annual Renewal Plan',
       unitPrice: 1500,
       priceWithGst: 1770,
@@ -187,35 +181,39 @@ const DealerBillGenerator = ({ onBillSaved }) => {
         renewal: renList,
       });
 
-      // By default, select all fetched IMEIs
+      // Start with empty selection so user can single-tick select desired items
       setSelectedItemsByCat({
-        twoYear: new Set(twoYrList.map((it, idx) => getItemKey(it, idx))),
-        oneYear: new Set(oneYrList.map((it, idx) => getItemKey(it, idx))),
-        topup: new Set(topList.map((it, idx) => getItemKey(it, idx))),
-        renewal: new Set(renList.map((it, idx) => getItemKey(it, idx))),
+        twoYear: new Set(),
+        oneYear: new Set(),
+        topup: new Set(),
+        renewal: new Set(),
       });
 
-      // Auto-update standard prices if provided in response
+      // Auto-update standard prices & expand categories that contain items
       if (data.categories) {
         setCatState(prev => ({
           ...prev,
           twoYear: {
             ...prev.twoYear,
+            expanded: twoYrList.length > 0,
             priceWithGst: data.categories.twoYearActivations?.suggestedPriceWithGst || 4200,
             unitPrice: roundCurrency((data.categories.twoYearActivations?.suggestedPriceWithGst || 4200) / 1.18),
           },
           oneYear: {
             ...prev.oneYear,
+            expanded: oneYrList.length > 0,
             priceWithGst: data.categories.oneYearActivations?.suggestedPriceWithGst || 2370,
             unitPrice: roundCurrency((data.categories.oneYearActivations?.suggestedPriceWithGst || 2370) / 1.18),
           },
           topup: {
             ...prev.topup,
+            expanded: topList.length > 0,
             priceWithGst: data.categories.topupPlans?.suggestedPriceWithGst || 590,
             unitPrice: roundCurrency((data.categories.topupPlans?.suggestedPriceWithGst || 590) / 1.18),
           },
           renewal: {
             ...prev.renewal,
+            expanded: renList.length > 0,
             priceWithGst: data.categories.renewalPlans?.suggestedPriceWithGst || 1770,
             unitPrice: roundCurrency((data.categories.renewalPlans?.suggestedPriceWithGst || 1770) / 1.18),
           },
@@ -256,26 +254,6 @@ const DealerBillGenerator = ({ onBillSaved }) => {
         [catKey]: nextSet,
       };
     });
-  };
-
-  // Toggle select all / deselect all for a category
-  const toggleSelectAll = (catKey) => {
-    const items = categoryItems[catKey] || [];
-    const currentSelected = selectedItemsByCat[catKey];
-    
-    // If all currently selected, deselect all; otherwise select all
-    if (currentSelected.size === items.length && items.length > 0) {
-      setSelectedItemsByCat(prev => ({
-        ...prev,
-        [catKey]: new Set(),
-      }));
-    } else {
-      const allKeys = new Set(items.map((it, idx) => getItemKey(it, idx)));
-      setSelectedItemsByCat(prev => ({
-        ...prev,
-        [catKey]: allKeys,
-      }));
-    }
   };
 
   // Add manual IMEI to a category
@@ -358,16 +336,6 @@ const DealerBillGenerator = ({ onBillSaved }) => {
     }));
   };
 
-  const toggleCategoryActive = (catKey) => {
-    setCatState(prev => ({
-      ...prev,
-      [catKey]: {
-        ...prev[catKey],
-        active: !prev[catKey].active,
-      }
-    }));
-  };
-
   const toggleCategoryExpanded = (catKey) => {
     setCatState(prev => ({
       ...prev,
@@ -389,8 +357,6 @@ const DealerBillGenerator = ({ onBillSaved }) => {
 
     // Helper to process a category
     const processCategory = (catKey, catName, defaultDesc, validity) => {
-      if (!catState[catKey].active) return;
-
       const allItems = categoryItems[catKey] || [];
       const selectedSet = selectedItemsByCat[catKey] || new Set();
       const selectedItems = allItems.filter((it, idx) => selectedSet.has(getItemKey(it, idx)));
@@ -557,21 +523,13 @@ const DealerBillGenerator = ({ onBillSaved }) => {
       return imei.includes(searchTerm) || dev.includes(searchTerm) || cust.includes(searchTerm) || veh.includes(searchTerm) || iccid.includes(searchTerm);
     });
 
-    const isAllSelected = allItems.length > 0 && selectedSet.size === allItems.length;
     const selectedCount = selectedSet.size;
     const categoryGross = roundCurrency(selectedCount * catState[catKey].priceWithGst);
 
     return (
-      <div className={`category-card ${catState[catKey].active ? 'active' : ''}`} key={catKey}>
+      <div className={`category-card ${selectedCount > 0 ? 'active' : ''}`} key={catKey}>
         <div className="category-card-header" onClick={() => toggleCategoryExpanded(catKey)}>
-          <div className="category-header-left" onClick={(e) => e.stopPropagation()}>
-            <input 
-              type="checkbox" 
-              className="cat-checkbox" 
-              checked={catState[catKey].active} 
-              onChange={() => toggleCategoryActive(catKey)} 
-              title="Toggle Category Inclusion"
-            />
+          <div className="category-header-left">
             <span className={`cat-badge ${badgeClass}`}>{catTitle}</span>
             <span className="selected-count-badge">
               Selected: <strong>{selectedCount}</strong> / {allItems.length} Units
@@ -587,7 +545,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
 
         {catState[catKey].expanded && (
           <div className="category-card-body">
-            {/* Price Controls & Select All */}
+            {/* Price Controls */}
             <div className="cat-price-controls">
               <div className="price-inputs-left">
                 <div className="price-input-group">
@@ -606,17 +564,6 @@ const DealerBillGenerator = ({ onBillSaved }) => {
                     onChange={(e) => handleUnitPriceChange(catKey, e.target.value)} 
                   />
                 </div>
-              </div>
-
-              <div>
-                <button 
-                  type="button" 
-                  className="btn-toggle-select-all"
-                  onClick={() => toggleSelectAll(catKey)}
-                  disabled={allItems.length === 0}
-                >
-                  {isAllSelected ? <><FaRegSquare /> Deselect All ({allItems.length})</> : <><FaCheckSquare /> Select All ({allItems.length})</>}
-                </button>
               </div>
             </div>
 
@@ -640,14 +587,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
                 <table className="imei-table">
                   <thead>
                     <tr>
-                      <th style={{ width: '40px', textAlign: 'center' }}>
-                        <input 
-                          type="checkbox"
-                          className="row-checkbox"
-                          checked={isAllSelected}
-                          onChange={() => toggleSelectAll(catKey)}
-                        />
-                      </th>
+                      <th style={{ width: '50px', textAlign: 'center' }}>Tick</th>
                       <th style={{ width: '50px' }}>#</th>
                       <th>IMEI Number</th>
                       <th>Device / Details</th>
