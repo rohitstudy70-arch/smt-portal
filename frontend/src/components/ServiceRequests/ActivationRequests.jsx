@@ -489,7 +489,7 @@ const ActivationRequests = () => {
         try {
           setLoadingDevices(true);
           const params = deviceSearch.trim()
-            ? { search: deviceSearch.trim(), limit: 500 }
+            ? { search: deviceSearch.trim(), limit: 1000 }
             : { limit: 'all' };
 
           const response = await api.get('/devices', { params });

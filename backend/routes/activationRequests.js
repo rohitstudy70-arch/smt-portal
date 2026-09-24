@@ -690,8 +690,8 @@ router.post('/bulk-create', requireRoles(...operationsRoles), async (req, res) =
       return res.status(400).json({ message: 'No request items provided.' });
     }
 
-    if (requests.length > 500) {
-      return res.status(400).json({ message: 'Maximum 500 requests can be uploaded at once.' });
+    if (requests.length > 1000) {
+      return res.status(400).json({ message: 'Maximum 1000 requests can be uploaded at once.' });
     }
 
     const userRole = (req.user.role || '').toUpperCase();
