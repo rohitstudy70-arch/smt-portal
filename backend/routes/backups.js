@@ -262,8 +262,112 @@ router.get('/download/:filename', protect, requireRoles(PORTAL_ROLES.ADMIN), asy
   }
 });
 
+// Core helper: Restore database from any backup file path
+const executeRestoreFromPath = async (filepath) => {
+  const filename = path.basename(filepath);
+  const fileBuffer = fs.readFileSync(filepath);
+  const jsonString = filename.endsWith('.gz')
+    ? zlib.gunzipSync(fileBuffer).toString('utf-8')
+    : fileBuffer.toString('utf-8');
+
+  const backupObj = JSON.parse(jsonString);
+  if (!backupObj || !backupObj.data) {
+    throw new Error('Invalid backup file format');
+  }
+
+  const collectionsMap = getCollectionsMap();
+  const restoredSummary = {};
+
+  for (const [key, docs] of Object.entries(backupObj.data)) {
+    const model = collectionsMap[key];
+    if (model && Array.isArray(docs)) {
+      try {
+        await model.collection.deleteMany({});
+        if (docs.length > 0) {
+          const preparedDocs = docs.map((doc) => {
+            if (doc._id && typeof doc._id === 'string' && mongoose.Types.ObjectId.isValid(doc._id)) {
+              return { ...doc, _id: new mongoose.Types.ObjectId(doc._id) };
+            }
+            return doc;
+          });
+          await model.collection.insertMany(preparedDocs, { ordered: false });
+        }
+        restoredSummary[key] = docs.length;
+      } catch (colErr) {
+        console.warn(`Warning: Collection ${key} partial restore:`, colErr.message);
+        restoredSummary[key] = `${docs.length} (partial: ${colErr.message})`;
+      }
+    }
+  }
+
+  return restoredSummary;
+};
+
+// @route   GET /api/backups/undo-status
+// @desc    Check if a 1-time undo checkpoint is available (Admin only)
+// @access  Private (Admin)
+router.get('/undo-status', protect, requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
+  try {
+    const backupDir = getBackupDir();
+    const undoMetaPath = path.join(backupDir, 'undo_checkpoint.json');
+    if (!fs.existsSync(undoMetaPath)) {
+      return res.json({ canUndo: false });
+    }
+    const undoData = JSON.parse(fs.readFileSync(undoMetaPath, 'utf-8'));
+    const undoFilePath = path.join(backupDir, undoData.undoFilename);
+    if (!fs.existsSync(undoFilePath)) {
+      return res.json({ canUndo: false });
+    }
+    res.json({
+      canUndo: true,
+      undoFilename: undoData.undoFilename,
+      restoredFrom: undoData.restoredFrom,
+      timestamp: undoData.timestamp,
+    });
+  } catch (err) {
+    res.json({ canUndo: false });
+  }
+});
+
+// @route   POST /api/backups/undo
+// @desc    One-Time Undo: Revert database to the state immediately before the last restore (Admin only)
+// @access  Private (Admin)
+router.post('/undo', protect, requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
+  try {
+    const backupDir = getBackupDir();
+    const undoMetaPath = path.join(backupDir, 'undo_checkpoint.json');
+    if (!fs.existsSync(undoMetaPath)) {
+      return res.status(400).json({ message: 'No undo checkpoint available to revert.' });
+    }
+
+    const undoData = JSON.parse(fs.readFileSync(undoMetaPath, 'utf-8'));
+    const undoFilePath = path.join(backupDir, undoData.undoFilename);
+
+    if (!fs.existsSync(undoFilePath)) {
+      return res.status(404).json({ message: 'Undo snapshot file no longer exists.' });
+    }
+
+    const restoredSummary = await executeRestoreFromPath(undoFilePath);
+
+    // Consume the 1-time undo checkpoint
+    try {
+      fs.unlinkSync(undoMetaPath);
+    } catch (e) {}
+
+    console.log(`✅ [Database 1-Time Undo] Successfully reverted database to pre-restore state (${undoData.undoFilename}):`, restoredSummary);
+
+    res.json({
+      message: 'Database successfully reverted to pre-restore state! (1-Time Undo completed)',
+      restoredSummary,
+    });
+  } catch (error) {
+    console.error('Error executing 1-Time Undo:', error);
+    res.status(500).json({ message: 'Failed to execute Undo', error: error.message });
+  }
+});
+
 // @route   POST /api/backups/restore/:filename
-// @desc    Restore database from a backup file (Admin only)
+// @desc    Restore database from a backup file with automatic undo checkpoint (Admin only)
 // @access  Private (Admin)
 router.post('/restore/:filename', protect, requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
   try {
@@ -275,46 +379,27 @@ router.post('/restore/:filename', protect, requireRoles(PORTAL_ROLES.ADMIN), asy
       return res.status(404).json({ message: 'Backup file not found' });
     }
 
-    const fileBuffer = fs.readFileSync(filepath);
-    const jsonString = filename.endsWith('.gz')
-      ? zlib.gunzipSync(fileBuffer).toString('utf-8')
-      : fileBuffer.toString('utf-8');
-
-    const backupObj = JSON.parse(jsonString);
-
-    if (!backupObj || !backupObj.data) {
-      return res.status(400).json({ message: 'Invalid backup file format' });
+    // 1. Auto-create pre-restore safety checkpoint for 1-Time Undo
+    try {
+      const undoCheckpoint = await performBackup('undo_checkpoint');
+      const undoMetaPath = path.join(backupDir, 'undo_checkpoint.json');
+      fs.writeFileSync(undoMetaPath, JSON.stringify({
+        undoFilename: undoCheckpoint.filename,
+        restoredFrom: filename,
+        timestamp: new Date().toISOString(),
+      }, null, 2));
+      console.log(`🛡️ [Safety Checkpoint] 1-Time Undo checkpoint created before restoring ${filename}: ${undoCheckpoint.filename}`);
+    } catch (checkpointErr) {
+      console.warn('Warning: Could not create undo safety checkpoint:', checkpointErr.message);
     }
 
-    const collectionsMap = getCollectionsMap();
-    const restoredSummary = {};
-
-    for (const [key, docs] of Object.entries(backupObj.data)) {
-      const model = collectionsMap[key];
-      if (model && Array.isArray(docs)) {
-        try {
-          await model.collection.deleteMany({});
-          if (docs.length > 0) {
-            const preparedDocs = docs.map((doc) => {
-              if (doc._id && typeof doc._id === 'string' && mongoose.Types.ObjectId.isValid(doc._id)) {
-                return { ...doc, _id: new mongoose.Types.ObjectId(doc._id) };
-              }
-              return doc;
-            });
-            await model.collection.insertMany(preparedDocs, { ordered: false });
-          }
-          restoredSummary[key] = docs.length;
-        } catch (colErr) {
-          console.warn(`Warning: Collection ${key} partial restore:`, colErr.message);
-          restoredSummary[key] = `${docs.length} (partial: ${colErr.message})`;
-        }
-      }
-    }
+    // 2. Perform restoration
+    const restoredSummary = await executeRestoreFromPath(filepath);
 
     console.log(`✅ [Database Restore] Database successfully restored from ${filename}:`, restoredSummary);
 
     res.json({
-      message: 'Database restored successfully!',
+      message: 'Database restored successfully! (1-Time Undo point has been saved)',
       restoredSummary,
     });
   } catch (error) {

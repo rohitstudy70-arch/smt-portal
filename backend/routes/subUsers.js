@@ -92,6 +92,17 @@ router.get('/sub-users', protect, async (req, res) => {
   }
 });
 
+// Aliases for /dealers and /
+router.get('/dealers', protect, (req, res, next) => {
+  // Redirect to sub-users handler
+  req.url = '/sub-users';
+  router.handle(req, res, next);
+});
+router.get('/', protect, (req, res, next) => {
+  req.url = '/sub-users';
+  router.handle(req, res, next);
+});
+
 // @route   POST /api/users/sub-user
 // @desc    Create a new sub-user
 // @access  Protected
@@ -102,7 +113,22 @@ router.post('/sub-user', protect, async (req, res) => {
       return res.status(403).json({ message: 'Access denied: You cannot create users.' });
     }
 
-    const { userType, displayName, mobileNo, email, username, password, parentId } = req.body;
+    const { 
+      userType, 
+      displayName, 
+      mobileNo, 
+      email, 
+      username, 
+      password, 
+      parentId,
+      state,
+      gstNo,
+      panNo,
+      address,
+      city,
+      pincode,
+      companyName,
+    } = req.body;
 
     if (!userType || !displayName || !username || !password) {
       return res.status(400).json({ message: 'Please fill in all required fields' });
@@ -139,7 +165,7 @@ router.post('/sub-user', protect, async (req, res) => {
       finalParentId = req.user._id;
     }
 
-    // Create sub-user
+    // Create sub-user with state, GST, PAN, and address
     const subUser = await User.create({
       username,
       password, // will be hashed by pre-save hook
@@ -147,8 +173,15 @@ router.post('/sub-user', protect, async (req, res) => {
       parentId: finalParentId,
       userType,
       displayName,
+      companyName: companyName || displayName || '',
       mobileNo: mobileNo || '',
       email: email || '',
+      state: state || 'Bihar',
+      gstNo: (gstNo || '').trim().toUpperCase(),
+      panNo: (panNo || '').trim().toUpperCase(),
+      address: address || '',
+      city: city || '',
+      pincode: pincode || '',
       status: 'Active'
     });
 
@@ -170,7 +203,21 @@ router.put('/sub-user/:id', protect, async (req, res) => {
       return res.status(403).json({ message: 'Access denied: Only Admins are allowed to edit users.' });
     }
 
-    const { userType, displayName, mobileNo, email, status, username } = req.body;
+    const { 
+      userType, 
+      displayName, 
+      mobileNo, 
+      email, 
+      status, 
+      username,
+      state,
+      gstNo,
+      panNo,
+      address,
+      city,
+      pincode,
+      companyName,
+    } = req.body;
 
     const subUser = await User.findById(req.params.id);
     if (!subUser) {
@@ -202,7 +249,7 @@ router.put('/sub-user/:id', protect, async (req, res) => {
       return res.status(403).json({ message: 'Access denied: Dealers can only manage Sub Dealers.' });
     }
 
-     if (userType) {
+    if (userType) {
       const allowedUserTypes = getAllowedCreateTypes(req.user);
       if (!allowedUserTypes.includes(userType)) {
         return res.status(403).json({ message: 'Access denied: You cannot assign this user type.' });
@@ -210,9 +257,16 @@ router.put('/sub-user/:id', protect, async (req, res) => {
       subUser.userType = userType;
     }
 
-    if (displayName) subUser.displayName = displayName;
+    if (displayName !== undefined) subUser.displayName = displayName;
+    if (companyName !== undefined) subUser.companyName = companyName;
     if (mobileNo !== undefined) subUser.mobileNo = mobileNo;
     if (email !== undefined) subUser.email = email;
+    if (state !== undefined) subUser.state = state;
+    if (gstNo !== undefined) subUser.gstNo = String(gstNo).trim().toUpperCase();
+    if (panNo !== undefined) subUser.panNo = String(panNo).trim().toUpperCase();
+    if (address !== undefined) subUser.address = address;
+    if (city !== undefined) subUser.city = city;
+    if (pincode !== undefined) subUser.pincode = pincode;
     if (status) subUser.status = status;
 
     if (username !== undefined) {
@@ -407,7 +461,22 @@ router.get('/dealers', protect, async (req, res) => {
 
     const dealers = await User.find(
       query,
-      { _id: 1, displayName: 1, companyName: 1, username: 1, userType: 1, parentId: 1 }
+      { 
+        _id: 1, 
+        displayName: 1, 
+        companyName: 1, 
+        username: 1, 
+        userType: 1, 
+        parentId: 1,
+        state: 1,
+        gstNo: 1,
+        panNo: 1,
+        address: 1,
+        city: 1,
+        pincode: 1,
+        mobileNo: 1,
+        email: 1
+      }
     ).sort({ displayName: 1 });
     res.json(dealers);
   } catch (error) {

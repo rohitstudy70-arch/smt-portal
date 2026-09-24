@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { 
   FaUserPlus, FaUser, FaList, FaEdit, FaCheck, FaTimes, FaSearch, 
   FaTrash, FaDatabase, FaDownload, FaRedo, FaUsers, FaUserShield, 
-  FaStore, FaThLarge, FaColumns, FaShieldAlt
+  FaStore, FaThLarge, FaColumns, FaShieldAlt, FaUndo
 } from 'react-icons/fa';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
@@ -20,6 +20,45 @@ const userTypesByRole = {
   DEALER: ['Sub Dealer'],
   SUB_DEALER: [],
 };
+
+const INDIAN_STATES = [
+  'Bihar',
+  'Jharkhand',
+  'Uttar Pradesh',
+  'West Bengal',
+  'Delhi',
+  'Maharashtra',
+  'Gujarat',
+  'Rajasthan',
+  'Madhya Pradesh',
+  'Assam',
+  'Odisha',
+  'Punjab',
+  'Haryana',
+  'Karnataka',
+  'Tamil Nadu',
+  'Telangana',
+  'Andhra Pradesh',
+  'Kerala',
+  'Uttarakhand',
+  'Himachal Pradesh',
+  'Chhattisgarh',
+  'Goa',
+  'Jammu & Kashmir',
+  'Ladakh',
+  'Chandigarh',
+  'Tripura',
+  'Meghalaya',
+  'Manipur',
+  'Nagaland',
+  'Mizoram',
+  'Arunachal Pradesh',
+  'Sikkim',
+  'Puducherry',
+  'Andaman & Nicobar Islands',
+  'Dadra and Nagar Haveli and Daman and Diu',
+  'Lakshadweep',
+];
 
 const UserManagement = () => {
   const { user } = useAuth();
@@ -43,6 +82,8 @@ const UserManagement = () => {
   const [backups, setBackups] = useState([]);
   const [backupsLoading, setBackupsLoading] = useState(false);
   const [creatingBackup, setCreatingBackup] = useState(false);
+  const [undoStatus, setUndoStatus] = useState({ canUndo: false, undoFilename: '', restoredFrom: '', timestamp: null });
+  const [undoing, setUndoing] = useState(false);
 
   // Form State
   const [userType, setUserType] = useState(allowedUserTypes[0] || 'Sub Dealer');
@@ -52,6 +93,12 @@ const UserManagement = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [parentId, setParentId] = useState('');
+  const [state, setState] = useState('Bihar');
+  const [gstNo, setGstNo] = useState('');
+  const [panNo, setPanNo] = useState('');
+  const [city, setCity] = useState('');
+  const [pincode, setPincode] = useState('');
+  const [address, setAddress] = useState('');
   
   // Edit State
   const [isEditMode, setIsEditMode] = useState(false);
@@ -83,10 +130,21 @@ const UserManagement = () => {
     }
   };
 
+  const fetchUndoStatus = async () => {
+    if (role !== 'ADMIN') return;
+    try {
+      const res = await api.get('/backups/undo-status');
+      setUndoStatus(res.data || { canUndo: false });
+    } catch (err) {
+      console.error('Fetch undo status error:', err);
+    }
+  };
+
   useEffect(() => {
     fetchSubUsers();
     if (role === 'ADMIN') {
       fetchBackups();
+      fetchUndoStatus();
       api.get('/users/sub-users').then((res) => {
         const dealerList = (res.data || []).filter(
           (u) => u.userType === 'Dealer' || u.userType === '' || u.role === 'partner'
@@ -144,6 +202,7 @@ const UserManagement = () => {
       setSuccess(res.data.message || 'Database restored successfully!');
       fetchSubUsers();
       fetchBackups();
+      fetchUndoStatus();
     } catch (err) {
       const errorMsg = err.response?.data?.error 
         ? `${err.response.data.message || 'Failed to restore database'}: ${err.response.data.error}`
@@ -151,6 +210,29 @@ const UserManagement = () => {
       setError(errorMsg);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUndoRestore = async () => {
+    const timeStr = undoStatus.timestamp ? new Date(undoStatus.timestamp).toLocaleTimeString('en-IN') : '';
+    if (!window.confirm(`⚠️ 1-TIME UNDO: Revert database to the state immediately before the last restore${timeStr ? ` (from ${timeStr})` : ''}? This can only be done ONCE.`)) {
+      return;
+    }
+    try {
+      setUndoing(true);
+      setError('');
+      const res = await api.post('/backups/undo');
+      setSuccess(res.data.message || 'Database successfully reverted to pre-restore state!');
+      fetchSubUsers();
+      fetchBackups();
+      fetchUndoStatus();
+    } catch (err) {
+      const errorMsg = err.response?.data?.error 
+        ? `${err.response.data.message || 'Failed to undo restore'}: ${err.response.data.error}`
+        : (err.response?.data?.message || 'Failed to undo restore.');
+      setError(errorMsg);
+    } finally {
+      setUndoing(false);
     }
   };
 
@@ -171,13 +253,38 @@ const UserManagement = () => {
 
     try {
       if (isEditMode) {
-        const payload = { userType, displayName, mobileNo, email, username };
+        const payload = { 
+          userType, 
+          displayName, 
+          mobileNo, 
+          email, 
+          username,
+          state,
+          gstNo: (gstNo || '').trim().toUpperCase(),
+          panNo: (panNo || '').trim().toUpperCase(),
+          city: (city || '').trim(),
+          pincode: (pincode || '').trim(),
+          address: (address || '').trim(),
+        };
         if (role === 'ADMIN' && userType === 'Sub Dealer') payload.parentId = parentId;
         await api.put(`/users/sub-user/${editingUserId}`, payload);
         setSuccess('User details updated successfully!');
         resetForm();
       } else {
-        const payload = { userType, displayName, mobileNo, email, username, password };
+        const payload = { 
+          userType, 
+          displayName, 
+          mobileNo, 
+          email, 
+          username, 
+          password,
+          state,
+          gstNo: (gstNo || '').trim().toUpperCase(),
+          panNo: (panNo || '').trim().toUpperCase(),
+          city: (city || '').trim(),
+          pincode: (pincode || '').trim(),
+          address: (address || '').trim(),
+        };
         if (role === 'ADMIN' && userType === 'Sub Dealer') payload.parentId = parentId;
         await api.post('/users/sub-user', payload);
         setSuccess('New user registered successfully!');
@@ -199,6 +306,12 @@ const UserManagement = () => {
     setEmail(targetUser.email || '');
     setUsername(targetUser.username || '');
     setParentId(targetUser.parentId || '');
+    setState(targetUser.state || 'Bihar');
+    setGstNo(targetUser.gstNo || '');
+    setPanNo(targetUser.panNo || '');
+    setCity(targetUser.city || '');
+    setPincode(targetUser.pincode || '');
+    setAddress(targetUser.address || '');
     setPassword('');
     // Smooth scroll to form
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -264,6 +377,12 @@ const UserManagement = () => {
     setUsername('');
     setPassword('');
     setParentId('');
+    setState('Bihar');
+    setGstNo('');
+    setPanNo('');
+    setCity('');
+    setPincode('');
+    setAddress('');
   };
 
   // Filter & Search Logic
@@ -476,6 +595,107 @@ const UserManagement = () => {
                   />
                 </div>
 
+                {/* State (Dropdown) */}
+                <div className="form-field-group">
+                  <label htmlFor="state">
+                    State (For GST & Invoicing) <span className="field-required">*</span>
+                  </label>
+                  <select
+                    id="state"
+                    value={state}
+                    onChange={(e) => setState(e.target.value)}
+                    required
+                  >
+                    {INDIAN_STATES.map((st) => (
+                      <option value={st} key={st}>{st}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* GST Number (GSTIN) */}
+                <div className="form-field-group">
+                  <label htmlFor="gstNo">
+                    GSTIN / GST Number
+                  </label>
+                  <input
+                    type="text"
+                    id="gstNo"
+                    value={gstNo}
+                    onChange={(e) => setGstNo(e.target.value.toUpperCase())}
+                    placeholder="e.g. 10ABCDE1234F1Z5"
+                    maxLength={15}
+                    style={{ textTransform: 'uppercase' }}
+                  />
+                </div>
+
+                {/* PAN Number */}
+                <div className="form-field-group">
+                  <label htmlFor="panNo">
+                    PAN Card Number
+                  </label>
+                  <input
+                    type="text"
+                    id="panNo"
+                    value={panNo}
+                    onChange={(e) => setPanNo(e.target.value.toUpperCase())}
+                    placeholder="e.g. ABCDE1234F"
+                    maxLength={10}
+                    style={{ textTransform: 'uppercase' }}
+                  />
+                </div>
+
+                {/* City */}
+                <div className="form-field-group">
+                  <label htmlFor="city">
+                    City / District
+                  </label>
+                  <input
+                    type="text"
+                    id="city"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    placeholder="e.g. Purnea, Patna, Ranchi"
+                  />
+                </div>
+
+                {/* Pincode */}
+                <div className="form-field-group">
+                  <label htmlFor="pincode">
+                    PIN Code
+                  </label>
+                  <input
+                    type="text"
+                    id="pincode"
+                    value={pincode}
+                    onChange={(e) => setPincode(e.target.value)}
+                    placeholder="e.g. 854301"
+                    maxLength={10}
+                  />
+                </div>
+
+                {/* Full Address */}
+                <div className="form-field-group">
+                  <label htmlFor="address">
+                    Full Office / Billing Address
+                  </label>
+                  <textarea
+                    id="address"
+                    rows="2"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="Enter complete office/billing address..."
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      border: '1.5px solid #cbd5e1',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      resize: 'vertical',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
                 {/* Username */}
                 <div className="form-field-group">
                   <label htmlFor="username">
@@ -643,6 +863,21 @@ const UserManagement = () => {
                                 {targetUser.email && (
                                   <span className="user-sub-email">{targetUser.email}</span>
                                 )}
+                                <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginTop: '4px', fontSize: '11px' }}>
+                                  <span style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', padding: '1px 5px', borderRadius: '4px', fontWeight: 600 }}>
+                                    {targetUser.state || 'Bihar'}
+                                  </span>
+                                  {targetUser.gstNo && (
+                                    <span style={{ background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', padding: '1px 5px', borderRadius: '4px', fontFamily: 'monospace', fontWeight: 600 }}>
+                                      GST: {targetUser.gstNo}
+                                    </span>
+                                  )}
+                                  {targetUser.panNo && (
+                                    <span style={{ background: '#fdf4ff', color: '#9333ea', border: '1px solid #f5d0fe', padding: '1px 5px', borderRadius: '4px', fontFamily: 'monospace', fontWeight: 600 }}>
+                                      PAN: {targetUser.panNo}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </td>
@@ -745,16 +980,36 @@ const UserManagement = () => {
               </div>
             </div>
 
-            <button
-              onClick={handleCreateBackup}
-              disabled={creatingBackup}
-              className="btn-create-backup"
-            >
-              <FaDatabase /> {creatingBackup ? 'Creating Snapshot...' : 'Create Backup Now'}
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              {undoStatus.canUndo && (
+                <button
+                  type="button"
+                  onClick={handleUndoRestore}
+                  disabled={undoing}
+                  className="btn-undo-backup"
+                  title={`Undo last restore from ${undoStatus.restoredFrom || 'backup'}`}
+                >
+                  <FaUndo /> {undoing ? 'Reverting...' : '↺ 1-Time Undo Restore'}
+                </button>
+              )}
+
+              <button
+                onClick={handleCreateBackup}
+                disabled={creatingBackup}
+                className="btn-create-backup"
+              >
+                <FaDatabase /> {creatingBackup ? 'Creating Snapshot...' : 'Create Backup Now'}
+              </button>
+            </div>
           </div>
 
           <div className="card-panel-body">
+            {undoStatus.canUndo && (
+              <div className="undo-available-banner">
+                <span>🔄 <strong>1-Time Undo Point Available:</strong> A safety checkpoint was created before restoring <code>{undoStatus.restoredFrom}</code>. Click "1-Time Undo Restore" above to instantly revert if needed.</span>
+              </div>
+            )}
+
             <div className="backup-notice-box">
               📅 <strong>Automated Schedule:</strong> Database backups are automatically created every week (<code>smt_backup_weekly_*</code>) and on the 1st of every month (<code>smt_backup_monthly_*</code>). You can download backup snapshots (<code>.json.gz</code>) to your computer for safe keeping or restore database state anytime.
             </div>

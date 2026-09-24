@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { FaSpinner, FaFileInvoiceDollar } from 'react-icons/fa';
+import { FaSpinner, FaFileInvoiceDollar, FaUsers, FaFileAlt } from 'react-icons/fa';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { INVOICE_LOGO } from '../../utils/invoiceLogo';
 import { renderProformaInvoiceHtml } from '../../utils/proformaInvoiceTemplate';
+import DealerBillGenerator from './DealerBillGenerator';
+import { printDealerBill } from '../../utils/dealerBillTemplate';
 import './InvoiceGenerator.css';
 
 const INDIAN_STATES = [
@@ -66,6 +68,9 @@ const InvoiceGenerator = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [search, setSearch] = useState('');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  // Tab State: 'single' | 'dealer-consolidated'
+  const [activeTab, setActiveTab] = useState('single');
 
   // Form State
   const [piNo, setPiNo] = useState('');
@@ -401,6 +406,23 @@ const InvoiceGenerator = () => {
   };
 
   const handleDownloadInvoice = (req) => {
+    if (req.invoiceType === 'DealerConsolidated') {
+      printDealerBill({
+        invoice: req,
+        dealer: req.dealerId || {
+          displayName: req.endCustomerName,
+          companyName: req.endCustomerName,
+          address: req.address,
+          gstNo: req.poaNo,
+          mobileNo: req.rmn,
+          state: req.dealerState || req.customerState || 'Bihar',
+        },
+        items: req.items || [],
+        allImeis: req.imeiList || [],
+      });
+      return;
+    }
+
     const printWindow = window.open('', '_blank', 'width=900,height=800');
     if (!printWindow) {
       alert('Popup blocker enabled. Please allow popups to download/print the PI bill.');
@@ -455,17 +477,44 @@ const InvoiceGenerator = () => {
       <div className="ig-header">
         <span className="ig-title">
           <FaFileInvoiceDollar style={{ marginRight: '8px', color: 'var(--accent-color)' }} />
-          PI No Generator
+          Invoice & Proforma Bill Generator
         </span>
       </div>
 
-      {/* Main Form */}
-      <div className="ig-form-container">
-        <form onSubmit={handleSingleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          
-          {/* Section 1: Customer & Billing Info */}
-          <div className="form-section-title">1. Customer & Billing Info</div>
-          <div className="ig-grid-inputs">
+      {/* Mode Tabs */}
+      <div className="invoice-mode-tabs">
+        <button 
+          type="button" 
+          className={`invoice-mode-tab ${activeTab === 'single' ? 'active' : ''}`}
+          onClick={() => setActiveTab('single')}
+        >
+          <FaFileAlt /> Single Device PI / Invoice
+        </button>
+        <button 
+          type="button" 
+          className={`invoice-mode-tab ${activeTab === 'dealer-consolidated' ? 'active' : ''}`}
+          onClick={() => setActiveTab('dealer-consolidated')}
+        >
+          <FaUsers /> Dealer Consolidated Bill Generator
+        </button>
+      </div>
+
+      {/* Conditional View: Dealer Consolidated Generator OR Single Invoice Form */}
+      {activeTab === 'dealer-consolidated' ? (
+        <DealerBillGenerator 
+          onBillSaved={() => {
+            setRefreshTrigger(prev => prev + 1);
+            fetchRequests();
+          }} 
+        />
+      ) : (
+        /* Main Single Device Form */
+        <div className="ig-form-container">
+          <form onSubmit={handleSingleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            
+            {/* Section 1: Customer & Billing Info */}
+            <div className="form-section-title">1. Customer & Billing Info</div>
+            <div className="ig-grid-inputs">
             
             <div className="form-field" style={{ gridColumn: '1 / -1', flexDirection: 'row', alignItems: 'center', gap: '8px', background: '#f0fdfa', padding: '12px 15px', borderRadius: '6px', border: '1px solid #ccfbf1' }}>
               <input 
@@ -866,6 +915,7 @@ const InvoiceGenerator = () => {
           </button>
         </form>
       </div>
+      )}
 
       {/* Generated Invoices Table */}
       <div className="ig-table-panel" style={{ marginTop: '30px' }}>
@@ -908,8 +958,8 @@ const InvoiceGenerator = () => {
                   <th style={{ padding: '12px 10px', textAlign: 'left', fontWeight: '700' }}>SI No.</th>
                   <th style={{ padding: '12px 10px', textAlign: 'left', fontWeight: '700' }}>Date</th>
                   <th style={{ padding: '12px 10px', textAlign: 'left', fontWeight: '700' }}>PI/Invoice ID</th>
-                  <th style={{ padding: '12px 10px', textAlign: 'left', fontWeight: '700' }}>Customer Name</th>
-                  <th style={{ padding: '12px 10px', textAlign: 'left', fontWeight: '700' }}>RMN</th>
+                  <th style={{ padding: '12px 10px', textAlign: 'left', fontWeight: '700' }}>Customer / Dealer</th>
+                  <th style={{ padding: '12px 10px', textAlign: 'left', fontWeight: '700' }}>RMN / Phone</th>
                   <th style={{ padding: '12px 10px', textAlign: 'left', fontWeight: '700' }}>GSTIN/POA</th>
                   <th style={{ padding: '12px 10px', textAlign: 'left', fontWeight: '700' }}>Total Value</th>
                   <th style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '700' }}>Download</th>
@@ -922,7 +972,14 @@ const InvoiceGenerator = () => {
                       <td style={{ padding: '10px' }}>{((page - 1) * limit) + index + 1}</td>
                       <td style={{ padding: '10px' }}>{new Date(req.dateTime).toLocaleDateString()}</td>
                       <td style={{ padding: '10px', color: 'var(--primary-blue)', fontWeight: 'bold' }}>{req.piNo || 'AE_PI_001'}</td>
-                      <td style={{ padding: '10px', fontWeight: '600' }}>{req.endCustomerName || 'JYOTI CONSTRUCTION'}</td>
+                      <td style={{ padding: '10px', fontWeight: '600' }}>
+                        {req.endCustomerName || 'Customer'}
+                        {req.invoiceType === 'DealerConsolidated' && (
+                          <span style={{ marginLeft: '8px', background: '#e0f2fe', color: '#0369a1', fontSize: '10px', padding: '2px 6px', borderRadius: '4px', fontWeight: '700' }}>
+                            Dealer Bill
+                          </span>
+                        )}
+                      </td>
                       <td style={{ padding: '10px' }}>{req.rmn || '--'}</td>
                       <td style={{ padding: '10px' }}>{req.poaNo || '--'}</td>
                       <td style={{ padding: '10px', fontWeight: 'bold' }}>₹{req.piValue ? req.piValue.toFixed(2) : '0.00'}</td>

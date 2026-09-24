@@ -88,6 +88,7 @@ app.use('/api/activation-requests', require('./routes/activationRequests'));
 app.use('/api/invoices', require('./routes/invoices'));
 app.use('/api/wallet', require('./routes/wallet'));
 app.use('/api/users', require('./routes/subUsers'));
+app.use('/api/dealers', require('./routes/subUsers'));
 app.use('/api/devices', require('./routes/devices'));
 app.use('/api/devices', require('./routes/deviceDocuments'));
 app.use('/api/products', require('./routes/products'));

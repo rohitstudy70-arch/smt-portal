@@ -96,7 +96,7 @@
 
 .layout-split {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: 360px 1fr;
   gap: 20px;
   width: 100% !important;
   max-width: 100% !important;
@@ -719,6 +719,63 @@
 .btn-create-backup:disabled {
   opacity: 0.65;
   cursor: not-allowed;
+}
+
+.btn-undo-backup {
+  background: linear-gradient(135deg, #d97706, #b45309);
+  color: #ffffff;
+  border: none;
+  padding: 9px 18px;
+  border-radius: 20px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.4);
+  animation: pulseUndo 2s infinite;
+}
+
+@keyframes pulseUndo {
+  0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.5); }
+  70% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+
+.btn-undo-backup:hover:not(:disabled) {
+  background: linear-gradient(135deg, #b45309, #92400e);
+  transform: translateY(-1px);
+}
+
+.btn-undo-backup:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.undo-available-banner {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-left: 4px solid #f59e0b;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 14px;
+  font-size: 12.5px;
+  color: #92400e;
+  line-height: 1.5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.undo-available-banner code {
+  background: #fef3c7;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  color: #78350f;
+  font-family: monospace;
 }
 
 .backup-notice-box {

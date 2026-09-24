@@ -125,13 +125,25 @@ const invoiceSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
-  vehicleNo: {
+  dealerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null,
+  },
+  imeiList: [{ type: String }],
+  notes: {
     type: String,
     default: '',
+  },
+  invoiceType: {
+    type: String,
+    enum: ['Single', 'DealerConsolidated'],
+    default: 'Single',
   },
   items: [
     {
       description: { type: String, default: '' },
+      category: { type: String, default: '' }, // '2-Year Activation', '1-Year Activation', 'Top-up / Recharge', 'Renewal', etc.
       validity: { type: String, default: '' },
       unitPrice: { type: Number, default: 0 },
       cgst: { type: Number, default: 0 },
@@ -140,6 +152,7 @@ const invoiceSchema = new mongoose.Schema({
       priceWithGst: { type: Number, default: 0 },
       qty: { type: Number, default: 1 },
       grossAmt: { type: Number, default: 0 },
+      imeis: [{ type: mongoose.Schema.Types.Mixed }],
     },
   ],
 });
