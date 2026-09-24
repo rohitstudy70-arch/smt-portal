@@ -43,6 +43,18 @@ const getStatus = ({ totalOutstanding, currentDue, totalPaidAmount }) => {
   return 'Clear';
 };
 
+const getUserQueryIds = (user) => {
+  if (!user) return [];
+  const rawId = user._id || user;
+  const objId = toObjectId(rawId);
+  const strId = rawId.toString();
+  const list = [strId];
+  if (objId && objId.toString() === strId && !list.includes(objId)) {
+    list.push(objId);
+  }
+  return list;
+};
+
 const buildDeviceDueQuery = (user) => {
   const role = getPortalRole(user);
 
@@ -51,20 +63,22 @@ const buildDeviceDueQuery = (user) => {
     return { _id: null };
   }
 
+  const ids = getUserQueryIds(user);
+
   if (role === PORTAL_ROLES.DEALER) {
     return {
       $or: [
-        { dealerId: user._id },
-        { userId: user._id, dealerId: null },
+        { dealerId: { $in: ids } },
+        { assignedTo: { $in: ids } },
+        { userId: { $in: ids }, dealerId: null },
       ],
-      status: { $ne: 'Activated' },
     };
   }
 
   return null;
 };
 
-// Query for ALL non-Activated devices — used for totalBillAmount / totalDevicesAssigned
+// Query for ALL devices — used for totalBillAmount / totalDevicesAssigned
 const buildAllDeviceQuery = (user) => {
   const role = getPortalRole(user);
 
@@ -72,13 +86,15 @@ const buildAllDeviceQuery = (user) => {
     return { _id: null };
   }
 
+  const ids = getUserQueryIds(user);
+
   if (role === PORTAL_ROLES.DEALER) {
     return {
       $or: [
-        { dealerId: user._id },
-        { userId: user._id, dealerId: null },
+        { dealerId: { $in: ids } },
+        { assignedTo: { $in: ids } },
+        { userId: { $in: ids }, dealerId: null },
       ],
-      status: { $ne: 'Activated' },
     };
   }
 
@@ -146,7 +162,7 @@ const syncDueForUser = async (userId) => {
   }
 
   const [paymentSummary] = await DuePayment.aggregate([
-    { $match: { userId: user._id } },
+    { $match: { userId: { $in: getUserQueryIds(user) } } },
     {
       $group: {
         _id: null,

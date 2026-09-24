@@ -836,7 +836,6 @@ const ActivationRequests = () => {
         'Tracking ID': 'TRK1001',
         'Software': 'CAR ONLINE',
         'Customer Address': 'Plot 12, Vaishali Nagar, Jaipur',
-        'Plan': '1 Year',
         'Remarks': 'Sample entry (Replace or delete this row)'
       },
       {
@@ -857,7 +856,6 @@ const ActivationRequests = () => {
         'Tracking ID': '',
         'Software': 'TRAQUELITE',
         'Customer Address': 'C-Scheme, Jaipur',
-        'Plan': '1 Year',
         'Remarks': ''
       }
     ];
@@ -881,7 +879,6 @@ const ActivationRequests = () => {
       { wch: 15 }, // Tracking ID
       { wch: 16 }, // Software
       { wch: 30 }, // Customer Address
-      { wch: 12 }, // Plan
       { wch: 30 }  // Remarks
     ];
     const wb = XLSX.utils.book_new();
@@ -940,7 +937,7 @@ const ActivationRequests = () => {
           const trackingId = findVal('trackingid', 'trackingno', 'trackerid');
           const software = findVal('software', 'soft');
           const address = findVal('customeraddress', 'address', 'custaddress');
-          const plan = findVal('plan', 'validity') || '1 Year';
+          const plan = findVal('plan', 'validity') || '';
           const remarks = findVal('remarks', 'remark', 'note');
 
           return {
@@ -1007,7 +1004,7 @@ const ActivationRequests = () => {
           trackingId: r.trackingId || '',
           software: r.software || '',
           address: r.address || '',
-          plan: r.plan || '1 Year',
+          plan: r.plan || '',
           remarks: r.remarks || 'Bulk Excel Upload'
         }))
       };
@@ -1925,10 +1922,10 @@ const ActivationRequests = () => {
                     <strong style={{ fontSize: '13px', color: '#1e293b' }}>
                       📋 Preview Data ({bulkRows.length} Requests)
                     </strong>
-                    <span style={{ fontSize: '11px', color: '#64748b' }}>Device inventory details will be auto-linked by IMEI</span>
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>Device validity & inventory details will be auto-linked by IMEI from Add Device</span>
                   </div>
                   <div style={{ maxHeight: '240px', overflowY: 'auto', overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11.5px', textAlign: 'left', minWidth: '1100px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11.5px', textAlign: 'left', minWidth: '1000px' }}>
                       <thead style={{ background: '#f1f5f9', position: 'sticky', top: 0, color: '#475569', fontWeight: '700', zIndex: 1 }}>
                         <tr>
                           <th style={{ padding: '8px 10px', borderBottom: '1px solid #cbd5e1' }}>#</th>
@@ -1943,7 +1940,6 @@ const ActivationRequests = () => {
                           <th style={{ padding: '8px 10px', borderBottom: '1px solid #cbd5e1' }}>Aadhar</th>
                           <th style={{ padding: '8px 10px', borderBottom: '1px solid #cbd5e1' }}>Tracking / Software</th>
                           <th style={{ padding: '8px 10px', borderBottom: '1px solid #cbd5e1' }}>Address</th>
-                          <th style={{ padding: '8px 10px', borderBottom: '1px solid #cbd5e1' }}>Plan</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1980,7 +1976,6 @@ const ActivationRequests = () => {
                             <td style={{ padding: '6px 10px', color: '#475569', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.address}>
                               {r.address || '—'}
                             </td>
-                            <td style={{ padding: '6px 10px', color: '#0369a1', fontWeight: '600' }}>{r.plan}</td>
                           </tr>
                         ))}
                       </tbody>

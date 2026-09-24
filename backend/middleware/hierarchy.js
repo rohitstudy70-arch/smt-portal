@@ -77,13 +77,21 @@ const buildDeviceScopeQuery = (scope) => {
     return {};
   }
 
+  const ids = [];
+  (scope.userIds || []).forEach((id) => {
+    if (id) {
+      ids.push(id);
+      ids.push(id.toString());
+    }
+  });
+
   return {
     $or: [
-      { userId: { $in: scope.userIds } },
-      { assignedTo: { $in: scope.userIds } },
-      { dealerId: { $in: scope.userIds } },
-      { subDealerId: { $in: scope.userIds } },
-      { createdBy: { $in: scope.userIds } },
+      { userId: { $in: ids } },
+      { assignedTo: { $in: ids } },
+      { dealerId: { $in: ids } },
+      { subDealerId: { $in: ids } },
+      { createdBy: { $in: ids } },
     ],
   };
 };

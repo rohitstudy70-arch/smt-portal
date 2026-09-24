@@ -913,26 +913,7 @@ router.get('/summary', async (req, res) => {
       ]);
       const totalRenewalPaid = renewalPaidSummary[0]?.totalPaid || 0;
 
-      const deviceScopeQuery = buildDeviceScopeQuery(req.hierarchyScope);
-      const availableQuery = {
-        $and: [
-          deviceScopeQuery,
-          { status: { $ne: 'Activated' } },
-        ],
-      };
-
-      const [availableSummary] = await Device.aggregate([
-        { $match: availableQuery },
-        {
-          $group: {
-            _id: null,
-            totalBill: { $sum: { $ifNull: ['$billAmount', 0] } },
-          },
-        },
-      ]);
-      const availableBillSum = availableSummary?.totalBill || 0;
-
-      const deviceTotalBillAmount = availableBillSum;
+      const deviceTotalBillAmount = dueRecord ? dueRecord.totalBillAmount || 0 : 0;
       const deviceTotalPaidAmount = dueRecord ? dueRecord.totalPaidAmount || 0 : 0;
 
       const totalBillAmount = deviceTotalBillAmount + totalRenewalDues;
@@ -965,11 +946,39 @@ router.get('/summary', async (req, res) => {
     const monthStart = startOfMonth(new Date());
     const monthEnd = endOfMonth(new Date());
 
+    const expandIds = (list = []) => {
+      const set = new Set();
+      list.forEach((item) => {
+        if (item) {
+          set.add(item);
+          set.add(item.toString());
+        }
+      });
+      return Array.from(set);
+    };
+
+    const userQueryIds = expandIds(userIds);
+    const allUserQueryIds = expandIds(allUserIds);
+
     const [todaysCollection, monthlyCollection, todaysRevenue, monthlyRevenue] = await Promise.all([
-      sumPayments({ userId: { $in: userIds }, paymentDate: { $gte: todayStart, $lte: todayEnd } }),
-      sumPayments({ userId: { $in: userIds }, paymentDate: { $gte: monthStart, $lte: monthEnd } }),
-      sumDeviceRevenue({ userId: { $in: allUserIds }, presentDate: { $gte: todayStart, $lte: todayEnd } }),
-      sumDeviceRevenue({ userId: { $in: allUserIds }, presentDate: { $gte: monthStart, $lte: monthEnd } }),
+      sumPayments({ userId: { $in: userQueryIds }, paymentDate: { $gte: todayStart, $lte: todayEnd } }),
+      sumPayments({ userId: { $in: userQueryIds }, paymentDate: { $gte: monthStart, $lte: monthEnd } }),
+      sumDeviceRevenue({
+        $or: [
+          { userId: { $in: allUserQueryIds } },
+          { dealerId: { $in: allUserQueryIds } },
+          { assignedTo: { $in: allUserQueryIds } }
+        ],
+        presentDate: { $gte: todayStart, $lte: todayEnd }
+      }),
+      sumDeviceRevenue({
+        $or: [
+          { userId: { $in: allUserQueryIds } },
+          { dealerId: { $in: allUserQueryIds } },
+          { assignedTo: { $in: allUserQueryIds } }
+        ],
+        presentDate: { $gte: monthStart, $lte: monthEnd }
+      }),
     ]);
 
     // Aggregate renewals for Admin scoped users to combine in Admin cards
