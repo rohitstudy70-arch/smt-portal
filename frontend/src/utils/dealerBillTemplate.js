@@ -1,5 +1,4 @@
 import { INVOICE_LOGO } from './invoiceLogo';
-import { STAMP_IMAGE } from './stampLogo';
 
 const COMPANY_SENDER = {
   brandName: 'Arshi Enterprises',
@@ -497,14 +496,11 @@ export const renderDealerBillHtml = ({
           </ul>
         </td>
         <td style="text-align: right; vertical-align: bottom;">
-          <div style="font-size: 11px; font-weight: 700; color: #0f766e; margin-bottom: 2px;">
+          <div style="font-size: 11px; font-weight: 700; color: #0f766e; margin-bottom: 45px;">
             For ${escapeHtml(sender.brandName)}
           </div>
-          <div style="margin-bottom: -16px; margin-top: -6px; text-align: center; display: inline-block;">
-            <img src="${STAMP_IMAGE}" alt="Arshi Enterprises Official Seal & Stamp" style="max-height: 85px; max-width: 85px; object-fit: contain;" /><br/>
-            <div style="font-size: 11px; border-top: 1px solid #cbd5e1; display: inline-block; padding-top: 3px; min-width: 140px; text-align: center;">
-              Authorized Signatory
-            </div>
+          <div style="font-size: 11px; border-top: 1px solid #cbd5e1; display: inline-block; padding-top: 4px; min-width: 140px; text-align: center;">
+            Authorized Signatory
           </div>
         </td>
       </tr>
