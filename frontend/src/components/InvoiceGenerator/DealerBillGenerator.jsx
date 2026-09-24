@@ -524,14 +524,20 @@ const DealerBillGenerator = ({ onBillSaved }) => {
 
       const res = await api.post('/invoices/generate-dealer-bill', payload);
       setSaveSuccess(`Consolidated bill ${res.data.invoiceNo} (PI: ${res.data.piNo}) created and saved successfully!`);
+      setErrorMessage('');
 
       fetchNextNumbers();
 
       if (onBillSaved) {
-        onBillSaved(res.data);
+        try {
+          onBillSaved(res.data);
+        } catch (cbErr) {
+          console.warn('onBillSaved callback error:', cbErr);
+        }
       }
     } catch (err) {
       console.error('Failed to save dealer bill:', err);
+      setSaveSuccess(null);
       setErrorMessage(err.response?.data?.message || 'Failed to save bill to database.');
     } finally {
       setSavingBill(false);

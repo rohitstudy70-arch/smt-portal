@@ -504,7 +504,6 @@ const InvoiceGenerator = () => {
         <DealerBillGenerator 
           onBillSaved={() => {
             setRefreshTrigger(prev => prev + 1);
-            fetchRequests();
           }} 
         />
       ) : (
