@@ -336,7 +336,13 @@ router.get('/dealer-billable-items', async (req, res) => {
 
       const validityStr = String(dev.validity || '').toLowerCase();
       const statusStr = String(dev.status || '').toLowerCase();
-      const topUpAmt = Number(dev.topUpAmount || dev.renewalAmount || 0);
+      // On Device model, topUpAmount is stored in dev.renewalAmount (from AddDevice or /topup endpoint)
+      const topUpAmt = Number(dev.renewalAmount || dev.topUpAmount || 0);
+      const totalDevBill = Number(dev.billAmount) || 0;
+      // Activation base amount is totalDevBill minus topUpAmt (if topUpAmt was bundled in billAmount)
+      const activationAmt = (topUpAmt > 0 && totalDevBill > topUpAmt)
+        ? (totalDevBill - topUpAmt)
+        : (totalDevBill > 0 ? totalDevBill : (validityStr.includes('2 year') || validityStr.includes('2yr') ? 4200 : 2370));
 
       const baseItem = {
         id: dev._id,
@@ -345,32 +351,41 @@ router.get('/dealer-billable-items', async (req, res) => {
         iccid: dev.iccid || dev.iccidNumber || '',
         deviceName: dev.deviceName || 'VLTD Device',
         validity: dev.validity || '1 Year',
-        billAmount: Number(dev.billAmount) || 0,
-        amount: Number(dev.billAmount) || 0,
+        billAmount: activationAmt,
+        amount: activationAmt,
         date: dev.presentDate || dev.createdAt,
         type: 'Device',
       };
 
-      // If top-up was done on this device (via Add Device or device management)
-      if (topUpAmt > 0 || statusStr.includes('topup') || statusStr.includes('recharge') || validityStr.includes('recharge')) {
+      // ONLY include in Top-up if actual top-up amount was recorded on this device
+      if (topUpAmt > 0) {
         if (!seenTopupImeis.has(imei)) {
           topupList.push({
-            ...baseItem,
+            id: `topup-${dev._id}`,
+            imei,
+            serialNo: dev.serialNo || dev.serialNumber || '',
+            iccid: dev.iccid || dev.iccidNumber || '',
+            deviceName: dev.deviceName || 'VLTD Top-up / Data Recharge',
+            validity: 'Top-up',
             plan: 'Device Top-up / Recharge',
-            amount: topUpAmt || 590,
+            billAmount: topUpAmt,
+            amount: topUpAmt,
+            date: dev.presentDate || dev.createdAt,
             type: 'DeviceTopUp',
           });
           seenTopupImeis.add(imei);
         }
       }
 
-      // If renewal was done on this device
+      // If renewal was done on this device (status indicates renewal)
       if (statusStr.includes('renewal') || validityStr.includes('renewal')) {
+        const renAmt = Number(dev.renewalAmount) || 1770;
         if (!seenRenewalImeis.has(imei)) {
           renewalList.push({
             ...baseItem,
             plan: 'Device Renewal',
-            amount: dev.renewalAmount || 1770,
+            billAmount: renAmt,
+            amount: renAmt,
             type: 'DeviceRenewal',
           });
           seenRenewalImeis.add(imei);
@@ -388,10 +403,11 @@ router.get('/dealer-billable-items', async (req, res) => {
       }
     });
 
-    // Process Top-up Transactions
+    // Process Top-up Transactions (only where actual transaction amount > 0)
     txTopups.forEach((tx) => {
       const imei = String(tx.imei || tx.referenceNo || '').trim();
-      if (imei && imei !== 'N/A' && !seenTopupImeis.has(imei)) {
+      const amt = Number(tx.transactedAmt || tx.requestedAmt || 0);
+      if (imei && imei !== 'N/A' && !seenTopupImeis.has(imei) && amt > 0) {
         topupList.push({
           id: tx._id,
           requestId: tx.transactionId,
@@ -402,7 +418,8 @@ router.get('/dealer-billable-items', async (req, res) => {
           customerName: dealer.displayName || 'Customer',
           vehicleNo: '-',
           plan: 'Data / SIM Top-up',
-          amount: tx.transactedAmt || tx.requestedAmt || 590,
+          billAmount: amt,
+          amount: amt,
           date: tx.date,
           type: 'TransactionTopUp',
         });
@@ -423,17 +440,21 @@ router.get('/dealer-billable-items', async (req, res) => {
         customerName: reqItem.customerName || 'Customer',
         vehicleNo: reqItem.vehicleNo || '',
         plan: reqItem.plan || reqItem.requestType || '',
-        amount: reqItem.amount || 0,
+        billAmount: Number(reqItem.amount) || 0,
+        amount: Number(reqItem.amount) || 0,
         date: reqItem.dateTime,
         type: 'ActivationRequest',
       };
 
       if (reqTypeStr.includes('top-up') || reqTypeStr.includes('topup') || planStr.includes('recharge') || reqTypeStr.includes('recharge')) {
-        if (imei && !seenTopupImeis.has(imei)) {
-          topupList.push(item);
+        const topAmt = Number(reqItem.amount || 0);
+        if (topAmt > 0 && imei && !seenTopupImeis.has(imei)) {
+          topupList.push({
+            ...item,
+            billAmount: topAmt,
+            amount: topAmt,
+          });
           seenTopupImeis.add(imei);
-        } else if (!imei) {
-          topupList.push(item);
         }
       } else if (planStr.includes('renewal') || reqTypeStr.includes('renewal')) {
         if (imei && !seenRenewalImeis.has(imei)) {

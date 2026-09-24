@@ -381,12 +381,26 @@ const DealerBillGenerator = ({ onBillSaved }) => {
       const count = selectedItems.length;
 
       if (count > 0) {
-        const unitPrice = catState[catKey].unitPrice;
-        const taxable = roundCurrency(unitPrice * count);
+        let unitPrice = catState[catKey].unitPrice;
+        let priceWithGst = catState[catKey].priceWithGst;
+        let grossAmt = 0;
+
+        // If topup has specific individual amounts, sum them exactly
+        const individualSum = selectedItems.reduce((sum, it) => sum + (Number(it.billAmount || it.amount) || 0), 0);
+        const hasIndividualAmounts = catKey === 'topup' && selectedItems.some(it => Number(it.billAmount || it.amount) > 0);
+
+        if (hasIndividualAmounts) {
+          grossAmt = roundCurrency(individualSum);
+          priceWithGst = roundCurrency(grossAmt / count);
+          unitPrice = roundCurrency(priceWithGst / 1.18);
+        } else {
+          grossAmt = roundCurrency(count * priceWithGst);
+        }
+
+        const taxable = roundCurrency(grossAmt / 1.18);
         const cgstAmt = isIntraState ? roundCurrency((taxable * 9) / 100) : 0;
         const sgstAmt = isIntraState ? roundCurrency((taxable * 9) / 100) : 0;
         const igstAmt = isIntraState ? 0 : roundCurrency((taxable * 18) / 100);
-        const grossAmt = roundCurrency(taxable + cgstAmt + sgstAmt + igstAmt);
 
         items.push({
           category: catName,
@@ -394,7 +408,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
           validity,
           qty: count,
           unitPrice,
-          priceWithGst: catState[catKey].priceWithGst,
+          priceWithGst,
           cgst: isIntraState ? 9 : 0,
           sgst: isIntraState ? 9 : 0,
           igst: isIntraState ? 0 : 18,
@@ -542,7 +556,13 @@ const DealerBillGenerator = ({ onBillSaved }) => {
     });
 
     const selectedCount = selectedSet.size;
-    const categoryGross = roundCurrency(selectedCount * catState[catKey].priceWithGst);
+    const selectedItems = allItems.filter((it, idx) => selectedSet.has(getItemKey(it, idx)));
+    const individualSum = selectedItems.reduce((sum, it) => sum + (Number(it.billAmount || it.amount) || 0), 0);
+    const hasIndividualAmounts = catKey === 'topup' && selectedItems.some(it => Number(it.billAmount || it.amount) > 0);
+
+    const categoryGross = hasIndividualAmounts
+      ? roundCurrency(individualSum)
+      : roundCurrency(selectedCount * catState[catKey].priceWithGst);
 
     return (
       <div className={`category-card ${selectedCount > 0 ? 'active' : ''}`} key={catKey}>
