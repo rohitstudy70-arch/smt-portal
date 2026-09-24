@@ -1650,7 +1650,7 @@ router.get('/revenue-breakdown', async (req, res) => {
 
 router.post('/renew-device', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
   try {
-    const { deviceId, validity } = req.body;
+    const { deviceId, validity, renewalAmount } = req.body;
     if (!deviceId) {
       return res.status(400).json({ message: 'Device ID is required.' });
     }
@@ -1671,8 +1671,16 @@ router.post('/renew-device', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) 
 
     device.expiryDate = nextExpiry;
     device.validity = validity;
-    const renewAmt = device.renewalAmount || device.billAmount || 0;
+
+    // Use manually entered renewalAmount if provided, otherwise fallback to device renewal/bill amount
+    const renewAmt = (renewalAmount !== undefined && renewalAmount !== null && renewalAmount !== '')
+      ? Math.max(Number(renewalAmount) || 0, 0)
+      : (device.renewalAmount || device.billAmount || (validity === '2 Years' ? 3540 : 1770));
+
+    device.renewalAmount = renewAmt;
     device.billAmount = (device.billAmount || 0) + renewAmt;
+    device.status = 'Activated';
+    device.activationRequestStatus = 'active';
     await device.save();
 
     const currentYear = new Date().getFullYear();
@@ -1716,8 +1724,8 @@ router.post('/renew-device', requireRoles(PORTAL_ROLES.ADMIN), async (req, res) 
       validity,
       renewalDate: currentExpiry,
       newExpiryDate: nextExpiry,
-      billAmount: device.renewalAmount || device.billAmount || 0,
-      receivedAmount: device.renewalAmount || device.billAmount || 0,
+      billAmount: renewAmt,
+      receivedAmount: renewAmt,
       remainingDue: 0,
       paymentMode: 'Cash',
       remarks: 'Immediate renewal by admin from due dashboard',

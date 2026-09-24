@@ -30,6 +30,7 @@ const RenewalDueManagement = () => {
   // Modal State for Renew
   const [renewDevice, setRenewDevice] = useState(null);
   const [renewValidity, setRenewValidity] = useState('1 Year');
+  const [renewAmount, setRenewAmount] = useState('');
   const [renewing, setRenewing] = useState(false);
 
   const showToast = (type, message) => {
@@ -81,6 +82,7 @@ const RenewalDueManagement = () => {
       const res = await api.post('/due-dashboard/renew-device', {
         deviceId: renewDevice._id,
         validity: renewValidity,
+        renewalAmount: Number(renewAmount) || 0,
       });
       showToast('success', res.data.message || 'Device renewed successfully.');
       setRenewDevice(null);
@@ -244,6 +246,7 @@ const RenewalDueManagement = () => {
                         onClick={() => {
                           setRenewDevice(device);
                           setRenewValidity('1 Year');
+                          setRenewAmount(device.renewalAmount || 1770);
                         }}
                       >
                         Renew
@@ -342,11 +345,33 @@ const RenewalDueManagement = () => {
                   <label>Renewal Period</label>
                   <select
                     value={renewValidity}
-                    onChange={(e) => setRenewValidity(e.target.value)}
+                    onChange={(e) => {
+                      const newValidity = e.target.value;
+                      setRenewValidity(newValidity);
+                      if (!renewAmount || renewAmount === 1770 || renewAmount === 3540 || renewAmount === '1770' || renewAmount === '3540') {
+                        setRenewAmount(newValidity === '2 Years' ? 3540 : 1770);
+                      }
+                    }}
                   >
                     <option value="1 Year">1 Year</option>
                     <option value="2 Years">2 Years</option>
                   </select>
+                </div>
+                <div className="renew-modal-row">
+                  <label>Renewal Amount (₹) <span style={{ color: '#ef4444' }}>*</span></label>
+                  <input
+                    type="number"
+                    value={renewAmount}
+                    onChange={(e) => setRenewAmount(e.target.value)}
+                    placeholder="Enter Renewal Amount (e.g. 1770)"
+                    min="0"
+                    step="any"
+                    required
+                    style={{ fontWeight: '700', color: '#0f766e', fontSize: '14px' }}
+                  />
+                  <small style={{ color: '#64748b', fontSize: '11.5px', marginTop: '2px' }}>
+                    Yahan aap manually renewal amount enter ya modify kar sakte hain.
+                  </small>
                 </div>
                 <div className="renew-modal-actions">
                   <button
