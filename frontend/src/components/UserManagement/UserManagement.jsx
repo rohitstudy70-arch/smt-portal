@@ -140,15 +140,29 @@ const UserManagement = () => {
     }
   };
 
+  const isAdminUser = (u) => {
+    if (!u) return false;
+    return u.userType === 'Administration' || u.role === 'partner' || u.username === 'admin' || u.username === 'ArshiEnterprises';
+  };
+
+  const isDealerUser = (u) => {
+    if (!u) return false;
+    if (isAdminUser(u)) return false;
+    return u.userType === 'Dealer' || (!u.userType && u.userType !== 'Sub Dealer');
+  };
+
+  const isSubDealerUser = (u) => {
+    if (!u) return false;
+    return u.userType === 'Sub Dealer';
+  };
+
   useEffect(() => {
     fetchSubUsers();
     if (role === 'ADMIN') {
       fetchBackups();
       fetchUndoStatus();
       api.get('/users/sub-users').then((res) => {
-        const dealerList = (res.data || []).filter(
-          (u) => u.userType === 'Dealer' || u.userType === '' || u.role === 'partner'
-        );
+        const dealerList = (res.data || []).filter(isDealerUser);
         setDealers(dealerList);
       }).catch(console.error);
     }
@@ -402,9 +416,9 @@ const UserManagement = () => {
   const filteredUsers = subUsers.filter(u => {
     // Role filter
     if (roleFilter !== 'ALL') {
-      if (roleFilter === 'Administration' && u.userType !== 'Administration') return false;
-      if (roleFilter === 'Dealer' && u.userType !== 'Dealer' && u.userType !== '') return false;
-      if (roleFilter === 'Sub Dealer' && u.userType !== 'Sub Dealer') return false;
+      if (roleFilter === 'Administration' && !isAdminUser(u)) return false;
+      if (roleFilter === 'Dealer' && !isDealerUser(u)) return false;
+      if (roleFilter === 'Sub Dealer' && !isSubDealerUser(u)) return false;
     }
     // Text search
     if (!search.trim()) return true;
@@ -420,9 +434,9 @@ const UserManagement = () => {
   const displayedUsers = filteredUsers.slice(0, limit);
 
   // Quick statistics
-  const adminCount = subUsers.filter(u => u.userType === 'Administration' || u.role === 'partner').length;
-  const dealerCount = subUsers.filter(u => u.userType === 'Dealer' || u.userType === '').length;
-  const subDealerCount = subUsers.filter(u => u.userType === 'Sub Dealer').length;
+  const adminCount = subUsers.filter(isAdminUser).length;
+  const dealerCount = subUsers.filter(isDealerUser).length;
+  const subDealerCount = subUsers.filter(isSubDealerUser).length;
   const activeCount = subUsers.filter(u => u.status === 'Active' || (u.status !== 'Inactive' && u.status !== 'inactive')).length;
 
   return (
@@ -854,8 +868,8 @@ const UserManagement = () => {
                   ) : displayedUsers.length > 0 ? (
                     displayedUsers.map((targetUser, index) => {
                       const userInitial = (targetUser.displayName || targetUser.username || 'U').charAt(0).toUpperCase();
-                      const isTargetAdmin = targetUser.userType === 'Administration' || targetUser.role === 'partner';
-                      const isTargetSubDealer = targetUser.userType === 'Sub Dealer';
+                      const isTargetAdmin = isAdminUser(targetUser);
+                      const isTargetSubDealer = isSubDealerUser(targetUser);
                       const avatarClass = isTargetAdmin ? 'admin' : isTargetSubDealer ? 'subdealer' : 'dealer';
                       const typeBadgeClass = isTargetAdmin ? 'admin' : isTargetSubDealer ? 'subdealer' : 'dealer';
                       const isActive = targetUser.status === 'Active' || (targetUser.status !== 'Inactive' && targetUser.status !== 'inactive');
@@ -897,7 +911,7 @@ const UserManagement = () => {
                           {/* Role / Type */}
                           <td>
                             <span className={`type-badge ${typeBadgeClass}`}>
-                              {targetUser.userType || (targetUser.role === 'partner' ? 'Administration' : 'Dealer')}
+                              {isTargetAdmin ? 'Administration' : (targetUser.userType || 'Dealer')}
                             </span>
                           </td>
 

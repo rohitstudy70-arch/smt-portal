@@ -32,11 +32,24 @@ router.get('/sub-users', protect, async (req, res) => {
 
     let subUsers;
     if (role === 'ADMIN') {
+      // Auto-ensure that ArshiEnterprises and admin are strictly set as Administration admins
+      await User.updateMany(
+        { username: { $in: ['admin', 'ArshiEnterprises'] } },
+        { $set: { role: 'partner', userType: 'Administration', status: 'Active' } }
+      );
+
+      // Ensure any Admin/partner accounts are properly labeled Administration
+      await User.updateMany(
+        { role: 'partner', userType: { $ne: 'Administration' } },
+        { $set: { userType: 'Administration' } }
+      );
+
       // Auto-ensure that any Admin/Administration account is set to Active if accidentally marked Inactive
       await User.updateMany(
         {
           $or: [
             { username: 'admin' },
+            { username: 'ArshiEnterprises' },
             { role: 'partner' },
             { userType: 'Administration' },
           ],
@@ -464,8 +477,9 @@ router.get('/dealers', protect, async (req, res) => {
 
     if (role === 'ADMIN') {
       query = {
-        role: 'customer',
+        role: { $ne: 'partner' },
         userType: { $nin: ['Sub Dealer', 'Administration'] },
+        username: { $nin: ['admin', 'ArshiEnterprises'] },
       };
     } else if (role === 'DEALER') {
       query = { _id: req.user._id };
