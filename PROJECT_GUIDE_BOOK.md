@@ -1,4 +1,4 @@
-# 📘 CDB Portal V2 (SMT Customer Portal) — Complete Project Guide Book
+# 📘 CDB Portal V2 (SMT Customer Portal) — Visual Illustrated Guide Book
 
 > **System Name:** CDB Portal / SMT Customer Portal  
 > **Client / Organization:** Arshi Enterprises  
@@ -11,31 +11,33 @@
 ## 📑 Table of Contents
 1. [Project Overview & Objectives](#1-project-overview--objectives)
 2. [Technology Stack & System Architecture](#2-technology-stack--system-architecture)
-3. [User Roles & Hierarchy Scope](#3-user-roles--hierarchy-scope)
-4. [Core Modules & Operational Workflows](#4-core-modules--operational-workflows)
-   - [4.1 Device Management & Inventory](#41-device-management--inventory)
-   - [4.2 Activation Requests (Single & Bulk)](#42-activation-requests-single--bulk)
-   - [4.3 Device Renewal System](#43-device-renewal-system)
-   - [4.4 Invoicing & Dealer Billing Engine](#44-invoicing--dealer-billing-engine)
-   - [4.5 Due Dashboard & Financial Ledger](#45-due-dashboard--financial-ledger)
-   - [4.6 User & Sub-Dealer Management](#46-user--sub-dealer-management)
-   - [4.7 Database Backups & Disaster Recovery](#47-database-backups--disaster-recovery)
-5. [Server Architecture & Production Deployment](#5-server-architecture--production-deployment)
-6. [Daily Operations & VPS Cheatsheet](#6-daily-operations--vps-cheatsheet)
-7. [Troubleshooting & Maintenance FAQ](#7-troubleshooting--maintenance-faq)
+3. [User Roles & Security Boundaries](#3-user-roles--security-boundaries)
+4. [Illustrated Module Workflows (With Screenshots)](#4-illustrated-module-workflows)
+   - [4.1 Executive Dashboard](#41-executive-dashboard)
+   - [4.2 Device Inventory & Add Device](#42-device-inventory--add-device)
+   - [4.3 Service Requests: Device Activation (Single & Bulk)](#43-service-requests-device-activation)
+   - [4.4 Renewal Due Devices & Extensions](#44-renewal-due-devices--extensions)
+   - [4.5 Invoice & Dealer Bill Generator](#45-invoice--dealer-bill-generator)
+   - [4.6 Due Dashboard & Payment Tracking](#46-due-dashboard--payment-tracking)
+   - [4.7 Ledger Book & Transaction Audit](#47-ledger-book--transaction-audit)
+   - [4.8 User & Hierarchy Management](#48-user--hierarchy-management)
+   - [4.9 Automated Backups & Disaster Recovery](#49-automated-backups--disaster-recovery)
+5. [Production Server Architecture & VPS Cheatsheet](#5-production-server-architecture--vps-cheatsheet)
+6. [Troubleshooting & Maintenance FAQ](#6-troubleshooting--maintenance-faq)
 
 ---
 
 ## 1. Project Overview & Objectives
 
-**CDB Portal V2** is an enterprise-grade web application built to streamline GPS device distribution, activation workflows, subscription renewals, dealer ledger balances, and GST-compliant tax invoicing.
+**CDB Portal V2** is an enterprise GPS device distribution and subscription billing platform developed for **Arshi Enterprises**. It automates device inventory lifecycle, bulk service activations, subscription validity calculations, dealer dues tracking, and GST-compliant invoicing.
 
-### Key Business Goals:
-- **Centralized Inventory:** Track device IMEIs, ICCIDs, validity periods, and multi-tier dealer allocations.
-- **High-Volume Activations:** Support single and bulk activation uploads (up to 1,000 devices per batch) without server timeout.
-- **Accurate Financial Accountability:** Real-time tracking of dealer dues, partial payments, payment verifications, and ledger history.
-- **Automated Invoicing:** One-click generation of Tax Invoices and Dealer Proforma Bills with automatic CGST+SGST / IGST calculation.
-- **High Reliability & Zero Data Loss:** Multi-tier automated snapshots, 1-Time Undo safety checkpoints before restore, and disk backups.
+```mermaid
+flowchart LR
+    Inv["📦 1. Inventory Entry<br/>(Add Device / Pricing)"] --> Act["⚡ 2. Activation Request<br/>(Bulk Upload up to 1000)"]
+    Act --> Due["💰 3. Due & Ledger<br/>(Dues Tracking & UTR Verification)"]
+    Due --> Ren["🔄 4. Renewal Due<br/>(30-Day Alert & Extensions)"]
+    Due --> InvEngine["📄 5. Invoicing<br/>(Tax & Proforma Bills)"]
+```
 
 ---
 
@@ -69,174 +71,215 @@ flowchart TD
     APIs --> Uploads
 ```
 
-### Stack Details:
-- **Frontend:** React 18, Vite 5, React Icons (`Fa...`), React Router DOM, Axios, Custom CSS & Split layouts.
-- **Backend:** Node.js (v20+), Express.js, Mongoose ODM, JSONWebToken (JWT), Multer (file uploads), Gzip/Zlib.
-- **Database:** MongoDB (Local `127.0.0.1:27017` on production VPS, MongoDB Atlas cluster for staging).
+- **Frontend:** React 18, Vite 5, React Icons (`Fa...`), React Router DOM, Axios, Custom Responsive CSS.
+- **Backend:** Node.js (v20+), Express.js, Mongoose ODM, JWT, Multer, Gzip/Zlib compression.
+- **Database:** MongoDB (`mongodb://127.0.0.1:27017/smt_portal` on production VPS).
 - **Process Manager:** PM2 (`smt-portal-backend`).
 - **Web Server:** Nginx (Reverse proxy with SSL on port 80/443).
 
 ---
 
-## 3. User Roles & Hierarchy Scope
+## 3. User Roles & Security Boundaries
 
-The portal enforces a strict 3-tier hierarchical security scope:
-
-```mermaid
-graph TD
-    Admin["👑 Administration / Admin (Arshi Enterprises)"]
-    Dealer["🏢 Dealer / Distributor"]
-    SubDealer["🏪 Sub-Dealer / Retailer"]
-
-    Admin -->|Full Access: All Devices, Dues, Invoices, Backups| Dealer
-    Dealer -->|Scoped Access: Own Devices, Sub-Dealers & Bills| SubDealer
-```
-
-| Role | Portal Type | Capabilities |
+| Role | System Role / UserType | Scope & Access Rights |
 | :--- | :--- | :--- |
-| **Admin** | `Administration` / `partner` | Full access: Manage all users, assign devices, approve activations/renewals, see total portal revenue & dues, trigger backups, clear data. |
-| **Dealer** | `Dealer` | View assigned devices, raise activation/renewal requests, create Sub-Dealers, view own ledger & bills, pay dues. |
-| **Sub Dealer**| `Sub Dealer` | View devices allocated by their parent Dealer, request activations under parent Dealer. |
+| **👑 Admin** | `partner` / `Administration` | Full access across all dealers, devices, bills, dues, backups, and user management. |
+| **🏢 Dealer** | `customer` / `Dealer` | View assigned inventory, raise single/bulk activation requests, manage assigned sub-dealers, view own dues & bills. |
+| **🏪 Sub-Dealer** | `customer` / `Sub Dealer` | Operates strictly under their parent Dealer. Can view and raise requests for devices assigned to them. |
 
 ---
 
-## 4. Core Modules & Operational Workflows
-
-### 4.1 Device Management & Inventory
-- **Location:** `Device Management` / `Add Device`
-- **Functions:**
-  - Single device registration: Input IMEI, ICCID, Serial No, Model, 1-Year Rate, 2-Year Rate, and Initial Validity.
-  - Bulk Device Upload: Upload CSV/Excel containing device inventories.
-  - Dynamic Pricing: Stores custom default renewal pricing directly on the device document (`oneYearAmount`, `twoYearAmount`).
-
-### 4.2 Activation Requests (Single & Bulk)
-- **Location:** `Service Requests` -> `Activation Requests`
-- **Workflow:**
-  1. Dealer selects device IMEIs or uploads a bulk Excel list (up to **1,000 devices** supported).
-  2. The system validates IMEIs against inventory, checks whether they are already active or assigned.
-  3. Admin reviews pending requests:
-     - **Approve:** Activates devices, automatically extends device expiry based on plan/inventory tenure, records transactions in Dealer Ledger.
-     - **Reject:** Marks request rejected with remarks, device remains available.
-
-### 4.3 Device Renewal System
-- **Location:** `Renewal Due Devices` & `Service Requests` -> `Renewal Requests`
-- **Features:**
-  - Automatically flags devices expiring in ≤ 30 days or already expired.
-  - Supports 1-Year and 2-Year extensions.
-  - **Manual Renewal Amount Override:** Admin/Dealer can adjust the renewal fee per device or batch.
-
-### 4.4 Invoicing & Dealer Billing Engine
-- **Location:** `Invoice Generator`
-- **Bill Types:**
-  - **Tax Invoice:** GST compliant, generates serial invoice number (e.g. `INV-2026-XXXX`).
-  - **Dealer Proforma Bill:** Pre-billing summary for dealers without affecting tax filings.
-- **Tax Intelligence:**
-  - If Dealer State == Admin State (`Bihar`): 9% CGST + 9% SGST.
-  - If Dealer State != Admin State: 18% IGST.
-  - Includes A4 printable format with Bank Details, QR Code, and authorized signatory.
-
-### 4.5 Due Dashboard & Financial Ledger
-- **Location:** `Due Dashboard` & `Ledger Book`
-- **Calculation Formula:**
-  $$\text{Total Dues} = \sum (\text{Active Device Bills} + \text{Invoiced Amounts}) - \sum (\text{Approved Payments})$$
-- **Payment Verification Workflow:**
-  1. Dealer makes bank transfer / UPI and submits payment proof (UTR / Transaction ID + Screenshot).
-  2. Appears in **Payment Verification Requests** for Admin review.
-  3. Upon Admin approval, dealer dues decrease and ledger is updated instantly.
-
-### 4.6 User & Sub-Dealer Management
-- **Location:** `User Management`
-- **Features:**
-  - Create new Admin, Dealer, or Sub-Dealer accounts.
-  - State, GSTIN, PAN, and full address capture for automatic bill generation.
-  - **Status Toggle:** Instantly toggle user between `Active` and `Inactive`.
-  - **Permanent Deletion:** Allows Admin to safely delete duplicate or obsolete accounts while safeguarding parent devices and preserving at least one main Admin account.
-
-### 4.7 Database Backups & Disaster Recovery
-- **Location:** `User Management` -> `Automated Backups Repository`
-- **Capabilities:**
-  - **Instant Snapshot:** Creates a `.json.gz` full database dump on disk.
-  - **Download:** Download any backup snapshot directly to your computer.
-  - **1-Click Restore with 1-Time Safety Undo:** Before restoring an old backup, the system automatically captures a pre-restore checkpoint. If a restore was done by mistake, click **"1-Time Undo"** to instantly revert.
-  - **Delete Backup:** Permanently remove old snapshot files from disk to free up VPS storage.
-  - **Clean Operational Data Script:** Run `backend/clear_portal_data.js` to wipe test data (devices, bills, dues) while safely preserving all login accounts.
+## 4. Illustrated Module Workflows
 
 ---
 
-## 5. Server Architecture & Production Deployment
+### 4.1 Executive Dashboard
+The **Dashboard** gives instant financial, inventory, and subscription visibility.
 
+![Executive Dashboard](docs/screenshots/dashboard_overview.png)
+
+#### Key Highlights:
+- **Total Devices & Status Breakdown:** Real-time count of Active, Inactive, and Expired devices.
+- **Financial Summary Cards:** Total Billed Amount, Total Collected Amount, and Total Outstanding Dues.
+- **Quick Links:** Direct shortcuts to Activation Requests, Due Dashboard, and Add Device.
+
+---
+
+### 4.2 Device Inventory & Add Device
+Register new devices into the warehouse with dynamic pricing and validity configuration.
+
+![Device Management & Add Device](docs/screenshots/device_management_add.png)
+
+#### Fields & Features:
+- **Device Identifiers:** IMEI (15 digits), ICCID (19-20 digits), Serial Number, and Model.
+- **Default Pricing Configuration:** Set 1-Year Rate (₹) and 2-Year Rate (₹) directly during entry.
+- **Initial Validity:** Configurable validity period (1 Year / 2 Year).
+- **Dealer Assignment:** Devices can be assigned immediately or kept in unassigned central stock.
+
+---
+
+### 4.3 Service Requests: Device Activation
+Dealers submit activation requests for installed devices. Supports both individual submission and high-volume batch imports.
+
+![Activation Requests & Bulk Upload](docs/screenshots/activation_requests_bulk.png)
+
+#### Workflow:
+1. **Bulk Upload Support:** Upload Excel/CSV with up to **1,000 devices** in a single batch.
+2. **Auto-Validation:** The system validates that IMEIs exist in inventory and are not duplicate-activated.
+3. **Admin Review & Approval:**
+   - **Approve:** Activates device, calculates expiration date, updates dealer dues, and logs transaction.
+   - **Reject:** Returns device to unactivated state with reason noted.
+
+---
+
+### 4.4 Renewal Due Devices & Extensions
+Monitors devices nearing subscription expiration and streamlines extension requests.
+
+![Renewal Due Devices](docs/screenshots/renewal_due_devices.png)
+
+#### Workflow:
+- **30-Day Alert Window:** Automatically highlights devices expiring in ≤ 30 days or already expired.
+- **Extension Plans:** 1-Year or 2-Year renewal extensions.
+- **Custom Renewal Amount:** Editable renewal fee field allowing negotiated rates before approval.
+
+---
+
+### 4.5 Invoice & Dealer Bill Generator
+Automates professional tax invoicing and proforma billing with state-wise GST logic.
+
+![Invoice & Dealer Bill Generator](docs/screenshots/invoice_bill_generator.png)
+
+#### GST Intelligence & Billing Types:
+- **Tax Invoice (INV):** Official GST invoice with sequential invoice numbering for tax filing.
+- **Dealer Proforma Bill:** Operational statement for dealer settlements.
+- **Tax Calculations:**
+  - **Intra-State (`Bihar` to `Bihar`):** 9% CGST + 9% SGST.
+  - **Inter-State (Outside `Bihar`):** 18% IGST.
+- **A4 Print Engine:** Formatted with bank details, UPI QR code, company PAN/GSTIN, and authorized signatory.
+
+---
+
+### 4.6 Due Dashboard & Payment Tracking
+Complete financial control center tracking outstanding balances across all dealers.
+
+![Due Dashboard & Dues Tracking](docs/screenshots/due_dashboard_financials.png)
+
+#### Financial Accounting Formula:
+$$\text{Current Dealer Dues} = \sum (\text{Active Device Charges} + \text{Invoiced Amounts}) - \sum (\text{Verified Payments})$$
+
+#### Payment Verification Flow:
+1. Dealer transfers payment via NEFT / RTGS / UPI and submits UTR number + bank payment screenshot.
+2. Request appears in **Payment Verification Requests** queue.
+3. Admin verifies bank credit and approves: Dues are reduced instantly in real-time.
+
+---
+
+### 4.7 Ledger Book & Transaction Audit
+A double-entry style financial transaction history providing auditability for every rupee.
+
+![Ledger Book & Transactions](docs/screenshots/ledger_transactions.png)
+
+#### Tracked Events:
+- Device activations (Debit entry against dealer account).
+- Renewal approvals (Debit entry).
+- Payment receipts & settlements (Credit entry).
+- Date, Transaction ID, Reference IMEI, Description, and Running Balance.
+
+---
+
+### 4.8 User & Hierarchy Management
+Administers portal credentials, company details, and role assignments.
+
+![User Management](docs/screenshots/user_management.png)
+
+#### Core Operations:
+- **Add / Edit User:** Set Display Name, Mobile, Email, State, GSTIN, PAN, City, and Full Billing Address.
+- **Status Toggle:** Click the **Active / Inactive** button to instantly grant or suspend portal access.
+- **Delete Account:** Safely remove duplicate or obsolete accounts.
+  - *Safety Guard:* Logged-in admin cannot delete themselves, and the last admin account is protected.
+
+---
+
+### 4.9 Automated Backups & Disaster Recovery
+Complete data protection suite with automated snapshots and one-click restore.
+
+![Automated Backups Repository](docs/screenshots/automated_backups.png)
+
+#### Features:
+- **Create Backup Now:** Generates compressed `.json.gz` database snapshots on demand.
+- **Download:** Download any snapshot directly to local storage.
+- **Restore with 1-Time Safety Undo:**
+  - Before restoring an old snapshot, the system creates an automated pre-restore safety checkpoint.
+  - If a restore was done accidentally, click **"1-Time Undo"** to immediately revert.
+- **Delete Backup:** Permanently remove old backups from disk.
+
+---
+
+## 5. Production Server Architecture & VPS Cheatsheet
+
+### Directory Layout on VPS (`187.127.185.4`):
 ```
 /var/www/smt-portal/
 ├── backend/
 │   ├── config/             # DB connection & environment
-│   ├── middleware/         # Auth, hierarchy scoping, rate limiters
+│   ├── middleware/         # Auth, hierarchy scoping, security
 │   ├── models/             # Mongoose schemas (User, Device, Invoice, etc.)
-│   ├── routes/             # Express API controllers
+│   ├── routes/             # API routes
 │   ├── storage/backups/    # Gzipped database snapshots (.json.gz)
-│   ├── uploads/            # Payment screenshots & documents
-│   ├── server.js           # Main backend entry point
+│   ├── uploads/            # Payment receipts & documents
+│   ├── server.js           # Express app entry point
 │   ├── clear_portal_data.js# Operational reset utility
-│   └── .env                # Production secrets & DB connection string
+│   └── .env                # Production config (DB URI, JWT secret)
 ├── frontend/
-│   ├── src/                # React source code & components
+│   ├── src/                # React source code
 │   ├── dist/               # Built static bundle served by Nginx
 │   └── package.json
-└── docker-compose.yml       # Containerized configuration
+└── docker-compose.yml       # Docker deployment descriptor
 ```
 
----
+### Essential VPS Commands:
 
-## 6. Daily Operations & VPS Cheatsheet
-
-### Connect to VPS:
 ```bash
+# 1. Connect to VPS
 ssh root@187.127.185.4
 cd /var/www/smt-portal
-```
 
-### Deploy Latest Changes from GitHub:
-```bash
-# 1. Pull latest code
+# 2. Deploy latest code from GitHub
 git pull origin main
 
-# 2. Build frontend
+# 3. Build frontend bundle
 cd frontend && npm run build
 
-# 3. Restart backend service
+# 4. Restart backend server
 cd ../backend && pm2 restart all
-```
 
-### Check PM2 Status & Logs:
-```bash
-pm2 status
+# 5. Inspect backend live logs
 pm2 logs smt-portal-backend --lines 50
-```
 
-### Reset Operational Data (Clean Test Data Safely):
-```bash
+# 6. Reset operational test data (Keeps all User & Dealer logins safe)
 cd /var/www/smt-portal/backend
 node clear_portal_data.js "mongodb://127.0.0.1:27017/smt_portal"
 ```
 
 ---
 
-## 7. Troubleshooting & Maintenance FAQ
+## 6. Troubleshooting & Maintenance FAQ
 
-### Q1: Devices count or Dues mismatch on Dealer dashboard?
-- **Cause:** Device `dealerId` might be stored as a String instead of ObjectId or vice versa.
-- **Fix:** The backend now automatically matches both formats (`{ $in: [dealerId, String(dealerId)] }`). Refresh the page or check the Due Dashboard.
+### Q1: Dealer dues or device count does not match on dashboard?
+- **Cause:** Device `dealerId` stored as String instead of ObjectId or vice versa.
+- **Solution:** Handled automatically in latest update. Refresh the page or check the Due Dashboard.
 
-### Q2: Activation request bulk upload fails with large file?
-- **Cause:** Bulk limits previously restricted to 100 rows.
-- **Fix:** The limit is now **1,000 devices per batch**. Ensure column headers include `IMEI` and `ICCID`.
+### Q2: Bulk upload gives error with large batches?
+- **Cause:** Previous limits were 100 rows.
+- **Solution:** Batch upload limit is now **1,000 devices per batch**. Ensure columns contain `IMEI` and `ICCID`.
 
-### Q3: Admin cannot delete duplicate accounts or see action buttons?
-- **Cause:** Restricted userType checks.
-- **Fix:** Fixed in latest commit. Admins can delete any non-self Admin or Dealer account directly from User Management.
+### Q3: Admin unable to delete duplicate user or buttons missing?
+- **Cause:** Over-restrictive check on Administration accounts.
+- **Solution:** Fixed in latest commit. Admins can delete any non-self Admin or Dealer account directly.
 
-### Q4: Nginx shows 502 Bad Gateway?
-- **Check Backend:** Run `pm2 status`. If status is `errored`, run `pm2 logs` to inspect MongoDB connectivity.
-- **Check MongoDB:** Run `systemctl status mongod` and ensure local MongoDB is active.
+### Q4: Nginx returns 502 Bad Gateway?
+- Run `pm2 status`. If status is `errored`, check logs with `pm2 logs`.
+- Verify MongoDB is running with `systemctl status mongod`.
 
 ---
-*Guide Book Version: 2.4.0 — Maintained for Arshi Enterprises CDB Portal.*
+*Guide Book Version: 2.5.0 (Illustrated Edition) — CDB Portal V2.*
