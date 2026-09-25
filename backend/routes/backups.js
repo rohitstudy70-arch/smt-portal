@@ -408,6 +408,82 @@ router.post('/restore/:filename', protect, requireRoles(PORTAL_ROLES.ADMIN), asy
   }
 });
 
+// @route   POST /api/backups/clear-operational-data
+// @desc    Clear all operational/test data while preserving user accounts (Admin only)
+// @access  Private (Admin)
+router.post('/clear-operational-data', protect, requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
+  try {
+    const Device = require('../models/Device');
+    const Product = require('../models/Product');
+    const ActivationRequest = require('../models/ActivationRequest');
+    const RenewalRequest = require('../models/RenewalRequest');
+    const Invoice = require('../models/Invoice');
+    const Transaction = require('../models/Transaction');
+    const DealerDue = require('../models/DealerDue');
+    const DuePayment = require('../models/DuePayment');
+    const PaymentVerificationRequest = require('../models/PaymentVerificationRequest');
+    const AuditLog = require('../models/AuditLog');
+    const User = require('../models/User');
+
+    const [
+      devRes,
+      prodRes,
+      actRes,
+      renRes,
+      invRes,
+      txRes,
+      dueRes,
+      payRes,
+      pvrRes,
+      logRes
+    ] = await Promise.all([
+      Device.deleteMany({}),
+      Product.deleteMany({}),
+      ActivationRequest.deleteMany({}),
+      RenewalRequest.deleteMany({}),
+      Invoice.deleteMany({}),
+      Transaction.deleteMany({}),
+      DealerDue.deleteMany({}),
+      DuePayment.deleteMany({}),
+      PaymentVerificationRequest.deleteMany({}),
+      AuditLog.deleteMany({}),
+    ]);
+
+    await User.updateMany({}, {
+      $set: {
+        availableBalance: 0,
+        overDrawnAmount: 0,
+      }
+    });
+
+    console.log('🧹 [Clear Operational Data] Completed:', {
+      devices: devRes.deletedCount,
+      activationRequests: actRes.deletedCount,
+      invoices: invRes.deletedCount,
+      transactions: txRes.deletedCount,
+    });
+
+    res.json({
+      message: 'All operational data cleared successfully! All User and Dealer accounts are preserved.',
+      deleted: {
+        devices: devRes.deletedCount,
+        products: prodRes.deletedCount,
+        activationRequests: actRes.deletedCount,
+        renewalRequests: renRes.deletedCount,
+        invoices: invRes.deletedCount,
+        transactions: txRes.deletedCount,
+        dealerDues: dueRes.deletedCount,
+        duePayments: payRes.deletedCount,
+        paymentVerificationRequests: pvrRes.deletedCount,
+        auditLogs: logRes.deletedCount,
+      }
+    });
+  } catch (error) {
+    console.error('Error clearing operational data:', error);
+    res.status(500).json({ message: 'Failed to clear operational data', error: error.message });
+  }
+});
+
 module.exports = {
   router,
   performBackup,
