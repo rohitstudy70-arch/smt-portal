@@ -262,6 +262,41 @@ router.get('/download/:filename', protect, requireRoles(PORTAL_ROLES.ADMIN), asy
   }
 });
 
+// @route   DELETE /api/backups/:filename
+// @desc    Permanently delete a backup file (Admin only)
+// @access  Private (Admin)
+router.delete('/:filename', protect, requireRoles(PORTAL_ROLES.ADMIN), async (req, res) => {
+  try {
+    const backupDir = getBackupDir();
+    const filename = path.basename(req.params.filename);
+    const filepath = path.join(backupDir, filename);
+
+    if (!fs.existsSync(filepath)) {
+      return res.status(404).json({ message: 'Backup file not found' });
+    }
+
+    fs.unlinkSync(filepath);
+
+    // Also check if this was the active undo checkpoint
+    const undoMetaPath = path.join(backupDir, 'undo_checkpoint.json');
+    if (fs.existsSync(undoMetaPath)) {
+      try {
+        const undoData = JSON.parse(fs.readFileSync(undoMetaPath, 'utf-8'));
+        if (undoData.undoFilename === filename) {
+          fs.unlinkSync(undoMetaPath);
+        }
+      } catch (e) {
+        // ignore parse error
+      }
+    }
+
+    res.json({ message: `Backup "${filename}" deleted successfully!` });
+  } catch (error) {
+    console.error('Delete backup API error:', error);
+    res.status(500).json({ message: `Failed to delete backup: ${error.message}` });
+  }
+});
+
 // Core helper: Restore database from any backup file path
 const executeRestoreFromPath = async (filepath) => {
   const filename = path.basename(filepath);

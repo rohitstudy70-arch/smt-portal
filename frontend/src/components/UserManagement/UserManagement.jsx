@@ -236,6 +236,21 @@ const UserManagement = () => {
     }
   };
 
+  const handleDeleteBackup = async (filename) => {
+    if (!window.confirm(`⚠️ Are you sure you want to permanently delete backup "${filename}"? This action cannot be undone.`)) {
+      return;
+    }
+    try {
+      setError('');
+      const res = await api.delete(`/backups/${filename}`);
+      setSuccess(res.data.message || 'Backup file deleted successfully!');
+      fetchBackups();
+      fetchUndoStatus();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to delete backup file.');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -1073,6 +1088,18 @@ const UserManagement = () => {
                               title="Restore MongoDB database from this snapshot"
                             >
                               <FaRedo /> Restore
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteBackup(b.filename)} 
+                              style={{ 
+                                backgroundColor: '#ef4444', color: '#fff', padding: '6px 14px', 
+                                borderRadius: '20px', border: 'none', cursor: 'pointer', 
+                                display: 'inline-flex', alignItems: 'center', gap: '6px', 
+                                fontWeight: 650, fontSize: '11.5px', boxShadow: '0 1px 3px rgba(239, 68, 68, 0.3)'
+                              }}
+                              title="Delete backup file permanently"
+                            >
+                              <FaTrash /> Delete
                             </button>
                           </div>
                         </td>
