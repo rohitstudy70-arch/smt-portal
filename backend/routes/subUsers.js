@@ -229,6 +229,7 @@ router.put('/sub-user/:id', protect, async (req, res) => {
       email, 
       status, 
       username,
+      password,
       state,
       gstNo,
       panNo,
@@ -300,6 +301,10 @@ router.put('/sub-user/:id', protect, async (req, res) => {
         }
         subUser.username = trimmedUsername;
       }
+    }
+
+    if (password && typeof password === 'string' && password.trim().length > 0) {
+      subUser.password = password.trim();
     }
 
     if (subUser.userType === 'Dealer' || subUser.userType === 'Administration') {

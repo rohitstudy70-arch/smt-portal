@@ -281,6 +281,9 @@ const UserManagement = () => {
           pincode: (pincode || '').trim(),
           address: (address || '').trim(),
         };
+        if (password && password.trim()) {
+          payload.password = password.trim();
+        }
         if (role === 'ADMIN' && userType === 'Sub Dealer') payload.parentId = parentId;
         await api.put(`/users/sub-user/${editingUserId}`, payload);
         setSuccess('User details updated successfully!');
@@ -721,22 +724,21 @@ const UserManagement = () => {
                   />
                 </div>
 
-                {/* Password (only on add mode) */}
-                {!isEditMode && (
-                  <div className="form-field-group">
-                    <label htmlFor="password">
-                      Account Password <span className="field-required">*</span>
-                    </label>
-                    <input
-                      type="password"
-                      id="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Enter strong password"
-                      required
-                    />
-                  </div>
-                )}
+                {/* Account Password */}
+                <div className="form-field-group">
+                  <label htmlFor="password">
+                    Account Password {isEditMode ? <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'normal' }}>(Leave blank to keep unchanged)</span> : <span className="field-required">*</span>}
+                  </label>
+                  <input
+                    type="password"
+                    id="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={isEditMode ? "Enter new password (optional)" : "Enter strong password"}
+                    required={!isEditMode}
+                    autoComplete="new-password"
+                  />
+                </div>
               </div>
 
               <div className="form-actions-bar">
