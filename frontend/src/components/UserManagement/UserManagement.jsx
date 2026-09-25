@@ -343,30 +343,25 @@ const UserManagement = () => {
     }
   };
 
+  const isSelf = (targetUser) => {
+    if (!user || !targetUser) return false;
+    const selfId = (user._id || user.id || '').toString();
+    const targetId = (targetUser._id || targetUser.id || '').toString();
+    if (selfId && targetId && selfId === targetId) return true;
+    const selfUsername = (user.username || '').toLowerCase();
+    const targetUsername = (targetUser.username || '').toLowerCase();
+    return !!(selfUsername && targetUsername && selfUsername === targetUsername);
+  };
+
   const canManageUser = (targetUser) => {
     if (role !== 'ADMIN') return false;
-    const targetUserType = targetUser.userType;
-    if (targetUserType === 'Administration') {
-      return user?.role === 'partner' && user?.userType !== 'Administration';
-    }
-    if (targetUser.role === 'partner') {
-      return false;
-    }
     return true;
   };
 
   const canDeleteUser = (targetUser) => {
     if (role !== 'ADMIN') return false;
-    if (!canManageUser(targetUser)) return false;
-
-    const targetUserType = targetUser.userType || 'Dealer';
-    if (targetUserType === 'Dealer' || targetUserType === 'Sub Dealer') {
-      return true;
-    }
-    if (targetUserType === 'Administration') {
-      return isFullAdmin;
-    }
-    return false;
+    if (isSelf(targetUser)) return false;
+    return true;
   };
 
   const handleDeleteUser = async (userId, targetName) => {
@@ -425,7 +420,7 @@ const UserManagement = () => {
   const adminCount = subUsers.filter(u => u.userType === 'Administration' || u.role === 'partner').length;
   const dealerCount = subUsers.filter(u => u.userType === 'Dealer' || u.userType === '').length;
   const subDealerCount = subUsers.filter(u => u.userType === 'Sub Dealer').length;
-  const activeCount = subUsers.filter(u => u.status !== 'Inactive').length;
+  const activeCount = subUsers.filter(u => u.status === 'Active' || (u.status !== 'Inactive' && u.status !== 'inactive')).length;
 
   return (
     <div className="user-management-container">
@@ -861,7 +856,7 @@ const UserManagement = () => {
                       const isTargetSubDealer = targetUser.userType === 'Sub Dealer';
                       const avatarClass = isTargetAdmin ? 'admin' : isTargetSubDealer ? 'subdealer' : 'dealer';
                       const typeBadgeClass = isTargetAdmin ? 'admin' : isTargetSubDealer ? 'subdealer' : 'dealer';
-                      const isActive = targetUser.status !== 'Inactive';
+                      const isActive = targetUser.status === 'Active' || (targetUser.status !== 'Inactive' && targetUser.status !== 'inactive');
 
                       return (
                         <tr key={targetUser._id || `user-${index}`} className={!isActive ? 'row-inactive' : ''}>
@@ -938,19 +933,45 @@ const UserManagement = () => {
                                   >
                                     <FaEdit /> <span>Edit</span>
                                   </button>
-                                  <button 
-                                    className={`action-pill-btn ${isActive ? 'toggle-active' : 'toggle-inactive'}`} 
-                                    title={isActive ? 'Deactivate User' : 'Activate User'}
-                                    onClick={() => handleToggleStatus(targetUser._id)}
-                                  >
-                                    {isActive ? <><FaCheck /> <span>Active</span></> : <><FaTimes /> <span>Inactive</span></>}
-                                  </button>
+                                  {isSelf(targetUser) ? (
+                                    isActive ? (
+                                      <span 
+                                        style={{ 
+                                          fontSize: '11px', 
+                                          padding: '4px 10px', 
+                                          borderRadius: '20px', 
+                                          background: '#e0f2fe', 
+                                          color: '#0369a1', 
+                                          fontWeight: 650 
+                                        }}
+                                        title="Current logged-in account (Active)"
+                                      >
+                                        Current User
+                                      </span>
+                                    ) : (
+                                      <button 
+                                        className="action-pill-btn toggle-inactive" 
+                                        title="Click to Activate your account"
+                                        onClick={() => handleToggleStatus(targetUser._id)}
+                                      >
+                                        <FaCheck /> <span>Activate</span>
+                                      </button>
+                                    )
+                                  ) : (
+                                    <button 
+                                      className={`action-pill-btn ${isActive ? 'toggle-active' : 'toggle-inactive'}`} 
+                                      title={isActive ? 'Deactivate User' : 'Activate User'}
+                                      onClick={() => handleToggleStatus(targetUser._id)}
+                                    >
+                                      {isActive ? <><FaCheck /> <span>Active</span></> : <><FaTimes /> <span>Inactive</span></>}
+                                    </button>
+                                  )}
                                 </>
                               )}
                               {canDeleteUser(targetUser) && (
                                 <button 
                                   className="action-pill-btn delete" 
-                                  title="Delete User"
+                                  title={`Permanently delete ${targetUser.displayName || targetUser.username}`}
                                   onClick={() => handleDeleteUser(targetUser._id, targetUser.displayName || targetUser.username)}
                                 >
                                   <FaTrash /> <span>Delete</span>

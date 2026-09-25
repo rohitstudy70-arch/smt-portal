@@ -32,6 +32,25 @@ router.get('/sub-users', protect, async (req, res) => {
 
     let subUsers;
     if (role === 'ADMIN') {
+      // Auto-ensure that any Admin/Administration account is set to Active if accidentally marked Inactive
+      await User.updateMany(
+        {
+          $or: [
+            { username: 'admin' },
+            { role: 'partner' },
+            { userType: 'Administration' },
+          ],
+          status: { $in: ['Inactive', 'inactive', '', null] },
+        },
+        { $set: { status: 'Active' } }
+      );
+
+      // Ensure any missing status defaults to Active
+      await User.updateMany(
+        { status: { $in: ['', null] } },
+        { $set: { status: 'Active' } }
+      );
+
       subUsers = await User.find({}).select('-password').lean();
     } else {
       const descendants = await getDescendantUsers(req.user._id);
@@ -225,23 +244,23 @@ router.put('/sub-user/:id', protect, async (req, res) => {
     }
 
     const targetRole = getPortalRole(subUser);
-    if (subUser._id.toString() === req.user._id.toString()) {
-      return res.status(403).json({ message: 'Access denied: You cannot manage your own profile here.' });
+    const isSelf = subUser._id.toString() === req.user._id.toString();
+
+    if (isSelf) {
+      if (status && status !== 'Active') {
+        return res.status(400).json({ message: 'You cannot deactivate your own logged-in account.' });
+      }
+      if (userType && userType !== subUser.userType) {
+        return res.status(400).json({ message: 'You cannot change your own user type here.' });
+      }
     }
 
-    // Hierarchy check
+    // Hierarchy check for non-admins
     if (role !== 'ADMIN') {
       const descendants = await getDescendantUsers(req.user._id);
       const descendantIds = descendants.map((d) => d._id.toString());
       if (!descendantIds.includes(subUser._id.toString())) {
         return res.status(403).json({ message: 'Access denied: User is not in your hierarchy.' });
-      }
-    }
-
-    // Administration restriction
-    if (req.user.userType === 'Administration') {
-      if (targetRole === 'ADMIN' || subUser.userType === 'Administration') {
-        return res.status(403).json({ message: 'Access denied: Administration users cannot manage Admin/Administration accounts.' });
       }
     }
 
@@ -324,23 +343,23 @@ router.delete('/sub-user/:id', protect, async (req, res) => {
     }
 
     const targetRole = getPortalRole(subUser);
-    if (subUser._id.toString() === req.user._id.toString()) {
-      return res.status(403).json({ message: 'Access denied: You cannot manage your own profile here.' });
+    const isSelf = subUser._id.toString() === req.user._id.toString();
+
+    if (isSelf) {
+      if (subUser.status === 'Inactive' || subUser.status === 'inactive') {
+        subUser.status = 'Active';
+        await subUser.save();
+        return res.json({ message: 'Your admin account has been activated!', status: 'Active' });
+      }
+      return res.status(400).json({ message: 'You cannot deactivate your own logged-in account.' });
     }
 
-    // Hierarchy check
+    // Hierarchy check for non-admins
     if (role !== 'ADMIN') {
       const descendants = await getDescendantUsers(req.user._id);
       const descendantIds = descendants.map((d) => d._id.toString());
       if (!descendantIds.includes(subUser._id.toString())) {
         return res.status(403).json({ message: 'Access denied: User is not in your hierarchy.' });
-      }
-    }
-
-    // Administration restriction
-    if (req.user.userType === 'Administration') {
-      if (targetRole === 'ADMIN' || subUser.userType === 'Administration') {
-        return res.status(403).json({ message: 'Access denied: Administration users cannot manage Admin/Administration accounts.' });
       }
     }
 
@@ -382,8 +401,17 @@ router.delete('/sub-user/:id/permanent', protect, async (req, res) => {
       return res.status(403).json({ message: 'Access denied: You cannot delete your own profile.' });
     }
 
-    // Enforce role-based deletion authority
-    if (targetRole === 'DEALER') {
+    // If target is an Administration/Admin account
+    if (targetRole === 'ADMIN' || subUser.userType === 'Administration' || subUser.role === 'partner') {
+      // Protect against deleting the only remaining Admin account
+      const remainingAdmins = await User.countDocuments({
+        _id: { $ne: subUser._id },
+        $or: [{ role: 'partner' }, { userType: 'Administration' }],
+      });
+      if (remainingAdmins < 1) {
+        return res.status(400).json({ message: 'Cannot delete the only remaining Admin account in the system.' });
+      }
+    } else if (targetRole === 'DEALER') {
       if (role !== 'ADMIN') {
         return res.status(403).json({ message: 'Access denied: Only Admins can delete Dealers.' });
       }
@@ -391,29 +419,16 @@ router.delete('/sub-user/:id/permanent', protect, async (req, res) => {
       if (role !== 'ADMIN' && role !== 'DEALER') {
         return res.status(403).json({ message: 'Access denied: Only Admins and Dealers can delete Sub Dealers.' });
       }
-    } else if (subUser.userType === 'Administration') {
-      const isFullAdmin = req.user?.role === 'partner' && req.user?.userType !== 'Administration';
-      if (!isFullAdmin) {
-        return res.status(403).json({ message: 'Access denied: Only Full Admins can delete Administration accounts.' });
-      }
     } else {
       return res.status(403).json({ message: 'Access denied: Unsupported account type.' });
     }
 
-    // Hierarchy check
+    // Hierarchy check for non-admins
     if (role !== 'ADMIN') {
       const descendants = await getDescendantUsers(req.user._id);
       const descendantIds = descendants.map((d) => d._id.toString());
       if (!descendantIds.includes(subUser._id.toString())) {
         return res.status(403).json({ message: 'Access denied: User is not in your hierarchy.' });
-      }
-    }
-
-    // Administration restriction
-    if (req.user.userType === 'Administration') {
-      const targetRole = getPortalRole(subUser);
-      if (targetRole === 'ADMIN' || subUser.userType === 'Administration') {
-        return res.status(403).json({ message: 'Access denied: Administration users cannot manage Admin/Administration accounts.' });
       }
     }
 
