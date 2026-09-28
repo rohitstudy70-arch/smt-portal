@@ -45,7 +45,7 @@ const isSpeechSupported = () =>
 
 const FILLABLE_KEYS = ['vehicleNo','vehicleMake','vehicleModel','registrationYear',
                        'chassisNo','engineNo','customerName','regMobNo','aadharNo',
-                       'address','rto','iccid','serialNo'];
+                       'state','address','rto','iccid','serialNo'];
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 const AIFormFiller = ({ formData, setFormData, onSelectDevice, onClose }) => {

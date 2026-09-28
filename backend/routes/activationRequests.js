@@ -182,7 +182,7 @@ router.get('/customer/:phone', async (req, res) => {
 
     const customerReq = await ActivationRequest.findOne(query)
       .sort({ dateTime: -1 })
-      .select('customerName address aadharNo regMobNo regMobNo2 vehicleMake vehicleModel rto -_id');
+      .select('customerName address state aadharNo regMobNo regMobNo2 vehicleMake vehicleModel rto -_id');
 
     if (!customerReq) {
       return res.status(404).json({ message: 'Customer not found' });
@@ -614,6 +614,7 @@ Extract ALL visible information and return ONLY a valid JSON object with these e
   "customerName": "",
   "regMobNo": "",
   "aadharNo": "",
+  "state": "",
   "address": "",
   "rto": "",
   "iccid": "",
@@ -626,6 +627,7 @@ Rules:
 - engineNo: Look for "Engine No" — uppercase no spaces
 - registrationYear: 4-digit year from registration date or manufacturing year
 - customerName: Look for "Owner Name", "Name of Owner", "Registered Owner"
+- state: Indian state (e.g. Rajasthan, Maharashtra, Delhi, Uttar Pradesh, etc.)
 - address: Full address of owner
 - aadharNo: 12 digit number
 - regMobNo: 10 digit mobile number
@@ -827,6 +829,7 @@ router.post('/bulk-create', requireRoles(...operationsRoles), async (req, res) =
         regMobNo2: item.regMobNo2 || item.alternativeContact || '',
         customerName: item.customerName || '',
         aadharNo: item.aadharNo ? String(item.aadharNo).trim() : '',
+        state: item.state || item.customerState || '',
         address: item.address || item.customerAddress || '',
         trackingId: item.trackingId || device.trackingId || '',
         software: item.software || device.software || '',
@@ -895,6 +898,7 @@ router.post('/', requireRoles(...operationsRoles), async (req, res) => {
       regMobNo2,
       customerName,
       aadharNo,
+      state,
       address,
       trackingId,
       software,
@@ -1003,6 +1007,7 @@ router.post('/', requireRoles(...operationsRoles), async (req, res) => {
       regMobNo2: regMobNo2 || '',
       customerName: customerName || '',
       aadharNo: aadharNo || '',
+      state: state || '',
       address: address || '',
       trackingId: trackingId || '',
       software: software || '',
@@ -1278,7 +1283,7 @@ router.put('/:id', async (req, res) => {
       'itrNo', 'vendor', 'installationDate', 'activationMode',
       'vehicleCondition', 'vehicleMake', 'vehicleModel', 'registrationYear',
       'vehicleNo', 'rto', 'engineNo', 'chassisNo', 'regMobNo', 'regMobNo2',
-      'customerName', 'aadharNo', 'address', 'trackingId', 'software'
+      'customerName', 'aadharNo', 'state', 'address', 'trackingId', 'software'
     ];
 
     updatableFields.forEach((field) => {

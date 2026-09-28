@@ -101,6 +101,7 @@ const activationRequestSchema = new mongoose.Schema({
   regMobNo2: { type: String, default: '' },
   customerName: { type: String, default: '' },
   aadharNo: { type: String, default: '' },
+  state: { type: String, default: '' },
   address: { type: String, default: '' },
   trackingId: { type: String, default: '', trim: true },
   software: { type: String, default: '', trim: true },

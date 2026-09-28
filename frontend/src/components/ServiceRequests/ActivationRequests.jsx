@@ -7,6 +7,45 @@ import { useAuth } from '../../context/AuthContext';
 import AIFormFiller from './AIFormFiller';
 import './ActivationRequests.css';
 
+const INDIAN_STATES = [
+  'Andaman and Nicobar Islands',
+  'Andhra Pradesh',
+  'Arunachal Pradesh',
+  'Assam',
+  'Bihar',
+  'Chandigarh',
+  'Chhattisgarh',
+  'Dadra and Nagar Haveli and Daman and Diu',
+  'Delhi',
+  'Goa',
+  'Gujarat',
+  'Haryana',
+  'Himachal Pradesh',
+  'Jammu and Kashmir',
+  'Jharkhand',
+  'Karnataka',
+  'Kerala',
+  'Ladakh',
+  'Lakshadweep',
+  'Madhya Pradesh',
+  'Maharashtra',
+  'Manipur',
+  'Meghalaya',
+  'Mizoram',
+  'Nagaland',
+  'Odisha',
+  'Puducherry',
+  'Punjab',
+  'Rajasthan',
+  'Sikkim',
+  'Tamil Nadu',
+  'Telangana',
+  'Tripura',
+  'Uttar Pradesh',
+  'Uttarakhand',
+  'West Bengal'
+];
+
 const getRole = (user) => {
   if (user?.role === 'partner') return 'ADMIN';
   if (user?.userType === 'Administration') return 'ADMIN';
@@ -79,6 +118,7 @@ const ActivationRequests = () => {
     regMobNo2: '',
     customerName: '',
     aadharNo: '',
+    state: '',
     address: '',
     isSubDealer: false,
     subDealerName: '',
@@ -186,6 +226,7 @@ const ActivationRequests = () => {
         // Customer details from request
         customerName: prefillRequest?.customerName || '',
         aadharNo: prefillRequest?.aadharNo || '',
+        state: prefillRequest?.state || '',
         regMobNo: prefillRequest?.regMobNo || '',
         regMobNo2: prefillRequest?.regMobNo2 || '',
         address: prefillRequest?.address || '',
@@ -210,6 +251,7 @@ const ActivationRequests = () => {
             setFormData(prev => ({
               ...prev,
               customerName: prev.customerName || res.data.customerName || '',
+              state: prev.state || res.data.state || '',
               address: prev.address || res.data.address || '',
               aadharNo: prev.aadharNo || res.data.aadharNo || '',
               regMobNo2: prev.regMobNo2 || res.data.regMobNo2 || '',
@@ -246,6 +288,7 @@ const ActivationRequests = () => {
             setFormData(prev => ({
               ...prev,
               customerName: existingData.customerName || prev.customerName || '',
+              state: existingData.state || prev.state || '',
               address: existingData.address || prev.address || '',
               aadharNo: existingData.aadharNo || prev.aadharNo || '',
               regMobNo: existingData.regMobNo || prev.regMobNo || '',
@@ -419,7 +462,7 @@ const ActivationRequests = () => {
           if (col.key === null) {
             val = String(idx + 1);               // SR_NO
           } else if (col.key === '_rtoState') {
-            val = rtoState;
+            val = req.state || rtoState;
           } else if (col.key === '_poa') {
             val = poaType;
           } else if (col.key === '_poi') {
@@ -675,6 +718,7 @@ const ActivationRequests = () => {
       regMobNo2: req.regMobNo2 || '',
       customerName: req.customerName || '',
       aadharNo: req.aadharNo || '',
+      state: req.state || '',
       address: req.address || '',
       isSubDealer: req.isSubDealer || false,
       subDealerName: req.subDealerName || '',
@@ -831,6 +875,7 @@ const ActivationRequests = () => {
         'Chassis Number': 'MAT123456789',
         'Customer Name': 'Rahul Sharma',
         'Aadhar Number': '123456789012',
+        'State': 'Rajasthan',
         'Reg. Mobile No': '9876543210',
         'Reg. Mobile No 2': '9876543211',
         'Tracking ID': 'TRK1001',
@@ -851,6 +896,7 @@ const ActivationRequests = () => {
         'Chassis Number': '',
         'Customer Name': 'Amit Kumar',
         'Aadhar Number': '',
+        'State': 'Rajasthan',
         'Reg. Mobile No': '9829012345',
         'Reg. Mobile No 2': '',
         'Tracking ID': '',
@@ -874,6 +920,7 @@ const ActivationRequests = () => {
       { wch: 18 }, // Chassis Number
       { wch: 20 }, // Customer Name
       { wch: 16 }, // Aadhar Number
+      { wch: 18 }, // State
       { wch: 16 }, // Reg. Mobile No
       { wch: 16 }, // Reg. Mobile No 2
       { wch: 15 }, // Tracking ID
@@ -932,6 +979,7 @@ const ActivationRequests = () => {
           const chassisNo = findVal('chassisnumber', 'chassisno', 'chassis', 'vin');
           const customerName = findVal('customername', 'customer', 'name', 'clientname');
           const aadharNo = findVal('aadharnumber', 'aadharno', 'aadhar', 'aadhaarno', 'aadhaar');
+          const state = findVal('state', 'customerstate', 'stateut');
           const regMobNo = findVal('regmobileno', 'regmobno', 'regmobilenumber', 'mobilenumber', 'mobile', 'mobileno', 'phone', 'contact');
           const regMobNo2 = findVal('regmobileno2', 'regmobno2', 'regmobilenumber2', 'mobilenumber2', 'mobileno2', 'alternativecontact', 'altmobile', 'altphone');
           const trackingId = findVal('trackingid', 'trackingno', 'trackerid');
@@ -954,6 +1002,7 @@ const ActivationRequests = () => {
             chassisNo,
             customerName,
             aadharNo,
+            state,
             regMobNo,
             regMobNo2,
             trackingId,
@@ -999,6 +1048,7 @@ const ActivationRequests = () => {
           chassisNo: r.chassisNo || '',
           customerName: r.customerName || '',
           aadharNo: r.aadharNo || '',
+          state: r.state || '',
           regMobNo: r.regMobNo || '',
           regMobNo2: r.regMobNo2 || '',
           trackingId: r.trackingId || '',
@@ -2527,6 +2577,19 @@ const ActivationRequests = () => {
                         placeholder="Enter customer name"
                         required
                       />
+                    </div>
+
+                    <div className="form-group-custom">
+                      <label>State</label>
+                      <select 
+                        value={formData.state || ''}
+                        onChange={(e) => setFormData({...formData, state: e.target.value})}
+                      >
+                        <option value="">Select State</option>
+                        {INDIAN_STATES.map((st) => (
+                          <option key={st} value={st}>{st}</option>
+                        ))}
+                      </select>
                     </div>
 
                     <div className="form-group-custom">
