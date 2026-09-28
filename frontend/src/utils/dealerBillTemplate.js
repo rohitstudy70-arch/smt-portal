@@ -502,9 +502,7 @@ export const renderDealerBillHtml = ({
           <div style="font-size: 11px; border-top: 1px solid #cbd5e1; display: inline-block; padding-top: 4px; min-width: 140px; text-align: center;">
             Authorized Signatory
           </div>
-        </td>
-      </tr>
-    </table>
+        </td>      
 
     ${allImeisList.length > 0 ? `
       <!-- Detailed IMEI Annexure -->

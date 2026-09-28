@@ -21,7 +21,7 @@ const ACCEPTED_TYPES = [
 const ACCEPTED_EXTENSIONS = ['.csv', '.xlsx', '.xls'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
-const REQUIRED_HEADERS = ['IMEI', 'Serial No', 'ICCID No', 'Model'];
+const REQUIRED_HEADERS = ['IMEI', 'Model'];
 
 const getName = (item) => item?.displayName || item?.companyName || item?.username || 'N/A';
 
@@ -324,7 +324,7 @@ const BulkUploadDevices = ({ isOpen, onClose, onUploadSuccess, dealers = [], sub
 
               {/* Required Fields Note */}
               <div className="bulk-required-note">
-                <strong>Required columns:</strong> {REQUIRED_HEADERS.join(', ')}, Dealer Name (for Admin)
+                <strong>Required columns:</strong> {REQUIRED_HEADERS.join(', ')} | <strong>Optional:</strong> Serial No, ICCID No, Dealer Name (for Admin)
               </div>
             </>
           )}

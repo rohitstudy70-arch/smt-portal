@@ -289,16 +289,26 @@ const resolveDeviceOwnership = async (req, input) => {
   };
 };
 
-const findDuplicateDevice = (input) => Device.findOne({
-  $or: [
-    { imei: input.imei },
-    { imeiNumber: input.imei },
-    { iccid: input.iccid },
-    { iccidNumber: input.iccid },
-    { serialNo: input.serialNo },
-    { serialNumber: input.serialNo },
-  ],
-});
+const findDuplicateDevice = (input) => {
+  const conditions = [];
+  if (input.imei && String(input.imei).trim()) {
+    const imeiVal = String(input.imei).trim();
+    conditions.push({ imei: imeiVal });
+    conditions.push({ imeiNumber: imeiVal });
+  }
+  if (input.iccid && String(input.iccid).trim()) {
+    const iccidVal = String(input.iccid).trim();
+    conditions.push({ iccid: iccidVal });
+    conditions.push({ iccidNumber: iccidVal });
+  }
+  if (input.serialNo && String(input.serialNo).trim()) {
+    const serialVal = String(input.serialNo).trim();
+    conditions.push({ serialNo: serialVal });
+    conditions.push({ serialNumber: serialVal });
+  }
+  if (conditions.length === 0) return null;
+  return Device.findOne({ $or: conditions });
+};
 
 const buildCommercialAssignmentUpdate = async (targetUser) => {
   const targetRole = getPortalRole(targetUser);
@@ -1471,8 +1481,6 @@ router.post(
       // 1. Required fields
       for (const p of parsed) {
         if (!p.imei) addErr(p.rowNumber, 'IMEI', 'IMEI is required.');
-        if (!p.serialNo) addErr(p.rowNumber, 'Serial No', 'Serial No is required.');
-        if (!p.iccid) addErr(p.rowNumber, 'ICCID No', 'ICCID No is required.');
         if (!p.vendor) addErr(p.rowNumber, 'Model', 'Model (vendor) is required.');
         if (role === PORTAL_ROLES.ADMIN && !p.dealerName && !req.body.dealerId) {
           addErr(p.rowNumber, 'Dealer Name', 'Dealer Name is required for admin uploads (unless selected in UI).');
@@ -1485,32 +1493,35 @@ router.post(
       const seenIccid = {};
       for (const p of parsed) {
         if (p.imei) {
-          if (seenImei[p.imei]) {
-            addErr(p.rowNumber, 'IMEI', `Duplicate IMEI "${p.imei}" found in file (also in row ${seenImei[p.imei]}).`);
+          const imeiStr = String(p.imei).trim();
+          if (seenImei[imeiStr]) {
+            addErr(p.rowNumber, 'IMEI', `Duplicate IMEI "${imeiStr}" found in file (also in row ${seenImei[imeiStr]}).`);
           } else {
-            seenImei[p.imei] = p.rowNumber;
+            seenImei[imeiStr] = p.rowNumber;
           }
         }
-        if (p.serialNo) {
-          if (seenSerial[p.serialNo]) {
-            addErr(p.rowNumber, 'Serial No', `Duplicate Serial No "${p.serialNo}" found in file (also in row ${seenSerial[p.serialNo]}).`);
+        if (p.serialNo && String(p.serialNo).trim()) {
+          const serialStr = String(p.serialNo).trim();
+          if (seenSerial[serialStr]) {
+            addErr(p.rowNumber, 'Serial No', `Duplicate Serial No "${serialStr}" found in file (also in row ${seenSerial[serialStr]}).`);
           } else {
-            seenSerial[p.serialNo] = p.rowNumber;
+            seenSerial[serialStr] = p.rowNumber;
           }
         }
-        if (p.iccid) {
-          if (seenIccid[p.iccid]) {
-            addErr(p.rowNumber, 'ICCID No', `Duplicate ICCID "${p.iccid}" found in file (also in row ${seenIccid[p.iccid]}).`);
+        if (p.iccid && String(p.iccid).trim()) {
+          const iccidStr = String(p.iccid).trim();
+          if (seenIccid[iccidStr]) {
+            addErr(p.rowNumber, 'ICCID No', `Duplicate ICCID "${iccidStr}" found in file (also in row ${seenIccid[iccidStr]}).`);
           } else {
-            seenIccid[p.iccid] = p.rowNumber;
+            seenIccid[iccidStr] = p.rowNumber;
           }
         }
       }
 
       // 3. DB duplicates — batch queries
-      const allImeis = parsed.map((p) => p.imei).filter(Boolean);
-      const allSerials = parsed.map((p) => p.serialNo).filter(Boolean);
-      const allIccids = parsed.map((p) => p.iccid).filter(Boolean);
+      const allImeis = parsed.map((p) => (p.imei ? String(p.imei).trim() : '')).filter(Boolean);
+      const allSerials = parsed.map((p) => (p.serialNo ? String(p.serialNo).trim() : '')).filter(Boolean);
+      const allIccids = parsed.map((p) => (p.iccid ? String(p.iccid).trim() : '')).filter(Boolean);
 
       const [dbImeis, dbSerials, dbIccids] = await Promise.all([
         allImeis.length ? Device.find({ $or: [{ imei: { $in: allImeis } }, { imeiNumber: { $in: allImeis } }] }).select('imei imeiNumber').lean() : [],
@@ -1523,13 +1534,13 @@ router.post(
       const existingIccids = new Set(dbIccids.flatMap((d) => [d.iccid, d.iccidNumber].filter(Boolean)));
 
       for (const p of parsed) {
-        if (p.imei && existingImeis.has(p.imei)) {
+        if (p.imei && existingImeis.has(String(p.imei).trim())) {
           addErr(p.rowNumber, 'IMEI', `IMEI "${p.imei}" already exists in database.`);
         }
-        if (p.serialNo && existingSerials.has(p.serialNo)) {
+        if (p.serialNo && String(p.serialNo).trim() && existingSerials.has(String(p.serialNo).trim())) {
           addErr(p.rowNumber, 'Serial No', `Serial No "${p.serialNo}" already exists in database.`);
         }
-        if (p.iccid && existingIccids.has(p.iccid)) {
+        if (p.iccid && String(p.iccid).trim() && existingIccids.has(String(p.iccid).trim())) {
           addErr(p.rowNumber, 'ICCID No', `ICCID "${p.iccid}" already exists in database.`);
         }
       }

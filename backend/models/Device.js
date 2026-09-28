@@ -27,7 +27,7 @@ const deviceSchema = new mongoose.Schema({
   },
   serialNo: {
     type: String,
-    required: true,
+    default: '',
     trim: true,
   },
   serialNumber: {
