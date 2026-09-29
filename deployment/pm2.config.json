@@ -4,6 +4,9 @@
       "name": "smt-portal-backend",
       "script": "server.js",
       "cwd": "/var/www/smt-portal/backend",
+      "restart_delay": 5000,
+      "max_restarts": 15,
+      "min_uptime": "5s",
       "env": {
         "NODE_ENV": "production",
         "PORT": 5000
