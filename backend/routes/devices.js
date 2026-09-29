@@ -750,8 +750,8 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
       return res.status(400).json({ message: 'Selection of model iTriangle is restricted to admin only.' });
     }
 
-    if (!input.imei || !input.iccid || !input.serialNo) {
-      return res.status(400).json({ message: 'IMEI, ICCID, and Serial No are required.' });
+    if (!input.imei) {
+      return res.status(400).json({ message: 'IMEI is required.' });
     }
 
     const ownership = await resolveDeviceOwnership(req, input);
@@ -847,10 +847,10 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
         deviceName: input.deviceName,
         imei: input.imei,
         imeiNumber: input.imei,
-        iccid: input.iccid,
-        iccidNumber: input.iccid,
-        serialNo: input.serialNo,
-        serialNumber: input.serialNo,
+        iccid: input.iccid ? String(input.iccid).trim() : undefined,
+        iccidNumber: input.iccid ? String(input.iccid).trim() : undefined,
+        serialNo: input.serialNo ? String(input.serialNo).trim() : undefined,
+        serialNumber: input.serialNo ? String(input.serialNo).trim() : undefined,
         msisdn1: input.msisdn1,
         msisdn2: input.msisdn2,
         itrNo: input.itrNo,
@@ -1727,10 +1727,10 @@ router.post(
             deviceName: p.deviceName || 'Aquila Track Bharat 101 With IRNSS',
             imei: p.imei,
             imeiNumber: p.imei,
-            iccid: p.iccid,
-            iccidNumber: p.iccid,
-            serialNo: p.serialNo,
-            serialNumber: p.serialNo,
+            iccid: p.iccid ? String(p.iccid).trim() : undefined,
+            iccidNumber: p.iccid ? String(p.iccid).trim() : undefined,
+            serialNo: p.serialNo ? String(p.serialNo).trim() : undefined,
+            serialNumber: p.serialNo ? String(p.serialNo).trim() : undefined,
             msisdn1: p.msisdn1 || '',
             msisdn2: p.msisdn2 || '',
             itrNo: p.itrNo || '',

@@ -15,6 +15,24 @@ if (fs.existsSync(path.join(__dirname, '.env.local'))) {
 // Connect to MongoDB & ensure default admin exists
 connectDB().then(async () => {
   try {
+    const Device = require('./models/Device');
+    try {
+      const indexes = await Device.collection.indexes();
+      for (const idx of indexes) {
+        if (idx.name === 'iccid_1' && !idx.partialFilterExpression) {
+          console.log('🔄 Dropping legacy iccid_1 index to allow multiple empty/blank ICCIDs...');
+          await Device.collection.dropIndex('iccid_1');
+        }
+        if (idx.name === 'serialNo_1' && !idx.partialFilterExpression) {
+          console.log('🔄 Dropping legacy serialNo_1 index to allow multiple empty/blank Serial Numbers...');
+          await Device.collection.dropIndex('serialNo_1');
+        }
+      }
+      await Device.syncIndexes();
+    } catch (idxErr) {
+      // If collection doesn't exist yet, it's fine
+    }
+
     const User = require('./models/User');
     const adminExists = await User.findOne({
       $or: [{ username: 'admin' }, { role: 'partner' }, { userType: 'Administration' }]
@@ -32,7 +50,7 @@ connectDB().then(async () => {
       console.log('✅ Default admin user created successfully (username: admin, password: admin123)!');
     }
   } catch (err) {
-    console.error('Error ensuring default admin:', err.message);
+    console.error('Error ensuring default admin or syncing indexes:', err.message);
   }
 });
 

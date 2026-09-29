@@ -27,7 +27,6 @@ const deviceSchema = new mongoose.Schema({
   },
   serialNo: {
     type: String,
-    default: '',
     trim: true,
   },
   serialNumber: {
@@ -36,7 +35,6 @@ const deviceSchema = new mongoose.Schema({
   },
   iccid: {
     type: String,
-    default: '',
     trim: true,
   },
   iccidNumber: {
@@ -276,10 +274,25 @@ const deviceSchema = new mongoose.Schema({
 deviceSchema.pre('validate', function (next) {
   this.imei = this.imei || this.imeiNumber;
   this.imeiNumber = this.imeiNumber || this.imei;
-  this.iccid = this.iccid || this.iccidNumber;
-  this.iccidNumber = this.iccidNumber || this.iccid;
-  this.serialNo = this.serialNo || this.serialNumber;
-  this.serialNumber = this.serialNumber || this.serialNo;
+
+  const rawIccid = (this.iccid || this.iccidNumber || '').toString().trim();
+  if (rawIccid) {
+    this.iccid = rawIccid;
+    this.iccidNumber = rawIccid;
+  } else {
+    this.iccid = undefined;
+    this.iccidNumber = undefined;
+  }
+
+  const rawSerial = (this.serialNo || this.serialNumber || '').toString().trim();
+  if (rawSerial) {
+    this.serialNo = rawSerial;
+    this.serialNumber = rawSerial;
+  } else {
+    this.serialNo = undefined;
+    this.serialNumber = undefined;
+  }
+
   next();
 });
 
@@ -289,8 +302,14 @@ deviceSchema.pre('save', function (next) {
 });
 
 deviceSchema.index({ imei: 1 }, { unique: true, sparse: true });
-deviceSchema.index({ iccid: 1 }, { unique: true, sparse: true });
-deviceSchema.index({ serialNo: 1 }, { unique: true, sparse: true });
+deviceSchema.index(
+  { iccid: 1 },
+  { unique: true, partialFilterExpression: { iccid: { $type: 'string', $gt: '' } } }
+);
+deviceSchema.index(
+  { serialNo: 1 },
+  { unique: true, partialFilterExpression: { serialNo: { $type: 'string', $gt: '' } } }
+);
 deviceSchema.index({ dealerId: 1 });
 deviceSchema.index({ subDealerId: 1 });
 deviceSchema.index({ createdBy: 1 });
