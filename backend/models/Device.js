@@ -165,6 +165,14 @@ const deviceSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  claSyAmount: {
+    type: Number,
+    default: 0,
+  },
+  claSyCharges: {
+    type: Number,
+    default: 0,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

@@ -87,6 +87,8 @@ const normalizeDeviceInput = (body) => {
     deviceName: String(body.deviceName || 'Aquila Track Bharat 101 With IRNSS').trim(),
     billAmount: Number(body.billAmount) || 0,
     topUpAmount: Number(body.topUpAmount) || 0,
+    claSyAmount: Number(body.claSyAmount || body.claSyCharges) || 0,
+    claSyCharges: Number(body.claSyCharges || body.claSyAmount) || 0,
     trackingId: String(body.trackingId || '').trim(),
     software: String(body.software || '').trim(),
     validity: normalizeValidity(body.validity),
@@ -504,10 +506,11 @@ router.get('/export', async (req, res) => {
     const headers = [
       'Dealer Name', 'Sub Dealer Name', 'Assigned Customer', 'IMEI', 'ICCID', 
       'Serial No', 'MSISDN 1', 'MSISDN 2', 'Validity', 'Bill Amount',
+      'Top Up Amount', 'CLA/Sy Charges',
       'Activation Date', 'Expiry Date', 'Created By', 'Status'
     ];
 
-    const colWidths = [22, 22, 25, 20, 22, 18, 16, 16, 12, 15, 16, 16, 20, 14];
+    const colWidths = [22, 22, 25, 20, 22, 18, 16, 16, 12, 15, 15, 16, 16, 16, 20, 14];
     sheet.columns = headers.map((h, i) => ({ header: h, key: h, width: colWidths[i] }));
 
     // Format Header Row (Row 3)
@@ -546,6 +549,8 @@ router.get('/export', async (req, res) => {
         device.msisdn2 || '',
         device.validity || '',
         device.billAmount || 0,
+        device.renewalAmount || 0,
+        device.claSyAmount || device.claSyCharges || 0,
         formatDate(device.presentDate),
         formatDate(device.expiryDate),
         device.createdBy ? labelForUser(device.createdBy) : 'N/A',
@@ -560,7 +565,7 @@ router.get('/export', async (req, res) => {
       row.height = 20;
       row.eachCell((cell, colNum) => {
         cell.font = { name: 'Arial', size: 10 };
-        const centerCols = [4, 5, 6, 7, 8, 9, 10, 11, 12, 14];
+        const centerCols = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16];
         cell.alignment = {
           horizontal: centerCols.includes(colNum) ? 'center' : 'left',
           vertical: 'middle'
@@ -777,8 +782,13 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
           duplicate.presentDate = presentDate;
           duplicate.expiryDate = expiryDate;
           const dupTopUpAmt = Number(input.topUpAmount) || 0;
-          if (input.billAmount) duplicate.billAmount = (Number(input.billAmount) || 0) + dupTopUpAmt;
+          const dupClaSyAmt = Number(input.claSyAmount || input.claSyCharges) || 0;
+          if (input.billAmount) duplicate.billAmount = (Number(input.billAmount) || 0) + dupTopUpAmt + dupClaSyAmt;
           if (dupTopUpAmt > 0) duplicate.renewalAmount = dupTopUpAmt;
+          if (dupClaSyAmt > 0) {
+            duplicate.claSyAmount = dupClaSyAmt;
+            duplicate.claSyCharges = dupClaSyAmt;
+          }
 
           duplicate.assignmentHistory.push({
             fromUser: req.user._id,
@@ -818,7 +828,8 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
 
     const billAmt = Number(input.billAmount) || 0;
     const topUpAmt = Number(input.topUpAmount) || 0;
-    const totalBillAmt = billAmt + topUpAmt;
+    const claSyAmt = Number(input.claSyAmount || input.claSyCharges) || 0;
+    const totalBillAmt = billAmt + topUpAmt + claSyAmt;
 
     let deviceCreated = null;
     let transactionCreated = null;
@@ -848,6 +859,8 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
         itrNo: input.itrNo,
         billAmount: totalBillAmt,
         renewalAmount: topUpAmt,
+        claSyAmount: claSyAmt,
+        claSyCharges: claSyAmt,
         validity: input.validity,
         presentDate,
         expiryDate,
@@ -991,7 +1004,8 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
     const input = normalizeDeviceInput(req.body);
 
     const oldBillAmount = device.billAmount || 0;
-    const newBillAmount = (Number(input.billAmount) || 0) + (Number(input.topUpAmount) || 0);
+    const claSyAmt = Number(input.claSyAmount || input.claSyCharges) || 0;
+    const newBillAmount = (Number(input.billAmount) || 0) + (Number(input.topUpAmount) || 0) + claSyAmt;
     const oldUserId = device.userId;
     const oldDueOwnerIds = getDueOwnerIdsFromDevice(device);
 
@@ -1172,6 +1186,8 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
       device.itrNo = input.itrNo;
       device.billAmount = newBillAmount;
       device.renewalAmount = input.topUpAmount;
+      device.claSyAmount = claSyAmt;
+      device.claSyCharges = claSyAmt;
       device.validity = input.validity;
       device.trackingId = input.trackingId;
       device.software = input.software;
@@ -1319,10 +1335,10 @@ router.get(
       const headers = [
         'Dealer Name', 'Sub Dealer Name', 'Model', 'IMEI', 'Serial No',
         'ICCID No', 'MSISDN1', 'MSISDN2', 'ITR No', 'Validity',
-        'Activation Date', 'Expiry Date', 'Bill Amount',
+        'Activation Date', 'Expiry Date', 'Bill Amount', 'Top Up Amount', 'CLA/Sy Charges'
       ];
 
-      const colWidths = [20, 20, 15, 20, 15, 18, 15, 15, 12, 12, 16, 16, 14];
+      const colWidths = [20, 20, 15, 20, 15, 18, 15, 15, 12, 12, 16, 16, 14, 15, 16];
       sheet.columns = headers.map((h, i) => ({ header: h, key: h, width: colWidths[i] || 15 }));
 
       // Style header row
@@ -1337,12 +1353,12 @@ router.get(
       sheet.addRow([
         sampleDealerName, sampleSubDealerName, 'Acute', '123456789012345', 'SER001',
         'ICCID001', '9876543210', '9876543211', 'ITR001', '1 Year',
-        '2025-01-15', '2026-01-15', 2500,
+        '2025-01-15', '2026-01-15', 2370, 0, 500,
       ]);
       sheet.addRow([
         sampleDealerName, '', 'Markon', '123456789012346', 'SER002',
         'ICCID002', '9876543212', '', '', '2 Years',
-        '2025-02-01', '2027-02-01', 3500,
+        '2025-02-01', '2027-02-01', 4200, 500, 0,
       ]);
 
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -1412,6 +1428,15 @@ router.post(
         'activation date': 'presentDate',
         'expiry date': 'expiryDate',
         'bill amount': 'billAmount',
+        'top up amount': 'topUpAmount',
+        'top up': 'topUpAmount',
+        'topup amount': 'topUpAmount',
+        'topup': 'topUpAmount',
+        'cla/sy charges': 'claSyAmount',
+        'clasy charges': 'claSyAmount',
+        'cla sy charges': 'claSyAmount',
+        'cla/sy amount': 'claSyAmount',
+        'cla charges': 'claSyAmount',
       };
 
       const headerRow = worksheet.getRow(1);
@@ -1464,6 +1489,8 @@ router.post(
         presentDate: cellVal(row, 'presentDate'),
         expiryDate: cellVal(row, 'expiryDate'),
         billAmount: cellVal(row, 'billAmount'),
+        topUpAmount: cellVal(row, 'topUpAmount'),
+        claSyAmount: cellVal(row, 'claSyAmount'),
       }));
 
       // ── Validation ─────────────────────────────────────────────────────
@@ -1708,6 +1735,9 @@ router.post(
           const dealerNameLabel = labelForUser(dealer);
           const subDealerNameLabel = subDealer ? labelForUser(subDealer) : '';
           const billAmt = Number(p.billAmount) || 0;
+          const topUpAmt = Number(p.topUpAmount) || 0;
+          const claSyAmt = Number(p.claSyAmount) || 0;
+          const totalBillAmt = billAmt + topUpAmt + claSyAmt;
 
           const deviceCreated = await Device.create({
             userId: ownerId,
@@ -1726,7 +1756,10 @@ router.post(
             msisdn1: p.msisdn1 || '',
             msisdn2: p.msisdn2 || '',
             itrNo: p.itrNo || '',
-            billAmount: billAmt,
+            billAmount: totalBillAmt,
+            renewalAmount: topUpAmt,
+            claSyAmount: claSyAmt,
+            claSyCharges: claSyAmt,
             validity: p.validity,
             presentDate: p.presentDate,
             expiryDate: p.expiryDate,

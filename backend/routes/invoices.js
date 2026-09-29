@@ -340,11 +340,14 @@ router.get('/dealer-billable-items', async (req, res) => {
       const statusStr = String(dev.status || '').toLowerCase();
       // On Device model, topUpAmount is stored in dev.renewalAmount (from AddDevice or /topup endpoint)
       const topUpAmt = Number(dev.renewalAmount || dev.topUpAmount || 0);
+      const claSyAmt = Number(dev.claSyAmount || dev.claSyCharges || 0);
       const totalDevBill = Number(dev.billAmount) || 0;
-      // Activation base amount is totalDevBill minus topUpAmt (if topUpAmt was bundled in billAmount)
-      const activationAmt = (topUpAmt > 0 && totalDevBill > topUpAmt)
-        ? (totalDevBill - topUpAmt)
-        : (totalDevBill > 0 ? totalDevBill : (validityStr.includes('2 year') || validityStr.includes('2yr') ? 4200 : 2370));
+      const extraCharges = topUpAmt + claSyAmt;
+      // Activation base amount is totalDevBill minus (topUpAmt + claSyAmt) (if bundled in billAmount)
+      const baseDevAmt = totalDevBill >= extraCharges ? (totalDevBill - extraCharges) : totalDevBill;
+      const activationAmt = baseDevAmt > 0
+        ? baseDevAmt
+        : (validityStr.includes('2 year') || validityStr.includes('2yr') ? 4200 : 2370);
 
       const baseItem = {
         id: dev._id,
@@ -367,8 +370,8 @@ router.get('/dealer-billable-items', async (req, res) => {
             imei,
             serialNo: dev.serialNo || dev.serialNumber || '',
             iccid: dev.iccid || dev.iccidNumber || '',
-            deviceName: dev.deviceName || 'VLTD Top-up / Data Recharge',
-            validity: 'Top-up',
+            deviceName: dev.deviceName || 'VLTD Monthly Top-up / Recharge',
+            validity: 'Monthly Top-up',
             plan: 'Device Top-up / Recharge',
             billAmount: topUpAmt,
             amount: topUpAmt,
@@ -376,6 +379,26 @@ router.get('/dealer-billable-items', async (req, res) => {
             type: 'DeviceTopUp',
           });
           seenTopupImeis.add(imei);
+        }
+      }
+
+      // Include in CLA/Sy Charges if claSyAmount was recorded on this device
+      if (claSyAmt > 0) {
+        if (!seenClaSyImeis.has(imei)) {
+          claSyList.push({
+            id: `clasy-${dev._id}`,
+            imei,
+            serialNo: dev.serialNo || dev.serialNumber || '',
+            iccid: dev.iccid || dev.iccidNumber || '',
+            deviceName: dev.deviceName || 'CLA / Sy Charges',
+            validity: 'Service/System',
+            plan: 'CLA/Sy Charges',
+            billAmount: claSyAmt,
+            amount: claSyAmt,
+            date: dev.presentDate || dev.createdAt,
+            type: 'DeviceClaSy',
+          });
+          seenClaSyImeis.add(imei);
         }
       }
 

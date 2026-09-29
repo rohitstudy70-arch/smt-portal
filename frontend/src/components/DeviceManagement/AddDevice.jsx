@@ -66,6 +66,7 @@ const createEmptyForm = (dealer, defaultVendor = '') => ({
 
   billAmount: '',
   topUpAmount: '',
+  claSyAmount: '',
   validity: '1 Year',
   status: 'Active',
   presentDate: getLocalDateString(),
@@ -74,7 +75,7 @@ const createEmptyForm = (dealer, defaultVendor = '') => ({
 const AddDevice = () => {
   const { user } = useAuth();
   const role = getRole(user);
-  const tableColSpan = 15 - (role === 'SUB_DEALER' ? 2 : 0);
+  const tableColSpan = 16 - (role === 'SUB_DEALER' ? 3 : 0);
   const [dealers, setDealers] = useState([]);
   const [subDealers, setSubDealers] = useState([]);
   const [devices, setDevices] = useState([]);
@@ -439,10 +440,11 @@ const AddDevice = () => {
       msisdn1: device.msisdn1 || '',
       msisdn2: device.msisdn2 || '',
       itrNo: device.itrNo || '',
-      billAmount: (Number(device.billAmount) || 0) >= (Number(device.renewalAmount) || 0) 
-        ? ((Number(device.billAmount) || 0) - (Number(device.renewalAmount) || 0) || '') 
+      billAmount: (Number(device.billAmount) || 0) >= ((Number(device.renewalAmount) || 0) + (Number(device.claSyAmount || device.claSyCharges) || 0))
+        ? ((Number(device.billAmount) || 0) - (Number(device.renewalAmount) || 0) - (Number(device.claSyAmount || device.claSyCharges) || 0) || '')
         : (device.billAmount || ''),
       topUpAmount: device.renewalAmount || '',
+      claSyAmount: device.claSyAmount || device.claSyCharges || '',
       validity: device.validity || '1 Year',
       status: device.status || 'Active',
       presentDate: device.presentDate ? getLocalDateString(device.presentDate) : getLocalDateString(),
@@ -763,9 +765,22 @@ const AddDevice = () => {
                     onChange={(event) => updateFormField('topUpAmount', event.target.value)}
                     placeholder="Enter Top Up Amount (Optional)"
                   />
-                  {(formData.billAmount !== '' || formData.topUpAmount !== '') && (
+                </div>
+              )}
+
+              {role !== 'SUB_DEALER' && (
+                <div className="form-group">
+                  <label>CLA/Sy Charges</label>
+                  <input
+                    type="number"
+                    name="claSyAmount"
+                    value={formData.claSyAmount}
+                    onChange={(event) => updateFormField('claSyAmount', event.target.value)}
+                    placeholder="Enter CLA/Sy Charges (Optional)"
+                  />
+                  {(formData.billAmount !== '' || formData.topUpAmount !== '' || formData.claSyAmount !== '') && (
                     <small style={{ color: '#2563eb', fontWeight: 600, display: 'block', marginTop: '4px' }}>
-                      Total Bill Amount: ₹{(Number(formData.billAmount) || 0) + (Number(formData.topUpAmount) || 0)}
+                      Total Bill Amount: ₹{(Number(formData.billAmount) || 0) + (Number(formData.topUpAmount) || 0) + (Number(formData.claSyAmount) || 0)}
                     </small>
                   )}
                 </div>
@@ -907,6 +922,7 @@ const AddDevice = () => {
                 <th>Validity</th>
                 {role !== 'SUB_DEALER' && <th>Bill Amount</th>}
                 {role !== 'SUB_DEALER' && <th>Top Up Amount</th>}
+                {role !== 'SUB_DEALER' && <th>CLA/Sy Charges</th>}
                 <th>Activation Date</th>
                 <th>Expiry Date</th>
                 <th>Created By</th>
@@ -932,6 +948,7 @@ const AddDevice = () => {
                     <td>{device.validity || '-'}</td>
                     {role !== 'SUB_DEALER' && <td>₹{device.billAmount || 0}</td>}
                     {role !== 'SUB_DEALER' && <td>₹{device.renewalAmount || 0}</td>}
+                    {role !== 'SUB_DEALER' && <td>₹{device.claSyAmount || device.claSyCharges || 0}</td>}
                     <td>{formatDate(device.presentDate)}</td>
                     <td>{formatDate(device.expiryDate)}</td>
                     <td>{getLinkedName(device.createdBy)}</td>
