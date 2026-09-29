@@ -1629,11 +1629,11 @@ const CustomerDevicePortal = () => {
           ) : null
         )}
 
-        {(role === 'ADMIN' || role === 'SUB_DEALER') ? (
+        {role === 'ADMIN' ? (
           <div className="portal-dashboard-actions" key="add-device-actions">
             <Link className="portal-dashboard-card" to="/add-device">
               <FaPlus className="portal-dashboard-card-icon" />
-              <strong>{role === 'SUB_DEALER' ? 'Assign Device' : 'Add Device'}</strong>
+              <strong>Add Device</strong>
               <span>IMEI / ICCID / Serial No</span>
             </Link>
           </div>
@@ -2383,12 +2383,12 @@ const CustomerDevicePortal = () => {
 
   const renderDeviceManagement = () => (
     <div className="portal-stack" key="view-devices">
-      {(role === 'ADMIN' || role === 'DEALER') && (
+      {role === 'ADMIN' && (
         <section className="portal-panel">
           <div className="portal-panel-header">
             <div>
-              <h2>{role === 'SUB_DEALER' ? 'Assign Device' : 'Add Device'}</h2>
-              <span>{role === 'SUB_DEALER' ? 'Enter device details to assign' : 'SIM and validity details'}</span>
+              <h2>Add Device</h2>
+              <span>SIM and validity details</span>
             </div>
             <FaMobileAlt className="portal-panel-icon" />
           </div>

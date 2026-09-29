@@ -323,9 +323,11 @@ router.get('/dealer-billable-items', async (req, res) => {
     const twoYearList = [];
     const oneYearList = [];
     const topupList = [];
+    const claSyList = [];
     const renewalList = [];
 
     const seenTopupImeis = new Set();
+    const seenClaSyImeis = new Set();
     const seenRenewalImeis = new Set();
     const seenActImeis = new Set();
 
@@ -456,6 +458,14 @@ router.get('/dealer-billable-items', async (req, res) => {
           });
           seenTopupImeis.add(imei);
         }
+      } else if (reqTypeStr.includes('cla') || reqTypeStr.includes('sy') || planStr.includes('cla') || planStr.includes('sy charge') || planStr.includes('system charge')) {
+        const claAmt = Number(reqItem.amount || 0);
+        claSyList.push({
+          ...item,
+          billAmount: claAmt,
+          amount: claAmt,
+        });
+        if (imei && imei !== 'N/A') seenClaSyImeis.add(imei);
       } else if (planStr.includes('renewal') || reqTypeStr.includes('renewal')) {
         if (imei && !seenRenewalImeis.has(imei)) {
           renewalList.push(item);
@@ -519,6 +529,7 @@ router.get('/dealer-billable-items', async (req, res) => {
       twoYearPriceWithGst: getSuggestedRate(twoYearList, 4200),
       oneYearPriceWithGst: getSuggestedRate(oneYearList, 2370),
       topupPriceWithGst: getSuggestedRate(topupList, 590),
+      claSyPriceWithGst: getSuggestedRate(claSyList, 590),
       renewalPriceWithGst: getSuggestedRate(renewalList, 1770),
     };
 
@@ -556,6 +567,11 @@ router.get('/dealer-billable-items', async (req, res) => {
           items: topupList,
           suggestedPriceWithGst: suggestedRates.topupPriceWithGst,
         },
+        claSyCharges: {
+          count: claSyList.length,
+          items: claSyList,
+          suggestedPriceWithGst: suggestedRates.claSyPriceWithGst,
+        },
         renewalPlans: {
           count: renewalList.length,
           items: renewalList,
@@ -565,8 +581,9 @@ router.get('/dealer-billable-items', async (req, res) => {
       summary: {
         totalDevices: twoYearList.length + oneYearList.length,
         totalTopups: topupList.length,
+        totalClaSy: claSyList.length,
         totalRenewals: renewalList.length,
-        grandTotalItems: twoYearList.length + oneYearList.length + topupList.length + renewalList.length,
+        grandTotalItems: twoYearList.length + oneYearList.length + topupList.length + claSyList.length + renewalList.length,
       },
     });
   } catch (error) {

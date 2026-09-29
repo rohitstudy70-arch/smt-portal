@@ -26,7 +26,7 @@ const router = express.Router();
 router.use(protect, attachHierarchyScope);
 
 const deviceManageRoles = [PORTAL_ROLES.ADMIN, PORTAL_ROLES.DEALER, PORTAL_ROLES.SUB_DEALER]; // assign/unassign
-const deviceCreateRoles = [PORTAL_ROLES.ADMIN, PORTAL_ROLES.DEALER, PORTAL_ROLES.SUB_DEALER]; // add/edit/delete devices — ADMIN, DEALER, SUB_DEALER allowed
+const deviceCreateRoles = [PORTAL_ROLES.ADMIN]; // add/edit/delete devices — ADMIN only
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -431,7 +431,7 @@ router.get('/', async (req, res) => {
     const parsedLimit = isUnlimited ? 10000000 : Math.min(parseInt(limit, 10) || 10, 10000000);
     const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
 
-    let deviceQuery = populateDevice(Device.find(query)).sort({ createdAt: -1 });
+    let deviceQuery = populateDevice(Device.find(query)).sort({ createdAt: -1 }).lean();
     if (!isUnlimited) {
       deviceQuery = deviceQuery.skip((parsedPage - 1) * parsedLimit).limit(parsedLimit);
     }
@@ -441,22 +441,14 @@ router.get('/', async (req, res) => {
       Device.countDocuments(query),
     ]);
 
-    console.log('GET /api/devices - Queried devices count:', devices.length);
-    if (devices.length > 0) {
-      console.log('GET /api/devices - Sample device details:', {
-        imei: devices[0].imei,
-        itrNo: devices[0].itrNo,
-        vendor: devices[0].vendor
-      });
-    }
-
     const isSubDealer = req.portalRole === PORTAL_ROLES.SUB_DEALER;
     const sanitizedDevices = devices.map((device) => {
       if (isSubDealer) {
-        const dObj = device.toObject ? device.toObject() : device;
-        dObj.billAmount = 0;
-        dObj.renewalAmount = 0;
-        return dObj;
+        return {
+          ...device,
+          billAmount: 0,
+          renewalAmount: 0,
+        };
       }
       return device;
     });

@@ -804,7 +804,8 @@ router.get('/devices', protect, async (req, res) => {
       .populate('assignmentHistory.fromUser', 'displayName username userType')
       .populate('assignmentHistory.toUser', 'displayName username userType')
       .populate('assignmentHistory.changedBy', 'displayName username userType')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     if (!isUnlimited) {
       deviceQuery = deviceQuery.skip((parsedPage - 1) * parsedLimit).limit(parsedLimit);
@@ -818,10 +819,11 @@ router.get('/devices', protect, async (req, res) => {
     const isSubDealer = scope.role === 'SUB_DEALER';
     const sanitizedDevices = devices.map((device) => {
       if (isSubDealer) {
-        const dObj = device.toObject ? device.toObject() : device;
-        dObj.billAmount = 0;
-        dObj.renewalAmount = 0;
-        return dObj;
+        return {
+          ...device,
+          billAmount: 0,
+          renewalAmount: 0,
+        };
       }
       return device;
     });

@@ -18,6 +18,10 @@ connectDB().then(async () => {
     const Device = require('./models/Device');
     try {
       const indexes = await Device.collection.indexes();
+      // Clean existing duplicate empty string values before building partial indexes
+      await Device.updateMany({ iccid: '' }, { $unset: { iccid: 1, iccidNumber: 1 } });
+      await Device.updateMany({ serialNo: '' }, { $unset: { serialNo: 1, serialNumber: 1 } });
+
       for (const idx of indexes) {
         if (idx.name === 'iccid_1' && !idx.partialFilterExpression) {
           console.log('🔄 Dropping legacy iccid_1 index to allow multiple empty/blank ICCIDs...');

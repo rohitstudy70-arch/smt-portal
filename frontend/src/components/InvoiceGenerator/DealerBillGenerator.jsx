@@ -58,7 +58,13 @@ const DealerBillGenerator = ({ onBillSaved }) => {
       expanded: false,
     },
     topup: {
-      description: 'VLTD Top-up / Data Recharge Plan',
+      description: 'VLTD Monthly Top-up / Recharge Plan',
+      unitPrice: 500,
+      priceWithGst: 590,
+      expanded: false,
+    },
+    claSy: {
+      description: 'CLA / Sy Charges',
       unitPrice: 500,
       priceWithGst: 590,
       expanded: false,
@@ -76,6 +82,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
     twoYear: new Set(),
     oneYear: new Set(),
     topup: new Set(),
+    claSy: new Set(),
     renewal: new Set(),
   });
 
@@ -84,6 +91,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
     twoYear: [],
     oneYear: [],
     topup: [],
+    claSy: [],
     renewal: [],
   });
 
@@ -92,6 +100,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
     twoYear: '',
     oneYear: '',
     topup: '',
+    claSy: '',
     renewal: '',
   });
 
@@ -100,6 +109,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
     twoYear: '',
     oneYear: '',
     topup: '',
+    claSy: '',
     renewal: '',
   });
 
@@ -172,12 +182,14 @@ const DealerBillGenerator = ({ onBillSaved }) => {
       const twoYrList = data.categories?.twoYearActivations?.items || [];
       const oneYrList = data.categories?.oneYearActivations?.items || [];
       const topList = data.categories?.topupPlans?.items || [];
+      const claSyList = data.categories?.claSyCharges?.items || [];
       const renList = data.categories?.renewalPlans?.items || [];
 
       setCategoryItems({
         twoYear: twoYrList,
         oneYear: oneYrList,
         topup: topList,
+        claSy: claSyList,
         renewal: renList,
       });
 
@@ -186,6 +198,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
         twoYear: new Set(),
         oneYear: new Set(),
         topup: new Set(),
+        claSy: new Set(),
         renewal: new Set(),
       });
 
@@ -211,6 +224,12 @@ const DealerBillGenerator = ({ onBillSaved }) => {
             priceWithGst: data.categories.topupPlans?.suggestedPriceWithGst || 590,
             unitPrice: roundCurrency((data.categories.topupPlans?.suggestedPriceWithGst || 590) / 1.18),
           },
+          claSy: {
+            ...prev.claSy,
+            expanded: claSyList.length > 0,
+            priceWithGst: data.categories.claSyCharges?.suggestedPriceWithGst || 590,
+            unitPrice: roundCurrency((data.categories.claSyCharges?.suggestedPriceWithGst || 590) / 1.18),
+          },
           renewal: {
             ...prev.renewal,
             expanded: renList.length > 0,
@@ -235,8 +254,8 @@ const DealerBillGenerator = ({ onBillSaved }) => {
     } else {
       setBillableData(null);
       setSelectedDealer(null);
-      setCategoryItems({ twoYear: [], oneYear: [], topup: [], renewal: [] });
-      setSelectedItemsByCat({ twoYear: new Set(), oneYear: new Set(), topup: new Set(), renewal: new Set() });
+      setCategoryItems({ twoYear: [], oneYear: [], topup: [], claSy: [], renewal: [] });
+      setSelectedItemsByCat({ twoYear: new Set(), oneYear: new Set(), topup: new Set(), claSy: new Set(), renewal: new Set() });
     }
   };
 
@@ -274,31 +293,39 @@ const DealerBillGenerator = ({ onBillSaved }) => {
     });
   };
 
-  // Add manual IMEI to a category
+  // Add manual IMEI / Item to a category
   const handleAddManualImei = (catKey) => {
     const rawVal = String(manualInputs[catKey] || '').trim();
     if (!rawVal) return;
 
-    const newItem = {
-      id: `manual-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-      imei: rawVal,
-      deviceName: 'Manual Added Device',
+    // Support comma or newline separated entries
+    const entries = rawVal.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
+    if (entries.length === 0) return;
+
+    const defaultDevName = catKey === 'claSy' 
+      ? 'CLA / Sy Charges' 
+      : catKey === 'topup' 
+      ? 'Monthly Top-up Plan' 
+      : 'Manual Added Device';
+
+    const newItems = entries.map((entry, idx) => ({
+      id: `manual-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 5)}`,
+      imei: entry,
+      deviceName: defaultDevName,
       customerName: selectedDealer?.displayName || 'Dealer Customer',
-      vehicleNo: 'Manual',
+      vehicleNo: catKey === 'claSy' ? 'Service/System' : 'Manual',
       date: new Date().toISOString(),
       isManual: true,
-    };
-
-    const itemKey = getItemKey(newItem, 0);
+    }));
 
     setCategoryItems(prev => ({
       ...prev,
-      [catKey]: [newItem, ...prev[catKey]],
+      [catKey]: [...newItems, ...prev[catKey]],
     }));
 
     setSelectedItemsByCat(prev => {
       const nextSet = new Set(prev[catKey]);
-      nextSet.add(itemKey);
+      newItems.forEach((it, i) => nextSet.add(getItemKey(it, i)));
       return {
         ...prev,
         [catKey]: nextSet,
@@ -309,6 +336,39 @@ const DealerBillGenerator = ({ onBillSaved }) => {
       ...prev,
       [catKey]: '',
     }));
+  };
+
+  // Quick add units helper (especially handy for CLA/Sy Charges)
+  const handleQuickAddUnits = (catKey, count = 1) => {
+    const num = parseInt(count, 10);
+    if (!num || num <= 0) return;
+
+    const currentLen = (categoryItems[catKey] || []).length;
+    const labelPrefix = catKey === 'claSy' ? 'CLA/Sy Charge' : 'Unit';
+
+    const newItems = Array.from({ length: num }, (_, idx) => ({
+      id: `quick-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 5)}`,
+      imei: `${labelPrefix} #${currentLen + idx + 1}`,
+      deviceName: catKey === 'claSy' ? 'CLA / Sy Charges' : (catState[catKey]?.description || 'Service Charge'),
+      customerName: selectedDealer?.displayName || 'Dealer Customer',
+      vehicleNo: 'Charge',
+      date: new Date().toISOString(),
+      isManual: true,
+    }));
+
+    setCategoryItems(prev => ({
+      ...prev,
+      [catKey]: [...newItems, ...prev[catKey]],
+    }));
+
+    setSelectedItemsByCat(prev => {
+      const nextSet = new Set(prev[catKey]);
+      newItems.forEach((it, i) => nextSet.add(getItemKey(it, i)));
+      return {
+        ...prev,
+        [catKey]: nextSet,
+      };
+    });
   };
 
   // Remove manually added item
@@ -385,9 +445,9 @@ const DealerBillGenerator = ({ onBillSaved }) => {
         let priceWithGst = catState[catKey].priceWithGst;
         let grossAmt = 0;
 
-        // If topup has specific individual amounts, sum them exactly
+        // If topup or claSy has specific individual amounts, sum them exactly
         const individualSum = selectedItems.reduce((sum, it) => sum + (Number(it.billAmount || it.amount) || 0), 0);
-        const hasIndividualAmounts = catKey === 'topup' && selectedItems.some(it => Number(it.billAmount || it.amount) > 0);
+        const hasIndividualAmounts = (catKey === 'topup' || catKey === 'claSy') && selectedItems.some(it => Number(it.billAmount || it.amount) > 0);
 
         if (hasIndividualAmounts) {
           grossAmt = roundCurrency(individualSum);
@@ -420,7 +480,8 @@ const DealerBillGenerator = ({ onBillSaved }) => {
 
     processCategory('twoYear', '2-Year Activation', 'AIS-140 VLTD - 2 Year Activation Plan', '24 Month');
     processCategory('oneYear', '1-Year Activation', 'AIS-140 VLTD - 1 Year Activation Plan', '12 Month');
-    processCategory('topup', 'Top-up / Recharge', 'VLTD Top-up / Data Recharge Plan', 'Recharge');
+    processCategory('topup', 'Monthly Topup Recharge', 'VLTD Monthly Top-up / Recharge Plan', 'Monthly Recharge');
+    processCategory('claSy', 'CLA/Sy Charges', 'CLA / Sy Charges', 'Service/System');
     processCategory('renewal', 'Renewal', 'VLTD Annual Renewal Plan', '12 Month Renewal');
 
     let totalTaxable = 0;
@@ -564,7 +625,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
     const selectedCount = selectedSet.size;
     const selectedItems = allItems.filter((it, idx) => selectedSet.has(getItemKey(it, idx)));
     const individualSum = selectedItems.reduce((sum, it) => sum + (Number(it.billAmount || it.amount) || 0), 0);
-    const hasIndividualAmounts = catKey === 'topup' && selectedItems.some(it => Number(it.billAmount || it.amount) > 0);
+    const hasIndividualAmounts = (catKey === 'topup' || catKey === 'claSy') && selectedItems.some(it => Number(it.billAmount || it.amount) > 0);
 
     const categoryGross = hasIndividualAmounts
       ? roundCurrency(individualSum)
@@ -705,12 +766,14 @@ const DealerBillGenerator = ({ onBillSaved }) => {
               </div>
             )}
 
-            {/* Manual IMEI Adder */}
+            {/* Manual IMEI / Item Adder */}
             <div className="cat-manual-add-row">
               <input 
                 type="text" 
                 className="cat-manual-input"
-                placeholder={`Type or paste additional IMEI to add in ${catTitle}...`}
+                placeholder={catKey === 'claSy' 
+                  ? "Type or paste IMEI / Ref / Note for CLA/Sy charge (press Enter)..." 
+                  : `Type or paste additional IMEI to add in ${catTitle}...`}
                 value={manualInputs[catKey] || ''}
                 onChange={(e) => setManualInputs(prev => ({ ...prev, [catKey]: e.target.value }))}
                 onKeyDown={(e) => {
@@ -725,8 +788,37 @@ const DealerBillGenerator = ({ onBillSaved }) => {
                 className="btn-add-manual-imei"
                 onClick={() => handleAddManualImei(catKey)}
               >
-                <FaPlus /> Add IMEI
+                <FaPlus /> {catKey === 'claSy' ? 'Add Item' : 'Add IMEI'}
               </button>
+
+              {catKey === 'claSy' && (
+                <div style={{ display: 'flex', gap: '6px', marginLeft: 'auto' }}>
+                  <button
+                    type="button"
+                    className="btn-quick-unit"
+                    onClick={() => handleQuickAddUnits('claSy', 1)}
+                    title="Add 1 CLA/Sy Charge unit"
+                  >
+                    + 1 Unit
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-quick-unit"
+                    onClick={() => handleQuickAddUnits('claSy', 5)}
+                    title="Add 5 CLA/Sy Charge units"
+                  >
+                    + 5 Units
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-quick-unit"
+                    onClick={() => handleQuickAddUnits('claSy', 10)}
+                    title="Add 10 CLA/Sy Charge units"
+                  >
+                    + 10 Units
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -833,12 +925,13 @@ const DealerBillGenerator = ({ onBillSaved }) => {
         </div>
       )}
 
-      {/* 4 Categorized Sections with Full Search & Multi-Selection */}
+      {/* 5 Categorized Sections with Full Search & Multi-Selection */}
       {billableData && (
         <div className="categories-container">
           {renderCategoryBlock('twoYear', '2-Year Activations', 'cat-badge-2yr')}
           {renderCategoryBlock('oneYear', '1-Year Activations', 'cat-badge-1yr')}
-          {renderCategoryBlock('topup', 'Top-up / Recharge Plans', 'cat-badge-topup')}
+          {renderCategoryBlock('topup', 'Monthly topup recharge plans', 'cat-badge-topup')}
+          {renderCategoryBlock('claSy', 'CLA/Sy Charges', 'cat-badge-clasy')}
           {renderCategoryBlock('renewal', 'Renewal Plans', 'cat-badge-renewal')}
         </div>
       )}

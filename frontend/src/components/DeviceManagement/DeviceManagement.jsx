@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { FaMobileAlt, FaCloudUploadAlt, FaDownload, FaSearch, FaTrash } from 'react-icons/fa';
 import api from '../../utils/api';
@@ -41,6 +41,7 @@ const DeviceManagement = () => {
   const [search, setSearch] = useState('');
 
   const location = useLocation();
+  const inFlightRef = useRef(false);
 
   useEffect(() => {
     // Fetch sub-users
@@ -59,44 +60,58 @@ const DeviceManagement = () => {
     fetchSubUsers();
   }, []);
 
-  const fetchDevices = async (searchOverride) => {
+  const fetchDevices = useCallback(async (searchOverride) => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     try {
       setLoading(true);
       const activeSearch = searchOverride !== undefined ? searchOverride : search;
       const params = {
-          status: activeTab,
-          assignedTo: filterUser,
-          vendor: filterVendor,
-          search: activeSearch,
-          limit,
-          page,
-        };
+        status: activeTab,
+        assignedTo: filterUser,
+        vendor: filterVendor,
+        search: activeSearch,
+        limit,
+        page,
+      };
       if (filterDealer) params.dealerId = filterDealer;
       if (filterSubDealer) params.subDealerId = filterSubDealer;
       const res = await api.get('/devices', { params });
-      setDevices(res.data.devices);
-      setTotal(res.data.total);
+      setDevices(res.data?.devices || []);
+      setTotal(res.data?.total || 0);
       setLoading(false);
     } catch (err) {
       console.error(err);
       setError('Failed to fetch devices list. Please try again.');
       setLoading(false);
+    } finally {
+      inFlightRef.current = false;
     }
-  };
+  }, [activeTab, filterUser, filterDealer, filterSubDealer, filterVendor, limit, page, search]);
 
-  // Watch URL query parameter for search
+  // Sync URL search param
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
     const searchVal = searchParams.get('search') || '';
     setSearch(searchVal);
     setPage(1);
-    fetchDevices(searchVal);
   }, [location.search]);
 
-  // Refetch when other filters or page changes (excluding search parameter change, which is handled above)
+  // Refetch when filters or page changes
   useEffect(() => {
     fetchDevices();
-  }, [activeTab, filterUser, filterDealer, filterSubDealer, filterVendor, limit, page]);
+  }, [fetchDevices]);
+
+  // 60-second background polling when tab is visible
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!document.hidden && !inFlightRef.current) {
+        fetchDevices();
+      }
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [fetchDevices]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();

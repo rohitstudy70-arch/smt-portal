@@ -209,6 +209,28 @@
   color: #7e22ce;
 }
 
+.cat-badge-clasy {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.btn-quick-unit {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-quick-unit:hover {
+  background: #ffedd5;
+  border-color: #fdba74;
+}
+
 .cat-badge-renewal {
   background: #dcfce7;
   color: #15803d;
