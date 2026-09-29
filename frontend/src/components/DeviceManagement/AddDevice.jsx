@@ -349,8 +349,6 @@ const AddDevice = () => {
     if (!formData.vendor) nextErrors.vendor = 'Model is required';
     if (!formData.imei) nextErrors.imei = 'IMEI is required';
     else if (!/^\d{15}$/.test(formData.imei)) nextErrors.imei = 'IMEI must be exactly 15 digits';
-    if (!formData.iccid) nextErrors.iccid = 'ICCID is required';
-    if (!formData.serialNo) nextErrors.serialNo = 'Serial No is required';
 
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -362,22 +360,22 @@ const AddDevice = () => {
 
     setSubmitting(true);
     try {
+      const payload = {
+        ...formData,
+        serialNo: formData.serialNo ? formData.serialNo.trim() : '',
+        iccid: formData.iccid ? formData.iccid.trim() : '',
+      };
+
       if (editingDeviceId) {
         if (user?.role !== 'partner') {
           showToast('error', 'Access denied: Only the Admin ID is allowed to edit devices.');
           setSubmitting(false);
           return;
         }
-        await api.put(`/devices/${editingDeviceId}`, {
-          ...formData,
-          serialNo: formData.serialNo || formData.imei
-        });
+        await api.put(`/devices/${editingDeviceId}`, payload);
         showToast('success', 'Device updated successfully!');
       } else {
-        await api.post('/devices', {
-          ...formData,
-          serialNo: formData.serialNo || formData.imei
-        });
+        await api.post('/devices', payload);
         showToast('success', 'Device added successfully!');
       }
       handleReset();
@@ -678,25 +676,25 @@ const AddDevice = () => {
               </div>
 
               <div className={`form-group ${errors.serialNo ? 'has-error' : ''}`}>
-                <label>Serial No.</label>
+                <label>Serial No. <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'normal' }}>(Optional)</span></label>
                 <input
                   type="text"
                   name="serialNo"
                   value={formData.serialNo}
                   onChange={(event) => updateFormField('serialNo', event.target.value)}
-                  placeholder="Enter Serial Number"
+                  placeholder="Enter Serial Number (Optional)"
                 />
                 {errors.serialNo && <span className="error-text">{errors.serialNo}</span>}
               </div>
 
               <div className={`form-group ${errors.iccid ? 'has-error' : ''}`}>
-                <label>ICCID No.</label>
+                <label>ICCID No. <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'normal' }}>(Optional)</span></label>
                 <input
                   type="text"
                   name="iccid"
                   value={formData.iccid}
                   onChange={(event) => updateFormField('iccid', event.target.value)}
-                  placeholder="Enter ICCID"
+                  placeholder="Enter ICCID (Optional)"
                 />
                 {errors.iccid && <span className="error-text">{errors.iccid}</span>}
               </div>
@@ -752,6 +750,11 @@ const AddDevice = () => {
                     onChange={(event) => updateFormField('billAmount', event.target.value)}
                     placeholder="Enter Bill Amount"
                   />
+                  {(formData.topUpAmount !== '' || formData.claSyAmount !== '') && (
+                    <small style={{ color: '#2563eb', fontWeight: 600, display: 'block', marginTop: '4px' }}>
+                      Total Bill Amount: ₹{(Number(formData.billAmount) || 0) + (Number(formData.topUpAmount) || 0) + (Number(formData.claSyAmount) || 0)}
+                    </small>
+                  )}
                 </div>
               )}
 

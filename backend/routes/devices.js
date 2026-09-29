@@ -781,9 +781,12 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
           duplicate.validity = validity;
           duplicate.presentDate = presentDate;
           duplicate.expiryDate = expiryDate;
+          const dupBillAmt = Number(input.billAmount) || 0;
           const dupTopUpAmt = Number(input.topUpAmount) || 0;
           const dupClaSyAmt = Number(input.claSyAmount || input.claSyCharges) || 0;
-          if (input.billAmount) duplicate.billAmount = (Number(input.billAmount) || 0) + dupTopUpAmt + dupClaSyAmt;
+          if (dupBillAmt > 0 || dupTopUpAmt > 0 || dupClaSyAmt > 0) {
+            duplicate.billAmount = dupBillAmt + dupTopUpAmt + dupClaSyAmt;
+          }
           if (dupTopUpAmt > 0) duplicate.renewalAmount = dupTopUpAmt;
           if (dupClaSyAmt > 0) {
             duplicate.claSyAmount = dupClaSyAmt;
@@ -1017,8 +1020,8 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
       return res.status(400).json({ message: 'Selection of model iTriangle is restricted to admin only.' });
     }
 
-    if (!input.imei || !input.iccid || !input.serialNo) {
-      return res.status(400).json({ message: 'IMEI, ICCID, and Serial No are required.' });
+    if (!input.imei) {
+      return res.status(400).json({ message: 'IMEI is required.' });
     }
 
     const ownership = await resolveDeviceOwnership(req, input);
@@ -1028,25 +1031,35 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
 
     const newUserId = ownership.ownerId;
 
+    const duplicateConditions = [
+      { imei: input.imei },
+      { imeiNumber: input.imei },
+    ];
+    if (input.iccid && String(input.iccid).trim()) {
+      const iccidVal = String(input.iccid).trim();
+      duplicateConditions.push({ iccid: iccidVal });
+      duplicateConditions.push({ iccidNumber: iccidVal });
+    }
+    if (input.serialNo && String(input.serialNo).trim()) {
+      const serialVal = String(input.serialNo).trim();
+      duplicateConditions.push({ serialNo: serialVal });
+      duplicateConditions.push({ serialNumber: serialVal });
+    }
+
     const duplicate = await Device.findOne({
       _id: { $ne: device._id },
-      $or: [
-        { imei: input.imei },
-        { imeiNumber: input.imei },
-        { iccid: input.iccid },
-        { iccidNumber: input.iccid },
-        { serialNo: input.serialNo },
-        { serialNumber: input.serialNo },
-      ],
+      $or: duplicateConditions,
     });
     if (duplicate) {
       if (duplicate.imei === input.imei || duplicate.imeiNumber === input.imei) {
         return res.status(400).json({ message: 'A device with this IMEI already exists.' });
       }
-      if (duplicate.iccid === input.iccid || duplicate.iccidNumber === input.iccid) {
+      if (input.iccid && (duplicate.iccid === input.iccid || duplicate.iccidNumber === input.iccid)) {
         return res.status(400).json({ message: 'A device with this ICCID already exists.' });
       }
-      return res.status(400).json({ message: 'A device with this Serial Number already exists.' });
+      if (input.serialNo && (duplicate.serialNo === input.serialNo || duplicate.serialNumber === input.serialNo)) {
+        return res.status(400).json({ message: 'A device with this Serial Number already exists.' });
+      }
     }
 
     const oldFinancialUserId = device.subDealerId ? device.dealerId : device.userId;
