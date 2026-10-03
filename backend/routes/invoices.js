@@ -712,6 +712,13 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ message: 'Invoice not found' });
     }
 
+    res.json(invoice);
+  } catch (error) {
+    console.error('Get invoice error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // @route   PUT /api/invoices/:id
 // @desc    Update an existing invoice or dealer bill
 // @access  Protected (Operations)
