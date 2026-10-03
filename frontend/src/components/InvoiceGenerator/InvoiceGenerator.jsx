@@ -1,6 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { FaSpinner, FaFileInvoiceDollar, FaUsers, FaFileAlt } from 'react-icons/fa';
+import { 
+  FaSpinner, 
+  FaFileInvoiceDollar, 
+  FaUsers, 
+  FaFileAlt, 
+  FaEdit, 
+  FaTrash, 
+  FaPlus, 
+  FaTimes, 
+  FaPrint,
+  FaCheck 
+} from 'react-icons/fa';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { INVOICE_LOGO } from '../../utils/invoiceLogo';
@@ -436,6 +447,196 @@ const InvoiceGenerator = () => {
       autoPrint: true,
     }));
     printWindow.document.close();
+  };
+
+  // State for Editing Invoice / Bill
+  const [editingInvoice, setEditingInvoice] = useState(null);
+  const [editForm, setEditForm] = useState({
+    _id: '',
+    invoiceType: 'Single',
+    endCustomerName: '',
+    rmn: '',
+    address: '',
+    poaNo: '',
+    customerState: 'Bihar',
+    dealerState: 'Bihar',
+    isSubDealer: false,
+    subDealerName: '',
+    piNo: '',
+    invoiceNo: '',
+    dateTime: '',
+    vehicleNo: '',
+    vehicleType: '',
+    vehicleMake: '',
+    vehicleModel: '',
+    engineNo: '',
+    chassisNo: '',
+    rtoState: '',
+    rtoNo: '',
+    notes: '',
+    items: [],
+  });
+  const [editSaving, setEditSaving] = useState(false);
+
+  const handleOpenEdit = (req) => {
+    setEditingInvoice(req);
+    setEditForm({
+      _id: req._id,
+      invoiceType: req.invoiceType || 'Single',
+      endCustomerName: req.endCustomerName || '',
+      rmn: req.rmn || '',
+      address: req.address || '',
+      poaNo: req.poaNo || '',
+      customerState: req.customerState || 'Bihar',
+      dealerState: req.dealerState || 'Bihar',
+      isSubDealer: req.isSubDealer || false,
+      subDealerName: req.subDealerName || '',
+      piNo: req.piNo || '',
+      invoiceNo: req.invoiceNo || '',
+      dateTime: req.dateTime ? new Date(req.dateTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      vehicleNo: req.vehicleNo || '',
+      vehicleType: req.vehicleType || '',
+      vehicleMake: req.vehicleMake || '',
+      vehicleModel: req.vehicleModel || '',
+      engineNo: req.engineNo || '',
+      chassisNo: req.chassisNo || '',
+      rtoState: req.rtoState || '',
+      rtoNo: req.rtoNo || '',
+      notes: req.notes || '',
+      items: Array.isArray(req.items) && req.items.length > 0
+        ? req.items.map(it => ({
+            description: it.description || '',
+            category: it.category || '',
+            validity: it.validity || '',
+            unitPrice: toNumber(it.unitPrice),
+            priceWithGst: toNumber(it.priceWithGst) || roundCurrency(toNumber(it.unitPrice) * 1.18),
+            qty: parseQty(it.qty) || 1,
+            cgst: toNumber(it.cgst),
+            sgst: toNumber(it.sgst),
+            igst: toNumber(it.igst),
+            grossAmt: toNumber(it.grossAmt) || roundCurrency((toNumber(it.unitPrice) * 1.18) * (parseQty(it.qty) || 1)),
+            imeis: it.imeis || [],
+          }))
+        : [{
+            description: 'VLTD',
+            validity: '12 Month',
+            unitPrice: 2008.47,
+            priceWithGst: 2370,
+            qty: 1,
+            cgst: 9,
+            sgst: 9,
+            igst: 0,
+            grossAmt: 2370,
+            imeis: [],
+          }],
+    });
+  };
+
+  const handleEditItemChange = (index, field, value) => {
+    setEditForm(prev => {
+      const newItems = [...prev.items];
+      const item = { ...newItems[index], [field]: value };
+      const targetState = prev.isSubDealer ? prev.dealerState : prev.customerState;
+      const isIntra = targetState && targetState.toLowerCase() === 'bihar';
+
+      if (field === 'priceWithGst' || field === 'qty') {
+        const priceWithGst = toNumber(field === 'priceWithGst' ? value : item.priceWithGst);
+        const qty = parseQty(field === 'qty' ? value : item.qty) || 1;
+        const gstRate = 18;
+        const taxableVal = (priceWithGst * qty) / (1 + (gstRate / 100));
+        item.unitPrice = qty > 0 ? roundCurrency(taxableVal / qty) : 0;
+        item.cgst = isIntra ? gstRate / 2 : 0;
+        item.sgst = isIntra ? gstRate / 2 : 0;
+        item.igst = isIntra ? 0 : gstRate;
+        item.grossAmt = roundCurrency(priceWithGst * qty);
+      } else if (field === 'unitPrice') {
+        const unitPrice = toNumber(value);
+        const qty = parseQty(item.qty) || 1;
+        const gstRate = 18;
+        const taxableVal = unitPrice * qty;
+        const grossAmt = roundCurrency(taxableVal * (1 + (gstRate / 100)));
+        item.grossAmt = grossAmt;
+        item.priceWithGst = qty > 0 ? roundCurrency(grossAmt / qty) : unitPrice;
+        item.cgst = isIntra ? gstRate / 2 : 0;
+        item.sgst = isIntra ? gstRate / 2 : 0;
+        item.igst = isIntra ? 0 : gstRate;
+      }
+
+      newItems[index] = item;
+      return { ...prev, items: newItems };
+    });
+  };
+
+  const handleAddEditItem = () => {
+    setEditForm(prev => ({
+      ...prev,
+      items: [
+        ...prev.items,
+        {
+          description: 'VLTD Plan / Service',
+          validity: '1 Year',
+          unitPrice: 2008.47,
+          priceWithGst: 2370,
+          qty: 1,
+          cgst: 9,
+          sgst: 9,
+          igst: 0,
+          grossAmt: 2370,
+          imeis: [],
+        }
+      ]
+    }));
+  };
+
+  const handleRemoveEditItem = (index) => {
+    setEditForm(prev => {
+      if (prev.items.length <= 1) {
+        alert('Bill must contain at least 1 item.');
+        return prev;
+      }
+      return { ...prev, items: prev.items.filter((_, i) => i !== index) };
+    });
+  };
+
+  const handleSaveEdit = async (e) => {
+    if (e) e.preventDefault();
+    if (!editForm.endCustomerName.trim()) {
+      alert('Please enter Customer / Dealer Name.');
+      return;
+    }
+
+    setEditSaving(true);
+    try {
+      const payload = {
+        ...editForm,
+        dateTime: editForm.dateTime ? new Date(editForm.dateTime) : new Date(),
+      };
+      await api.put(`/invoices/${editForm._id}`, payload);
+      alert('Invoice / Bill updated successfully!');
+      setEditingInvoice(null);
+      setRefreshTrigger(prev => prev + 1);
+    } catch (err) {
+      console.error('Error updating invoice:', err);
+      alert(err.response?.data?.message || 'Failed to update invoice.');
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const handleDeleteInvoice = async (req) => {
+    const label = req.piNo || req.invoiceNo || req.requestId;
+    if (!window.confirm(`Are you sure you want to delete invoice ${label}? This cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await api.delete(`/invoices/${req._id}`);
+      alert(`Invoice ${label} deleted successfully!`);
+      setRefreshTrigger(prev => prev + 1);
+    } catch (err) {
+      console.error('Error deleting invoice:', err);
+      alert(err.response?.data?.message || 'Failed to delete invoice.');
+    }
   };
 
   const totalPages = Math.ceil(totalCount / limit) || 1;
@@ -961,7 +1162,7 @@ const InvoiceGenerator = () => {
                   <th style={{ padding: '12px 10px', textAlign: 'left', fontWeight: '700' }}>RMN / Phone</th>
                   <th style={{ padding: '12px 10px', textAlign: 'left', fontWeight: '700' }}>GSTIN/POA</th>
                   <th style={{ padding: '12px 10px', textAlign: 'left', fontWeight: '700' }}>Total Value</th>
-                  <th style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '700' }}>Download</th>
+                  <th style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '700', minWidth: '180px' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -970,7 +1171,7 @@ const InvoiceGenerator = () => {
                     <tr key={req._id} style={{ borderBottom: '1px solid #eee' }}>
                       <td style={{ padding: '10px' }}>{((page - 1) * limit) + index + 1}</td>
                       <td style={{ padding: '10px' }}>{new Date(req.dateTime).toLocaleDateString()}</td>
-                      <td style={{ padding: '10px', color: 'var(--primary-blue)', fontWeight: 'bold' }}>{req.piNo || 'AE_PI_001'}</td>
+                      <td style={{ padding: '10px', color: 'var(--primary-blue)', fontWeight: 'bold' }}>{req.piNo || req.invoiceNo || 'AE_PI_001'}</td>
                       <td style={{ padding: '10px', fontWeight: '600' }}>
                         {req.endCustomerName || 'Customer'}
                         {req.invoiceType === 'DealerConsolidated' && (
@@ -983,20 +1184,29 @@ const InvoiceGenerator = () => {
                       <td style={{ padding: '10px' }}>{req.poaNo || '--'}</td>
                       <td style={{ padding: '10px', fontWeight: 'bold' }}>₹{req.piValue ? req.piValue.toFixed(2) : '0.00'}</td>
                       <td style={{ padding: '10px', textAlign: 'center' }}>
-                        <button 
-                          className="btn-download-pdf"
-                          onClick={() => handleDownloadInvoice(req)}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: '#337ab7',
-                            textDecoration: 'underline',
-                            cursor: 'pointer',
-                            fontSize: '12px'
-                          }}
-                        >
-                          Print / PDF
-                        </button>
+                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', alignItems: 'center' }}>
+                          <button 
+                            className="btn-ig-action btn-edit"
+                            onClick={() => handleOpenEdit(req)}
+                            title="Edit Invoice / Bill"
+                          >
+                            <FaEdit /> Edit
+                          </button>
+                          <button 
+                            className="btn-ig-action btn-print"
+                            onClick={() => handleDownloadInvoice(req)}
+                            title="Print / PDF"
+                          >
+                            <FaPrint /> Print / PDF
+                          </button>
+                          <button 
+                            className="btn-ig-action btn-delete"
+                            onClick={() => handleDeleteInvoice(req)}
+                            title="Delete Invoice"
+                          >
+                            <FaTrash />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -1062,6 +1272,309 @@ const InvoiceGenerator = () => {
           </div>
         )}
       </div>
+
+      {/* Edit Invoice / Bill Modal */}
+      {editingInvoice && (
+        <div className="ig-modal-overlay">
+          <div className="ig-modal-card">
+            <div className="ig-modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <FaEdit style={{ color: 'var(--accent-color)', fontSize: '18px' }} />
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>
+                  Edit {editForm.invoiceType === 'DealerConsolidated' ? 'Dealer Consolidated Bill' : 'Proforma Invoice'}
+                </h3>
+                <span className="ig-modal-badge">
+                  {editForm.piNo || editForm.invoiceNo || 'DRAFT'}
+                </span>
+              </div>
+              <button 
+                type="button"
+                className="ig-modal-close" 
+                onClick={() => setEditingInvoice(null)}
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="ig-modal-body">
+              {/* Section 1: Customer & Bill Details */}
+              <div className="ig-modal-section">
+                <div className="ig-modal-section-title">
+                  <span>Customer & Bill Information</span>
+                </div>
+                <div className="ig-modal-grid">
+                  <div className="form-field">
+                    <label>Customer / Dealer Name *</label>
+                    <input 
+                      type="text" 
+                      value={editForm.endCustomerName} 
+                      onChange={(e) => setEditForm(prev => ({ ...prev, endCustomerName: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>Mobile No (RMN)</label>
+                    <input 
+                      type="text" 
+                      value={editForm.rmn} 
+                      onChange={(e) => setEditForm(prev => ({ ...prev, rmn: e.target.value }))}
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>GSTIN / POA No</label>
+                    <input 
+                      type="text" 
+                      value={editForm.poaNo} 
+                      onChange={(e) => setEditForm(prev => ({ ...prev, poaNo: e.target.value }))}
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>State</label>
+                    <select 
+                      value={editForm.customerState} 
+                      onChange={(e) => setEditForm(prev => ({ ...prev, customerState: e.target.value, dealerState: e.target.value }))}
+                    >
+                      {INDIAN_STATES.map(st => (
+                        <option key={st} value={st}>{st}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-field">
+                    <label>PI No / Reference</label>
+                    <input 
+                      type="text" 
+                      value={editForm.piNo} 
+                      onChange={(e) => setEditForm(prev => ({ ...prev, piNo: e.target.value }))}
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>Tax Invoice No</label>
+                    <input 
+                      type="text" 
+                      value={editForm.invoiceNo} 
+                      onChange={(e) => setEditForm(prev => ({ ...prev, invoiceNo: e.target.value }))}
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>Invoice Date</label>
+                    <input 
+                      type="date" 
+                      value={editForm.dateTime} 
+                      onChange={(e) => setEditForm(prev => ({ ...prev, dateTime: e.target.value }))}
+                    />
+                  </div>
+                  <div className="form-field" style={{ gridColumn: 'span 2' }}>
+                    <label>Address</label>
+                    <input 
+                      type="text" 
+                      value={editForm.address} 
+                      onChange={(e) => setEditForm(prev => ({ ...prev, address: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 2: Vehicle Information (for single bills) */}
+              {editForm.invoiceType !== 'DealerConsolidated' && (
+                <div className="ig-modal-section">
+                  <div className="ig-modal-section-title">
+                    <span>Vehicle Details</span>
+                  </div>
+                  <div className="ig-modal-grid">
+                    <div className="form-field">
+                      <label>Vehicle No</label>
+                      <input 
+                        type="text" 
+                        value={editForm.vehicleNo} 
+                        onChange={(e) => setEditForm(prev => ({ ...prev, vehicleNo: e.target.value.toUpperCase() }))}
+                        placeholder="e.g. BR01AB1234"
+                      />
+                    </div>
+                    <div className="form-field">
+                      <label>Vehicle Type</label>
+                      <input 
+                        type="text" 
+                        value={editForm.vehicleType} 
+                        onChange={(e) => setEditForm(prev => ({ ...prev, vehicleType: e.target.value }))}
+                      />
+                    </div>
+                    <div className="form-field">
+                      <label>Make</label>
+                      <input 
+                        type="text" 
+                        value={editForm.vehicleMake} 
+                        onChange={(e) => setEditForm(prev => ({ ...prev, vehicleMake: e.target.value }))}
+                      />
+                    </div>
+                    <div className="form-field">
+                      <label>Model</label>
+                      <input 
+                        type="text" 
+                        value={editForm.vehicleModel} 
+                        onChange={(e) => setEditForm(prev => ({ ...prev, vehicleModel: e.target.value }))}
+                      />
+                    </div>
+                    <div className="form-field">
+                      <label>Engine No</label>
+                      <input 
+                        type="text" 
+                        value={editForm.engineNo} 
+                        onChange={(e) => setEditForm(prev => ({ ...prev, engineNo: e.target.value }))}
+                      />
+                    </div>
+                    <div className="form-field">
+                      <label>Chassis No</label>
+                      <input 
+                        type="text" 
+                        value={editForm.chassisNo} 
+                        onChange={(e) => setEditForm(prev => ({ ...prev, chassisNo: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Section 3: Line Items & Pricing */}
+              <div className="ig-modal-section">
+                <div className="ig-modal-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Line Items & Pricing</span>
+                  <button 
+                    type="button" 
+                    className="btn-add-edit-item"
+                    onClick={handleAddEditItem}
+                  >
+                    <FaPlus /> Add Line Item
+                  </button>
+                </div>
+
+                <div className="edit-items-table-wrapper">
+                  <table className="edit-items-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: '35%' }}>Description / Plan</th>
+                        <th style={{ width: '15%' }}>Validity</th>
+                        <th style={{ width: '10%' }}>Qty</th>
+                        <th style={{ width: '18%' }}>Price with GST (₹)</th>
+                        <th style={{ width: '15%' }}>Gross (₹)</th>
+                        <th style={{ width: '7%', textAlign: 'center' }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {editForm.items.map((item, idx) => (
+                        <tr key={idx}>
+                          <td>
+                            <input 
+                              type="text" 
+                              value={item.description} 
+                              onChange={(e) => handleEditItemChange(idx, 'description', e.target.value)}
+                              placeholder="Item Description"
+                              className="edit-row-input"
+                            />
+                          </td>
+                          <td>
+                            <input 
+                              type="text" 
+                              value={item.validity} 
+                              onChange={(e) => handleEditItemChange(idx, 'validity', e.target.value)}
+                              placeholder="e.g. 1 Year"
+                              className="edit-row-input"
+                            />
+                          </td>
+                          <td>
+                            <input 
+                              type="number" 
+                              min="1"
+                              value={item.qty} 
+                              onChange={(e) => handleEditItemChange(idx, 'qty', e.target.value)}
+                              className="edit-row-input"
+                            />
+                          </td>
+                          <td>
+                            <input 
+                              type="number" 
+                              step="0.01"
+                              value={item.priceWithGst} 
+                              onChange={(e) => handleEditItemChange(idx, 'priceWithGst', e.target.value)}
+                              className="edit-row-input"
+                            />
+                          </td>
+                          <td style={{ fontWeight: '700', color: '#0f172a' }}>
+                            ₹{roundCurrency(item.grossAmt).toFixed(2)}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <button 
+                              type="button" 
+                              className="btn-remove-edit-row"
+                              onClick={() => handleRemoveEditItem(idx)}
+                              title="Remove row"
+                            >
+                              <FaTrash />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="edit-total-summary">
+                  <div className="edit-total-box">
+                    <span>Grand Total Amount:</span>
+                    <strong>
+                      ₹{roundCurrency(editForm.items.reduce((sum, it) => sum + (toNumber(it.grossAmt) || 0), 0)).toFixed(2)}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div className="form-field" style={{ marginTop: '10px' }}>
+                <label>Notes / Remarks</label>
+                <textarea 
+                  rows="2"
+                  value={editForm.notes} 
+                  onChange={(e) => setEditForm(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Special terms, remarks, payment instructions, etc."
+                />
+              </div>
+
+              {/* Footer Actions */}
+              <div className="ig-modal-footer">
+                <button 
+                  type="button" 
+                  className="btn-modal-secondary"
+                  onClick={() => setEditingInvoice(null)}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="button"
+                  className="btn-modal-print"
+                  onClick={() => {
+                    const currentInvoiceData = {
+                      ...editingInvoice,
+                      ...editForm,
+                      items: editForm.items,
+                      piValue: roundCurrency(editForm.items.reduce((sum, it) => sum + (toNumber(it.grossAmt) || 0), 0)),
+                    };
+                    handleDownloadInvoice(currentInvoiceData);
+                  }}
+                >
+                  <FaPrint /> Print Preview
+                </button>
+                <button 
+                  type="submit" 
+                  className="btn-modal-save"
+                  disabled={editSaving}
+                >
+                  {editSaving ? <FaSpinner className="spin" /> : <FaCheck />} 
+                  {editSaving ? ' Saving Changes...' : ' Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {credentialsToShow && (
         <div className="credentials-modal-overlay">

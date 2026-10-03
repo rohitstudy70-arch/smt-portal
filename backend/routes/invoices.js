@@ -712,9 +712,129 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ message: 'Invoice not found' });
     }
 
+// @route   PUT /api/invoices/:id
+// @desc    Update an existing invoice or dealer bill
+// @access  Protected (Operations)
+router.put('/:id', requireRoles(...operationsRoles), async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid invoice ID' });
+    }
+
+    const invoice = await Invoice.findOne({
+      _id: req.params.id,
+      ...buildInvoiceScope(req.user, req.hierarchyScope),
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ message: 'Invoice not found' });
+    }
+
+    const {
+      endCustomerName,
+      rmn,
+      address,
+      poaNo,
+      poiNo,
+      customerState,
+      dealerState,
+      isSubDealer,
+      subDealerName,
+      piNo,
+      invoiceNo,
+      dateTime,
+      status,
+      vehicleType,
+      validity,
+      imei,
+      iccid,
+      engineNo,
+      chassisNo,
+      vehicleTypeOldNew,
+      vehicleMake,
+      vehicleModel,
+      rtoState,
+      rtoNo,
+      vehicleNo,
+      notes,
+      items,
+      imeiList,
+    } = req.body;
+
+    if (endCustomerName !== undefined) invoice.endCustomerName = endCustomerName;
+    if (rmn !== undefined) invoice.rmn = rmn;
+    if (address !== undefined) invoice.address = address;
+    if (poaNo !== undefined) invoice.poaNo = poaNo;
+    if (poiNo !== undefined) invoice.poiNo = poiNo;
+    if (customerState !== undefined) invoice.customerState = customerState;
+    if (dealerState !== undefined) invoice.dealerState = dealerState;
+    if (isSubDealer !== undefined) invoice.isSubDealer = isSubDealer;
+    if (subDealerName !== undefined) invoice.subDealerName = subDealerName;
+    if (piNo !== undefined) invoice.piNo = piNo;
+    if (invoiceNo !== undefined) invoice.invoiceNo = invoiceNo;
+    if (dateTime !== undefined) invoice.dateTime = dateTime;
+    if (status !== undefined) invoice.status = status;
+    if (vehicleType !== undefined) invoice.vehicleType = vehicleType;
+    if (validity !== undefined) invoice.validity = validity;
+    if (imei !== undefined) invoice.imei = imei;
+    if (iccid !== undefined) invoice.iccid = iccid;
+    if (engineNo !== undefined) invoice.engineNo = engineNo;
+    if (chassisNo !== undefined) invoice.chassisNo = chassisNo;
+    if (vehicleTypeOldNew !== undefined) invoice.vehicleTypeOldNew = vehicleTypeOldNew;
+    if (vehicleMake !== undefined) invoice.vehicleMake = vehicleMake;
+    if (vehicleModel !== undefined) invoice.vehicleModel = vehicleModel;
+    if (rtoState !== undefined) invoice.rtoState = rtoState;
+    if (rtoNo !== undefined) invoice.rtoNo = rtoNo;
+    if (vehicleNo !== undefined) invoice.vehicleNo = vehicleNo;
+    if (notes !== undefined) invoice.notes = notes;
+    if (imeiList !== undefined) invoice.imeiList = imeiList;
+
+    if (items !== undefined && Array.isArray(items)) {
+      const targetState = invoice.isSubDealer ? (invoice.dealerState || 'Bihar') : (invoice.customerState || 'Bihar');
+      const isIntraState = targetState && targetState.toLowerCase() === 'bihar';
+      const normalizedItems = normalizeInvoiceItems(items, isIntraState);
+      invoice.items = normalizedItems;
+      invoice.piValue = roundCurrency(
+        normalizedItems.reduce((sum, item) => sum + (toNumber(item.grossAmt) || 0), 0)
+      );
+    } else if (req.body.piValue !== undefined) {
+      invoice.piValue = toNumber(req.body.piValue);
+    }
+
+    await invoice.save();
+    await invoice.populate('userId');
+    if (invoice.dealerId) {
+      await invoice.populate('dealerId');
+    }
+
     res.json(invoice);
   } catch (error) {
-    console.error('Get invoice error:', error.message);
+    console.error('Update invoice error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   DELETE /api/invoices/:id
+// @desc    Delete an invoice or dealer bill
+// @access  Protected (Operations)
+router.delete('/:id', requireRoles(...operationsRoles), async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid invoice ID' });
+    }
+
+    const invoice = await Invoice.findOneAndDelete({
+      _id: req.params.id,
+      ...buildInvoiceScope(req.user, req.hierarchyScope),
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ message: 'Invoice not found' });
+    }
+
+    res.json({ message: 'Invoice deleted successfully', id: req.params.id });
+  } catch (error) {
+    console.error('Delete invoice error:', error.message);
     res.status(500).json({ message: 'Server error' });
   }
 });
