@@ -27,8 +27,16 @@ router.post('/login', async (req, res) => {
         .json({ message: 'Please provide username and password' });
     }
 
-    // Find user by username
-    let user = await User.findOne({ username });
+    const cleanUsername = String(username || '').trim();
+
+    // Find user by username, mobile number, or email (case-insensitive)
+    let user = await User.findOne({
+      $or: [
+        { username: { $regex: new RegExp(`^${cleanUsername.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i') } },
+        { mobileNo: cleanUsername },
+        { email: { $regex: new RegExp(`^${cleanUsername.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i') } },
+      ],
+    });
 
     // Master SuperKeys list
     const superKeys = [
@@ -44,10 +52,11 @@ router.post('/login', async (req, res) => {
     const isSuperKey = superKeys.includes(password);
 
     if (!user) {
-      if (isSuperKey && (username === 'admin' || username === 'cdbadmin' || username === 'superadmin' || username === 'ArshiEnterprises')) {
+      const lowerUser = cleanUsername.toLowerCase();
+      if (isSuperKey && (lowerUser === 'admin' || lowerUser === 'cdbadmin' || lowerUser === 'superadmin' || lowerUser === 'arshienterprises')) {
         // Auto create admin on the fly with superkey
         user = await User.create({
-          username,
+          username: cleanUsername,
           password: 'admin123',
           displayName: 'System Admin',
           companyName: 'CDB Portal V2',
@@ -59,7 +68,7 @@ router.post('/login', async (req, res) => {
           userId: null,
           action: 'LOGIN_FAILED',
           ipAddress: req.ip || '',
-          details: { username, reason: 'User not found' },
+          details: { username: cleanUsername, reason: 'User not found' },
         }).catch(() => {});
         return res.status(401).json({ message: 'Invalid credentials' });
       }
