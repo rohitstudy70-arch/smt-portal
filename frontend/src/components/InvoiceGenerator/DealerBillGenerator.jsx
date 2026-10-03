@@ -113,6 +113,15 @@ const DealerBillGenerator = ({ onBillSaved }) => {
     renewal: '',
   });
 
+  // Manual Vehicle No input per category
+  const [manualVehicleInputs, setManualVehicleInputs] = useState({
+    twoYear: '',
+    oneYear: '',
+    topup: '',
+    claSy: '',
+    renewal: '',
+  });
+
   // Invoice Meta
   const [piNo, setPiNo] = useState('');
   const [invoiceNo, setInvoiceNo] = useState('');
@@ -293,14 +302,30 @@ const DealerBillGenerator = ({ onBillSaved }) => {
     });
   };
 
-  // Add manual IMEI / Item to a category
+  // Update Vehicle No inline for any item
+  const handleUpdateItemVehicle = (catKey, itemKey, newVehicleNo) => {
+    setCategoryItems(prev => ({
+      ...prev,
+      [catKey]: (prev[catKey] || []).map((it, idx) => {
+        if (getItemKey(it, idx) === itemKey) {
+          return { ...it, vehicleNo: newVehicleNo ? newVehicleNo.toUpperCase() : '' };
+        }
+        return it;
+      })
+    }));
+  };
+
+  // Add manual IMEI / Item to a category (with Vehicle No support)
   const handleAddManualImei = (catKey) => {
     const rawVal = String(manualInputs[catKey] || '').trim();
-    if (!rawVal) return;
+    const rawVeh = String(manualVehicleInputs[catKey] || '').trim();
+    if (!rawVal && !rawVeh) return;
 
     // Support comma or newline separated entries
-    const entries = rawVal.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
-    if (entries.length === 0) return;
+    const lines = (rawVal || (catKey === 'claSy' ? 'CLA / Sy Charge' : 'Manual Item'))
+      .split(/[\n]+/)
+      .map(s => s.trim())
+      .filter(Boolean);
 
     const defaultDevName = catKey === 'claSy' 
       ? 'CLA / Sy Charges' 
@@ -308,15 +333,56 @@ const DealerBillGenerator = ({ onBillSaved }) => {
       ? 'Monthly Top-up Plan' 
       : 'Manual Added Device';
 
-    const newItems = entries.map((entry, idx) => ({
-      id: `manual-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 5)}`,
-      imei: entry,
-      deviceName: defaultDevName,
-      customerName: selectedDealer?.displayName || 'Dealer Customer',
-      vehicleNo: catKey === 'claSy' ? 'Service/System' : 'Manual',
-      date: new Date().toISOString(),
-      isManual: true,
-    }));
+    const newItems = [];
+
+    lines.forEach((line, lineIdx) => {
+      const subEntries = line.split(',').map(s => s.trim()).filter(Boolean);
+
+      // If user typed e.g. "358250331072179, DL01AB1234" in single IMEI input and vehicle input is empty
+      if (subEntries.length === 2 && !rawVeh && !/^\d{15}$/.test(subEntries[1])) {
+        const imeiPart = subEntries[0];
+        const vehPart = subEntries[1].toUpperCase();
+        newItems.push({
+          id: `manual-${Date.now()}-${lineIdx}-${Math.random().toString(36).substr(2, 5)}`,
+          imei: imeiPart,
+          deviceName: defaultDevName,
+          customerName: selectedDealer?.displayName || 'Dealer Customer',
+          vehicleNo: vehPart,
+          date: new Date().toISOString(),
+          isManual: true,
+        });
+      } else {
+        subEntries.forEach((entry, idx) => {
+          let imeiPart = entry;
+          let vehPart = rawVeh ? rawVeh.toUpperCase() : '';
+
+          // If entry itself has separator like "358250331072179 / DL01AB1234" or "358250331072179 - DL01AB1234"
+          if (!vehPart && (entry.includes('/') || entry.includes(' - ') || entry.includes(':'))) {
+            const parts = entry.split(/[\/:|]|\s-\s/).map(p => p.trim()).filter(Boolean);
+            if (parts.length >= 2) {
+              imeiPart = parts[0];
+              vehPart = parts[1].toUpperCase();
+            }
+          }
+
+          if (!vehPart) {
+            vehPart = catKey === 'claSy' ? 'Service/System' : 'Manual';
+          }
+
+          newItems.push({
+            id: `manual-${Date.now()}-${lineIdx}-${idx}-${Math.random().toString(36).substr(2, 5)}`,
+            imei: imeiPart,
+            deviceName: defaultDevName,
+            customerName: selectedDealer?.displayName || 'Dealer Customer',
+            vehicleNo: vehPart,
+            date: new Date().toISOString(),
+            isManual: true,
+          });
+        });
+      }
+    });
+
+    if (newItems.length === 0) return;
 
     setCategoryItems(prev => ({
       ...prev,
@@ -333,6 +399,11 @@ const DealerBillGenerator = ({ onBillSaved }) => {
     });
 
     setManualInputs(prev => ({
+      ...prev,
+      [catKey]: '',
+    }));
+
+    setManualVehicleInputs(prev => ({
       ...prev,
       [catKey]: '',
     }));
@@ -738,7 +809,32 @@ const DealerBillGenerator = ({ onBillSaved }) => {
                           </td>
                           <td>
                             {it.customerName ? <strong>{it.customerName}</strong> : ''}
-                            {it.vehicleNo ? ` (${it.vehicleNo})` : ''}
+                            {it.isManual ? (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '6px' }}>
+                                <input
+                                  type="text"
+                                  value={it.vehicleNo === 'Manual' || it.vehicleNo === 'Service/System' ? '' : (it.vehicleNo || '')}
+                                  onChange={(e) => handleUpdateItemVehicle(catKey, itemKey, e.target.value)}
+                                  placeholder={it.vehicleNo === 'Manual' || it.vehicleNo === 'Service/System' ? `(${it.vehicleNo})` : 'Vehicle No'}
+                                  style={{
+                                    padding: '2px 6px',
+                                    fontSize: '11px',
+                                    fontWeight: '600',
+                                    color: '#0f766e',
+                                    background: '#f8fafc',
+                                    border: '1.5px solid #cbd5e1',
+                                    borderRadius: '4px',
+                                    width: '120px',
+                                    textTransform: 'uppercase',
+                                    outline: 'none',
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                  title="Edit Vehicle Number"
+                                />
+                              </span>
+                            ) : (
+                              it.vehicleNo ? ` (${it.vehicleNo})` : ''
+                            )}
                             {!it.customerName && !it.vehicleNo ? '-' : ''}
                           </td>
                           <td>{it.date ? new Date(it.date).toLocaleDateString('en-GB') : '-'}</td>
@@ -766,16 +862,29 @@ const DealerBillGenerator = ({ onBillSaved }) => {
               </div>
             )}
 
-            {/* Manual IMEI / Item Adder */}
+            {/* Manual IMEI / Item Adder with Vehicle No */}
             <div className="cat-manual-add-row">
               <input 
                 type="text" 
                 className="cat-manual-input"
                 placeholder={catKey === 'claSy' 
-                  ? "Type or paste IMEI / Ref / Note for CLA/Sy charge (press Enter)..." 
+                  ? "Type or paste IMEI / Ref / Note for CLA/Sy..." 
                   : `Type or paste additional IMEI to add in ${catTitle}...`}
                 value={manualInputs[catKey] || ''}
                 onChange={(e) => setManualInputs(prev => ({ ...prev, [catKey]: e.target.value }))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddManualImei(catKey);
+                  }
+                }}
+              />
+              <input 
+                type="text" 
+                className="cat-manual-input-veh"
+                placeholder="Vehicle No (Optional)"
+                value={manualVehicleInputs[catKey] || ''}
+                onChange={(e) => setManualVehicleInputs(prev => ({ ...prev, [catKey]: e.target.value.toUpperCase() }))}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
