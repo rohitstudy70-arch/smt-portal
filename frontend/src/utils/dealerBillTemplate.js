@@ -5,7 +5,7 @@ const COMPANY_SENDER = {
   companyName: 'Arshi Enterprises',
   address: 'Near Brajesh Automobiles (Mahindra Showroom), NH-31, Maranga',
   cityStatePin: 'Purnea, Bihar - 854303',
-  phone: 'Ph: +91 7782808063, +91 9905959287',
+  phone: 'Ph: +91 7782808063, +91 9199059257',
   email: 'info@arshienterprises.com',
   gstNo: '10ATIPK1589P1ZA',
 };
