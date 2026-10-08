@@ -12,8 +12,11 @@ import {
   FaExclamationTriangle,
   FaSearch,
   FaPlus,
-  FaTrash
+  FaTrash,
+  FaFileExcel,
+  FaDownload
 } from 'react-icons/fa';
+import * as XLSX from 'xlsx';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { 
@@ -440,6 +443,146 @@ const DealerBillGenerator = ({ onBillSaved }) => {
         [catKey]: nextSet,
       };
     });
+  };
+
+  // Bulk Excel Import handler for any category
+  const handleExcelImport = (e, catKey) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target.result;
+        const workbook = XLSX.read(bstr, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+
+        // Parse sheet to array of rows
+        const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+        if (!rawRows || rawRows.length === 0) {
+          alert('Excel sheet is empty or contains no readable data.');
+          return;
+        }
+
+        let startIndex = 0;
+        let colIndexImei = 0;
+        let colIndexVeh = -1;
+        let colIndexCust = -1;
+
+        // Check if row 0 contains header names
+        const firstRow = rawRows[0].map(c => String(c).trim().toLowerCase());
+        const hasHeader = firstRow.some(cell => 
+          cell.includes('imei') || cell.includes('serial') || cell.includes('veh') || cell.includes('device') || cell.includes('cust')
+        );
+
+        if (hasHeader) {
+          startIndex = 1;
+          firstRow.forEach((header, idx) => {
+            if (header.includes('imei') || header.includes('serial') || header.includes('device')) {
+              colIndexImei = idx;
+            } else if (header.includes('veh') || header.includes('reg') || header.includes('plate') || header.includes('truck') || header.includes('car')) {
+              colIndexVeh = idx;
+            } else if (header.includes('cust') || header.includes('client') || header.includes('party') || header.includes('name')) {
+              colIndexCust = idx;
+            }
+          });
+        } else {
+          // If no header, assume Col 0 = IMEI, Col 1 = Vehicle No (if available), Col 2 = Customer
+          colIndexImei = 0;
+          if (rawRows[0].length >= 2) colIndexVeh = 1;
+          if (rawRows[0].length >= 3) colIndexCust = 2;
+        }
+
+        const newItems = [];
+        const defaultDevName = catKey === 'claSy' 
+          ? 'CLA / Sy Charges' 
+          : (catState[catKey]?.description || 'VLTD Device');
+
+        for (let r = startIndex; r < rawRows.length; r++) {
+          const row = rawRows[r];
+          if (!row || row.length === 0) continue;
+
+          let rawImei = String(row[colIndexImei] ?? '').trim();
+          if (!rawImei) continue;
+
+          let rawVeh = colIndexVeh !== -1 ? String(row[colIndexVeh] ?? '').trim().toUpperCase() : '';
+          let rawCust = colIndexCust !== -1 ? String(row[colIndexCust] ?? '').trim() : '';
+
+          if (!rawVeh) {
+            rawVeh = catKey === 'claSy' ? 'Service/System' : 'Manual';
+          }
+          if (!rawCust) {
+            rawCust = selectedDealer?.displayName || 'Dealer Customer';
+          }
+
+          newItems.push({
+            id: `excel-${Date.now()}-${r}-${Math.random().toString(36).substr(2, 5)}`,
+            imei: rawImei,
+            deviceName: defaultDevName,
+            customerName: rawCust,
+            vehicleNo: rawVeh,
+            date: new Date().toISOString(),
+            isManual: true,
+          });
+        }
+
+        if (newItems.length === 0) {
+          alert('No valid IMEI records found in the uploaded file.');
+          return;
+        }
+
+        // Add newly imported items into the category
+        setCategoryItems(prev => ({
+          ...prev,
+          [catKey]: [...newItems, ...prev[catKey]],
+        }));
+
+        // Automatically tick/select all imported items
+        setSelectedItemsByCat(prev => {
+          const nextSet = new Set(prev[catKey]);
+          newItems.forEach((it, i) => nextSet.add(getItemKey(it, i)));
+          return {
+            ...prev,
+            [catKey]: nextSet,
+          };
+        });
+
+        alert(`Successfully imported and selected ${newItems.length} devices from Excel into ${catState[catKey]?.description || catKey}!`);
+      } catch (err) {
+        console.error('Error parsing Excel file:', err);
+        alert('Failed to read Excel file. Please ensure it is a valid .xlsx or .csv format.');
+      } finally {
+        e.target.value = '';
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  // Helper to download sample Excel template
+  const handleDownloadSampleExcel = (catKey) => {
+    const sampleData = [
+      {
+        'IMEI Number': '868204051234561',
+        'Vehicle Number': 'BR01AB1234',
+        'Customer Name': selectedDealer?.displayName || 'Arshi Logistics'
+      },
+      {
+        'IMEI Number': '868204051234562',
+        'Vehicle Number': 'BR01CD5678',
+        'Customer Name': selectedDealer?.displayName || 'Patna Cargo'
+      },
+      {
+        'IMEI Number': '868204051234563',
+        'Vehicle Number': 'JH05EF9012',
+        'Customer Name': selectedDealer?.displayName || 'Shree Goods'
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(sampleData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Sample_Devices');
+    XLSX.writeFile(workbook, `Dealer_Bill_Sample_${catKey}.xlsx`);
   };
 
   // Remove manually added item
@@ -898,6 +1041,30 @@ const DealerBillGenerator = ({ onBillSaved }) => {
                 onClick={() => handleAddManualImei(catKey)}
               >
                 <FaPlus /> {catKey === 'claSy' ? 'Add Item' : 'Add IMEI'}
+              </button>
+
+              {/* Bulk Excel Sheet Upload Button */}
+              <label 
+                className="btn-import-excel" 
+                title={`Upload Excel (.xlsx/.csv) to add 50-500+ IMEIs into ${catTitle}`}
+              >
+                <FaFileExcel /> Import Excel
+                <input 
+                  type="file" 
+                  accept=".xlsx, .xls, .csv" 
+                  style={{ display: 'none' }} 
+                  onChange={(e) => handleExcelImport(e, catKey)}
+                />
+              </label>
+
+              {/* Sample Excel Template */}
+              <button
+                type="button"
+                className="btn-sample-excel"
+                onClick={() => handleDownloadSampleExcel(catKey)}
+                title="Download Sample Excel Sheet format"
+              >
+                <FaDownload /> Sample Excel
               </button>
 
               {catKey === 'claSy' && (

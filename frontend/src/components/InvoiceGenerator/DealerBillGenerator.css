@@ -406,10 +406,53 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
 }
 
 .btn-add-manual-imei:hover {
   background: #115e59;
+}
+
+.btn-import-excel {
+  background: #16a34a;
+  color: #ffffff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  user-select: none;
+  transition: all 0.2s;
+}
+
+.btn-import-excel:hover {
+  background: #15803d;
+}
+
+.btn-sample-excel {
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.btn-sample-excel:hover {
+  background: #e2e8f0;
+  color: #0f172a;
 }
 
 /* Category Table */
