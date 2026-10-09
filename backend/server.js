@@ -53,6 +53,67 @@ connectDB().then(async () => {
       });
       console.log('✅ Default admin user created successfully (username: admin, password: admin123)!');
     }
+
+    // Automatic Migration: Update existing saved Invoices to use 'One Year Top-up' instead of 'Monthly Top-up'
+    try {
+      const Invoice = require('./models/Invoice');
+      const existingInvoices = await Invoice.find({
+        $or: [
+          { 'items.description': /monthly/i },
+          { 'items.category': /monthly/i },
+          { 'items.validity': /monthly/i },
+        ],
+      });
+
+      let migratedCount = 0;
+      for (const inv of existingInvoices) {
+        let modified = false;
+        if (Array.isArray(inv.items)) {
+          inv.items.forEach((it) => {
+            if (/monthly.*top-?up/i.test(it.description) || /monthly.*recharge/i.test(it.description)) {
+              it.description = 'AIS-140 VLTD - 1 Year Top-up / Recharge Plan';
+              modified = true;
+            }
+            if (/monthly.*top-?up/i.test(it.category) || /monthly.*recharge/i.test(it.category)) {
+              it.category = 'One Year Top-up Plan';
+              modified = true;
+            }
+            if (/monthly.*recharge/i.test(it.validity) || /monthly.*top-?up/i.test(it.validity)) {
+              it.validity = '12 Month Top-up';
+              modified = true;
+            }
+            if (Array.isArray(it.imeis)) {
+              it.imeis.forEach((im) => {
+                if (typeof im === 'object' && im !== null) {
+                  if (/monthly.*top-?up/i.test(im.deviceName) || /monthly.*recharge/i.test(im.deviceName)) {
+                    im.deviceName = 'VLTD 1-Year Top-up / Recharge';
+                    modified = true;
+                  }
+                  if (/monthly.*top-?up/i.test(im.plan) || /monthly.*recharge/i.test(im.plan)) {
+                    im.plan = '1-Year Top-up / Recharge Plan';
+                    modified = true;
+                  }
+                  if (/monthly/i.test(im.validity)) {
+                    im.validity = '1 Year Top-up';
+                    modified = true;
+                  }
+                }
+              });
+            }
+          });
+        }
+
+        if (modified) {
+          await inv.save();
+          migratedCount++;
+        }
+      }
+      if (migratedCount > 0) {
+        console.log(`✅ Migrated ${migratedCount} existing saved invoices to 'One Year Top-up Plan'!`);
+      }
+    } catch (migErr) {
+      console.error('Invoice topup migration error:', migErr.message);
+    }
   } catch (err) {
     console.error('Error ensuring default admin or syncing indexes:', err.message);
   }

@@ -99,13 +99,28 @@ export const renderDealerBillHtml = ({
     totalIgst += igstAmt;
     totalGross += gross;
 
+    let displayDesc = item.description || '';
+    let displayValidity = item.validity || '';
+    let displayCategory = item.category || '';
+
+    // Normalize legacy Monthly Top-up to One Year Top-up for all saved/printed bills
+    if (/monthly.*top-?up/i.test(displayDesc) || /monthly.*recharge/i.test(displayDesc)) {
+      displayDesc = 'AIS-140 VLTD - 1 Year Top-up / Recharge Plan';
+    }
+    if (/monthly.*top-?up/i.test(displayValidity) || /monthly.*recharge/i.test(displayValidity)) {
+      displayValidity = '12 Month Top-up';
+    }
+    if (/monthly.*top-?up/i.test(displayCategory) || /monthly.*recharge/i.test(displayCategory)) {
+      displayCategory = 'One Year Top-up Plan';
+    }
+
     return `
       <tr>
         <td style="text-align: center;">${index + 1}</td>
         <td>
-          <strong>${escapeHtml(item.description)}</strong>
-          ${item.validity ? `<div style="font-size: 11px; color: #555;">Validity: ${escapeHtml(item.validity)}</div>` : ''}
-          ${item.category ? `<div style="font-size: 10px; color: #0284c7; font-weight: 600;">Category: ${escapeHtml(item.category)}</div>` : ''}
+          <strong>${escapeHtml(displayDesc)}</strong>
+          ${displayValidity ? `<div style="font-size: 11px; color: #555;">Validity: ${escapeHtml(displayValidity)}</div>` : ''}
+          ${displayCategory ? `<div style="font-size: 10px; color: #0284c7; font-weight: 600;">Category: ${escapeHtml(displayCategory)}</div>` : ''}
         </td>
         <td style="text-align: center; font-weight: 600;">${qty}</td>
         <td style="text-align: right;">₹${formatCurrency(unitPrice)}</td>
@@ -124,10 +139,15 @@ export const renderDealerBillHtml = ({
   // Annexure rows of IMEIs
   let allImeisList = [];
   items.forEach(item => {
+    let catTitle = item.category || item.description || '';
+    if (/monthly.*top-?up/i.test(catTitle) || /monthly.*recharge/i.test(catTitle)) {
+      catTitle = 'One Year Top-up Plan';
+    }
+
     if (Array.isArray(item.imeis) && item.imeis.length > 0) {
       item.imeis.forEach(im => {
         allImeisList.push({
-          category: item.category || item.description,
+          category: catTitle,
           imei: typeof im === 'string' ? im : (im.imei || im.serialNo || 'N/A'),
           details: typeof im === 'object' ? im : {},
         });
@@ -137,7 +157,10 @@ export const renderDealerBillHtml = ({
 
   const annexureRows = allImeisList.map((entry, idx) => {
     const imei = escapeHtml(entry.imei);
-    const cat = escapeHtml(entry.category);
+    let cat = escapeHtml(entry.category);
+    if (/monthly.*top-?up/i.test(cat) || /monthly.*recharge/i.test(cat)) {
+      cat = 'One Year Top-up Plan';
+    }
     const veh = escapeHtml(entry.details.vehicleNo || '-');
     const cust = escapeHtml(entry.details.customerName || '-');
     const date = entry.details.date ? formatDate(entry.details.date) : '-';

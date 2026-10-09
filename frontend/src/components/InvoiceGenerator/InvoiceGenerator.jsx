@@ -504,19 +504,35 @@ const InvoiceGenerator = () => {
       rtoNo: req.rtoNo || '',
       notes: req.notes || '',
       items: Array.isArray(req.items) && req.items.length > 0
-        ? req.items.map(it => ({
-            description: it.description || '',
-            category: it.category || '',
-            validity: it.validity || '',
-            unitPrice: toNumber(it.unitPrice),
-            priceWithGst: toNumber(it.priceWithGst) || roundCurrency(toNumber(it.unitPrice) * 1.18),
-            qty: parseQty(it.qty) || 1,
-            cgst: toNumber(it.cgst),
-            sgst: toNumber(it.sgst),
-            igst: toNumber(it.igst),
-            grossAmt: toNumber(it.grossAmt) || roundCurrency((toNumber(it.unitPrice) * 1.18) * (parseQty(it.qty) || 1)),
-            imeis: it.imeis || [],
-          }))
+        ? req.items.map(it => {
+            let desc = it.description || '';
+            let cat = it.category || '';
+            let val = it.validity || '';
+
+            if (/monthly.*top-?up/i.test(desc) || /monthly.*recharge/i.test(desc)) {
+              desc = 'AIS-140 VLTD - 1 Year Top-up / Recharge Plan';
+            }
+            if (/monthly.*top-?up/i.test(cat) || /monthly.*recharge/i.test(cat)) {
+              cat = 'One Year Top-up Plan';
+            }
+            if (/monthly.*top-?up/i.test(val) || /monthly.*recharge/i.test(val)) {
+              val = '12 Month Top-up';
+            }
+
+            return {
+              description: desc,
+              category: cat,
+              validity: val,
+              unitPrice: toNumber(it.unitPrice),
+              priceWithGst: toNumber(it.priceWithGst) || roundCurrency(toNumber(it.unitPrice) * 1.18),
+              qty: parseQty(it.qty) || 1,
+              cgst: toNumber(it.cgst),
+              sgst: toNumber(it.sgst),
+              igst: toNumber(it.igst),
+              grossAmt: toNumber(it.grossAmt) || roundCurrency((toNumber(it.unitPrice) * 1.18) * (parseQty(it.qty) || 1)),
+              imeis: it.imeis || [],
+            };
+          })
         : [{
             description: 'VLTD',
             validity: '12 Month',
