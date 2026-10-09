@@ -66,6 +66,12 @@ const DealerBillGenerator = ({ onBillSaved }) => {
       priceWithGst: 590,
       expanded: false,
     },
+    twoYearTopup: {
+      description: 'AIS-140 VLTD - 2 Year Top-up / Recharge Plan',
+      unitPrice: 1000,
+      priceWithGst: 1180,
+      expanded: false,
+    },
     claSy: {
       description: 'CLA / Sy Charges',
       unitPrice: 500,
@@ -85,6 +91,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
     twoYear: new Set(),
     oneYear: new Set(),
     topup: new Set(),
+    twoYearTopup: new Set(),
     claSy: new Set(),
     renewal: new Set(),
   });
@@ -94,6 +101,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
     twoYear: [],
     oneYear: [],
     topup: [],
+    twoYearTopup: [],
     claSy: [],
     renewal: [],
   });
@@ -103,6 +111,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
     twoYear: '',
     oneYear: '',
     topup: '',
+    twoYearTopup: '',
     claSy: '',
     renewal: '',
   });
@@ -112,6 +121,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
     twoYear: '',
     oneYear: '',
     topup: '',
+    twoYearTopup: '',
     claSy: '',
     renewal: '',
   });
@@ -121,6 +131,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
     twoYear: '',
     oneYear: '',
     topup: '',
+    twoYearTopup: '',
     claSy: '',
     renewal: '',
   });
@@ -194,6 +205,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
       const twoYrList = data.categories?.twoYearActivations?.items || [];
       const oneYrList = data.categories?.oneYearActivations?.items || [];
       const topList = data.categories?.topupPlans?.items || [];
+      const twoYrTopList = data.categories?.twoYearTopupPlans?.items || [];
       const claSyList = data.categories?.claSyCharges?.items || [];
       const renList = data.categories?.renewalPlans?.items || [];
 
@@ -201,6 +213,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
         twoYear: twoYrList,
         oneYear: oneYrList,
         topup: topList,
+        twoYearTopup: twoYrTopList,
         claSy: claSyList,
         renewal: renList,
       });
@@ -210,6 +223,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
         twoYear: new Set(),
         oneYear: new Set(),
         topup: new Set(),
+        twoYearTopup: new Set(),
         claSy: new Set(),
         renewal: new Set(),
       });
@@ -235,6 +249,12 @@ const DealerBillGenerator = ({ onBillSaved }) => {
             expanded: topList.length > 0,
             priceWithGst: data.categories.topupPlans?.suggestedPriceWithGst || 590,
             unitPrice: roundCurrency((data.categories.topupPlans?.suggestedPriceWithGst || 590) / 1.18),
+          },
+          twoYearTopup: {
+            ...prev.twoYearTopup,
+            expanded: twoYrTopList.length > 0,
+            priceWithGst: data.categories.twoYearTopupPlans?.suggestedPriceWithGst || 1180,
+            unitPrice: roundCurrency((data.categories.twoYearTopupPlans?.suggestedPriceWithGst || 1180) / 1.18),
           },
           claSy: {
             ...prev.claSy,
@@ -266,8 +286,8 @@ const DealerBillGenerator = ({ onBillSaved }) => {
     } else {
       setBillableData(null);
       setSelectedDealer(null);
-      setCategoryItems({ twoYear: [], oneYear: [], topup: [], claSy: [], renewal: [] });
-      setSelectedItemsByCat({ twoYear: new Set(), oneYear: new Set(), topup: new Set(), claSy: new Set(), renewal: new Set() });
+      setCategoryItems({ twoYear: [], oneYear: [], topup: [], twoYearTopup: [], claSy: [], renewal: [] });
+      setSelectedItemsByCat({ twoYear: new Set(), oneYear: new Set(), topup: new Set(), twoYearTopup: new Set(), claSy: new Set(), renewal: new Set() });
     }
   };
 
@@ -332,6 +352,8 @@ const DealerBillGenerator = ({ onBillSaved }) => {
 
     const defaultDevName = catKey === 'claSy' 
       ? 'CLA / Sy Charges' 
+      : catKey === 'twoYearTopup'
+      ? 'Second Year Top-up Plan'
       : catKey === 'topup' 
       ? 'One Year Top-up Plan' 
       : 'Manual Added Device';
@@ -661,7 +683,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
 
         // If topup or claSy has specific individual amounts, sum them exactly
         const individualSum = selectedItems.reduce((sum, it) => sum + (Number(it.billAmount || it.amount) || 0), 0);
-        const hasIndividualAmounts = (catKey === 'topup' || catKey === 'claSy') && selectedItems.some(it => Number(it.billAmount || it.amount) > 0);
+        const hasIndividualAmounts = (catKey === 'topup' || catKey === 'twoYearTopup' || catKey === 'claSy') && selectedItems.some(it => Number(it.billAmount || it.amount) > 0);
 
         if (hasIndividualAmounts) {
           grossAmt = roundCurrency(individualSum);
@@ -695,6 +717,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
     processCategory('twoYear', '2-Year Activation', 'AIS-140 VLTD - 2 Year Activation Plan', '24 Month');
     processCategory('oneYear', '1-Year Activation', 'AIS-140 VLTD - 1 Year Activation Plan', '12 Month');
     processCategory('topup', 'One Year Top-up Plan', 'AIS-140 VLTD - 1 Year Top-up / Recharge Plan', '12 Month Top-up');
+    processCategory('twoYearTopup', 'Second Year Top-up Plan', 'AIS-140 VLTD - 2 Year Top-up / Recharge Plan', '24 Month Top-up');
     processCategory('claSy', 'CLA/Sy Charges', 'CLA / Sy Charges', 'Service/System');
     processCategory('renewal', 'Renewal', 'VLTD Annual Renewal Plan', '12 Month Renewal');
 
@@ -839,7 +862,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
     const selectedCount = selectedSet.size;
     const selectedItems = allItems.filter((it, idx) => selectedSet.has(getItemKey(it, idx)));
     const individualSum = selectedItems.reduce((sum, it) => sum + (Number(it.billAmount || it.amount) || 0), 0);
-    const hasIndividualAmounts = (catKey === 'topup' || catKey === 'claSy') && selectedItems.some(it => Number(it.billAmount || it.amount) > 0);
+    const hasIndividualAmounts = (catKey === 'topup' || catKey === 'twoYearTopup' || catKey === 'claSy') && selectedItems.some(it => Number(it.billAmount || it.amount) > 0);
 
     const categoryGross = hasIndividualAmounts
       ? roundCurrency(individualSum)
@@ -1201,12 +1224,13 @@ const DealerBillGenerator = ({ onBillSaved }) => {
         </div>
       )}
 
-      {/* 5 Categorized Sections with Full Search & Multi-Selection */}
+      {/* 6 Categorized Sections with Full Search & Multi-Selection */}
       {billableData && (
         <div className="categories-container">
           {renderCategoryBlock('twoYear', '2-Year Activations', 'cat-badge-2yr')}
           {renderCategoryBlock('oneYear', '1-Year Activations', 'cat-badge-1yr')}
           {renderCategoryBlock('topup', 'One Year Top-up Plans', 'cat-badge-topup')}
+          {renderCategoryBlock('twoYearTopup', 'Second Year Top-up Plans', 'cat-badge-2yr-topup')}
           {renderCategoryBlock('claSy', 'CLA/Sy Charges', 'cat-badge-clasy')}
           {renderCategoryBlock('renewal', 'Renewal Plans', 'cat-badge-renewal')}
         </div>

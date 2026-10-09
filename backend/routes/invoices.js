@@ -323,10 +323,12 @@ router.get('/dealer-billable-items', async (req, res) => {
     const twoYearList = [];
     const oneYearList = [];
     const topupList = [];
+    const twoYearTopupList = [];
     const claSyList = [];
     const renewalList = [];
 
     const seenTopupImeis = new Set();
+    const seenTwoYearTopupImeis = new Set();
     const seenClaSyImeis = new Set();
     const seenRenewalImeis = new Set();
     const seenActImeis = new Set();
@@ -364,21 +366,45 @@ router.get('/dealer-billable-items', async (req, res) => {
 
       // ONLY include in Top-up if actual top-up amount was recorded on this device
       if (topUpAmt > 0) {
-        if (!seenTopupImeis.has(imei)) {
-          topupList.push({
-            id: `topup-${dev._id}`,
-            imei,
-            serialNo: dev.serialNo || dev.serialNumber || '',
-            iccid: dev.iccid || dev.iccidNumber || '',
-            deviceName: dev.deviceName || 'VLTD 1-Year Top-up / Recharge',
-            validity: '1 Year Top-up',
-            plan: '1-Year Top-up / Recharge Plan',
-            billAmount: topUpAmt,
-            amount: topUpAmt,
-            date: dev.presentDate || dev.createdAt,
-            type: 'DeviceTopUp',
-          });
-          seenTopupImeis.add(imei);
+        const isTwoYearTopup = topUpAmt >= 1000 ||
+          validityStr.includes('2 year top') ||
+          validityStr.includes('2yr top') ||
+          (topUpAmt > 700 && (validityStr.includes('2 year') || validityStr.includes('2yr') || validityStr.includes('24 month')));
+
+        if (isTwoYearTopup) {
+          if (!seenTwoYearTopupImeis.has(imei)) {
+            twoYearTopupList.push({
+              id: `twoYearTopup-${dev._id}`,
+              imei,
+              serialNo: dev.serialNo || dev.serialNumber || '',
+              iccid: dev.iccid || dev.iccidNumber || '',
+              deviceName: dev.deviceName || 'VLTD 2-Year Top-up / Recharge',
+              validity: '2 Year Top-up',
+              plan: '2-Year Top-up / Recharge Plan',
+              billAmount: topUpAmt,
+              amount: topUpAmt,
+              date: dev.presentDate || dev.createdAt,
+              type: 'DeviceTwoYearTopUp',
+            });
+            seenTwoYearTopupImeis.add(imei);
+          }
+        } else {
+          if (!seenTopupImeis.has(imei)) {
+            topupList.push({
+              id: `topup-${dev._id}`,
+              imei,
+              serialNo: dev.serialNo || dev.serialNumber || '',
+              iccid: dev.iccid || dev.iccidNumber || '',
+              deviceName: dev.deviceName || 'VLTD 1-Year Top-up / Recharge',
+              validity: '1 Year Top-up',
+              plan: '1-Year Top-up / Recharge Plan',
+              billAmount: topUpAmt,
+              amount: topUpAmt,
+              date: dev.presentDate || dev.createdAt,
+              type: 'DeviceTopUp',
+            });
+            seenTopupImeis.add(imei);
+          }
         }
       }
 
@@ -432,23 +458,47 @@ router.get('/dealer-billable-items', async (req, res) => {
     txTopups.forEach((tx) => {
       const imei = String(tx.imei || tx.referenceNo || '').trim();
       const amt = Number(tx.transactedAmt || tx.requestedAmt || 0);
-      if (imei && imei !== 'N/A' && !seenTopupImeis.has(imei) && amt > 0) {
-        topupList.push({
-          id: tx._id,
-          requestId: tx.transactionId,
-          imei,
-          serialNo: tx.serialNo || '',
-          iccid: tx.iccid || '',
-          deviceName: tx.deviceName || 'Top Up / Recharge',
-          customerName: dealer.displayName || 'Customer',
-          vehicleNo: '-',
-          plan: 'Data / SIM Top-up',
-          billAmount: amt,
-          amount: amt,
-          date: tx.date,
-          type: 'TransactionTopUp',
-        });
-        seenTopupImeis.add(imei);
+      const rem = String(tx.remarks || tx.paymentFor || '').toLowerCase();
+      const isTwoYear = amt >= 1000 || rem.includes('2 year') || rem.includes('2yr') || rem.includes('24 month') || rem.includes('second year');
+
+      if (imei && imei !== 'N/A' && amt > 0) {
+        if (isTwoYear) {
+          if (!seenTwoYearTopupImeis.has(imei)) {
+            twoYearTopupList.push({
+              id: tx._id,
+              requestId: tx.transactionId,
+              imei,
+              serialNo: tx.serialNo || '',
+              iccid: tx.iccid || '',
+              deviceName: tx.deviceName || '2-Year Top Up / Recharge',
+              customerName: dealer.displayName || 'Customer',
+              vehicleNo: '-',
+              plan: '2-Year Top-up / Recharge Plan',
+              billAmount: amt,
+              amount: amt,
+              date: tx.date,
+              type: 'TransactionTwoYearTopUp',
+            });
+            seenTwoYearTopupImeis.add(imei);
+          }
+        } else if (!seenTopupImeis.has(imei)) {
+          topupList.push({
+            id: tx._id,
+            requestId: tx.transactionId,
+            imei,
+            serialNo: tx.serialNo || '',
+            iccid: tx.iccid || '',
+            deviceName: tx.deviceName || 'Top Up / Recharge',
+            customerName: dealer.displayName || 'Customer',
+            vehicleNo: '-',
+            plan: 'Data / SIM Top-up',
+            billAmount: amt,
+            amount: amt,
+            date: tx.date,
+            type: 'TransactionTopUp',
+          });
+          seenTopupImeis.add(imei);
+        }
       }
     });
 
@@ -473,13 +523,24 @@ router.get('/dealer-billable-items', async (req, res) => {
 
       if (reqTypeStr.includes('top-up') || reqTypeStr.includes('topup') || planStr.includes('recharge') || reqTypeStr.includes('recharge')) {
         const topAmt = Number(reqItem.amount || 0);
-        if (topAmt > 0 && imei && !seenTopupImeis.has(imei)) {
-          topupList.push({
-            ...item,
-            billAmount: topAmt,
-            amount: topAmt,
-          });
-          seenTopupImeis.add(imei);
+        const isTwoYear = topAmt >= 1000 || planStr.includes('2 year') || planStr.includes('2yr') || reqTypeStr.includes('2 year') || reqTypeStr.includes('2yr') || planStr.includes('second year') || reqTypeStr.includes('second year') || planStr.includes('24 month');
+
+        if (topAmt > 0 && imei) {
+          if (isTwoYear && !seenTwoYearTopupImeis.has(imei)) {
+            twoYearTopupList.push({
+              ...item,
+              billAmount: topAmt,
+              amount: topAmt,
+            });
+            seenTwoYearTopupImeis.add(imei);
+          } else if (!isTwoYear && !seenTopupImeis.has(imei)) {
+            topupList.push({
+              ...item,
+              billAmount: topAmt,
+              amount: topAmt,
+            });
+            seenTopupImeis.add(imei);
+          }
         }
       } else if (reqTypeStr.includes('cla') || reqTypeStr.includes('sy') || planStr.includes('cla') || planStr.includes('sy charge') || planStr.includes('system charge')) {
         const claAmt = Number(reqItem.amount || 0);
@@ -552,6 +613,7 @@ router.get('/dealer-billable-items', async (req, res) => {
       twoYearPriceWithGst: getSuggestedRate(twoYearList, 4200),
       oneYearPriceWithGst: getSuggestedRate(oneYearList, 2370),
       topupPriceWithGst: getSuggestedRate(topupList, 590),
+      twoYearTopupPriceWithGst: getSuggestedRate(twoYearTopupList, 1180),
       claSyPriceWithGst: getSuggestedRate(claSyList, 590),
       renewalPriceWithGst: getSuggestedRate(renewalList, 1770),
     };
@@ -590,6 +652,11 @@ router.get('/dealer-billable-items', async (req, res) => {
           items: topupList,
           suggestedPriceWithGst: suggestedRates.topupPriceWithGst,
         },
+        twoYearTopupPlans: {
+          count: twoYearTopupList.length,
+          items: twoYearTopupList,
+          suggestedPriceWithGst: suggestedRates.twoYearTopupPriceWithGst,
+        },
         claSyCharges: {
           count: claSyList.length,
           items: claSyList,
@@ -604,9 +671,10 @@ router.get('/dealer-billable-items', async (req, res) => {
       summary: {
         totalDevices: twoYearList.length + oneYearList.length,
         totalTopups: topupList.length,
+        totalTwoYearTopups: twoYearTopupList.length,
         totalClaSy: claSyList.length,
         totalRenewals: renewalList.length,
-        grandTotalItems: twoYearList.length + oneYearList.length + topupList.length + claSyList.length + renewalList.length,
+        grandTotalItems: twoYearList.length + oneYearList.length + topupList.length + twoYearTopupList.length + claSyList.length + renewalList.length,
       },
     });
   } catch (error) {
