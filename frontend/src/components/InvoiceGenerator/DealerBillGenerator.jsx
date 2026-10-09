@@ -61,7 +61,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
       expanded: false,
     },
     topup: {
-      description: 'VLTD Monthly Top-up / Recharge Plan',
+      description: 'AIS-140 VLTD - 1 Year Top-up / Recharge Plan',
       unitPrice: 500,
       priceWithGst: 590,
       expanded: false,
@@ -333,7 +333,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
     const defaultDevName = catKey === 'claSy' 
       ? 'CLA / Sy Charges' 
       : catKey === 'topup' 
-      ? 'Monthly Top-up Plan' 
+      ? 'One Year Top-up Plan' 
       : 'Manual Added Device';
 
     const newItems = [];
@@ -694,7 +694,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
 
     processCategory('twoYear', '2-Year Activation', 'AIS-140 VLTD - 2 Year Activation Plan', '24 Month');
     processCategory('oneYear', '1-Year Activation', 'AIS-140 VLTD - 1 Year Activation Plan', '12 Month');
-    processCategory('topup', 'Monthly Topup Recharge', 'VLTD Monthly Top-up / Recharge Plan', 'Monthly Recharge');
+    processCategory('topup', 'One Year Top-up Plan', 'AIS-140 VLTD - 1 Year Top-up / Recharge Plan', '12 Month Top-up');
     processCategory('claSy', 'CLA/Sy Charges', 'CLA / Sy Charges', 'Service/System');
     processCategory('renewal', 'Renewal', 'VLTD Annual Renewal Plan', '12 Month Renewal');
 
@@ -1206,7 +1206,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
         <div className="categories-container">
           {renderCategoryBlock('twoYear', '2-Year Activations', 'cat-badge-2yr')}
           {renderCategoryBlock('oneYear', '1-Year Activations', 'cat-badge-1yr')}
-          {renderCategoryBlock('topup', 'Monthly topup recharge plans', 'cat-badge-topup')}
+          {renderCategoryBlock('topup', 'One Year Top-up Plans', 'cat-badge-topup')}
           {renderCategoryBlock('claSy', 'CLA/Sy Charges', 'cat-badge-clasy')}
           {renderCategoryBlock('renewal', 'Renewal Plans', 'cat-badge-renewal')}
         </div>
