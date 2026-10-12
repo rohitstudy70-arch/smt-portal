@@ -9,29 +9,17 @@ echo "🚀 Starting Deployment Process..."
 # Navigate to the project root directory
 cd "$(dirname "$0")/.."
 
-# 1. Pull latest code from GitHub
+# 1. Pull latest code (including pre-built frontend/dist) from GitHub
 echo "📥 Pulling latest code from main branch..."
-git pull origin main
+git fetch origin main
+git reset --hard origin/main
 
-# 2. Setup backend dependencies
-echo "⚙️ Installing backend dependencies..."
-cd backend
-npm install --production
-cd ..
-
-# 3. Setup frontend dependencies and build
-echo "📦 Installing frontend dependencies & building..."
-cd frontend
-npm install
-npm run build
-cd ..
-
-# 4. Restart backend server via PM2
+# 2. Restart backend server via PM2
 echo "🔄 Starting/Reloading Backend PM2 process..."
-pm2 startOrReload deployment/pm2.config.json
+pm2 restart all || pm2 startOrReload deployment/pm2.config.json
 
-# 5. Save PM2 configuration to restart automatically on VPS reboot
+# 3. Save PM2 configuration to restart automatically on VPS reboot
 echo "💾 Saving PM2 process list..."
 pm2 save
 
-echo "✅ Deployment finished successfully!"
+echo "✅ Deployment finished successfully with zero CPU spike!"

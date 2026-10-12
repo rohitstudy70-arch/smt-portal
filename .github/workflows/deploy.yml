@@ -20,7 +20,5 @@ jobs:
             cd /var/www/smt-portal
             git fetch origin main
             git reset --hard origin/main
-            cd backend && npm install --production
-            cd ../frontend && npm install && npm run build
             pm2 restart all
-            echo "✅ Deployment successful!"
+            echo "✅ Deployment successful (using pre-built frontend/dist, zero CPU build load)!"
