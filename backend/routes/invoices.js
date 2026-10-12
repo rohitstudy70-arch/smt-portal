@@ -153,6 +153,116 @@ const normalizeInvoiceItems = (items = [], isIntraState = true) => {
   });
 };
 
+const enrichDealerConsolidatedInvoices = async (invoicesList) => {
+  const list = Array.isArray(invoicesList) ? invoicesList : [invoicesList];
+  const imeiSet = new Set();
+
+  list.forEach((inv) => {
+    if (!inv || inv.invoiceType !== 'DealerConsolidated' || !Array.isArray(inv.items)) return;
+    inv.items.forEach((it) => {
+      if (Array.isArray(it.imeis)) {
+        it.imeis.forEach((im) => {
+          const imeiStr = typeof im === 'string' ? im.trim() : String(im?.imei || im?.serialNo || '').trim();
+          if (imeiStr && imeiStr !== 'N/A') imeiSet.add(imeiStr);
+        });
+      }
+    });
+  });
+
+  if (imeiSet.size === 0) return invoicesList;
+
+  const imeiArr = Array.from(imeiSet);
+  const [actDocs, renDocs, devDocs] = await Promise.all([
+    ActivationRequest.find({ imei: { $in: imeiArr } }).sort({ dateTime: -1 }).lean(),
+    RenewalRequest.find({ imei: { $in: imeiArr } }).sort({ createdAt: -1 }).lean(),
+    Device.find({ imei: { $in: imeiArr } }).sort({ createdAt: -1 }).lean(),
+  ]);
+
+  const metaByImei = new Map();
+  const resolveActCat = (rawMode, rawPlan) => {
+    const modeStr = String(rawMode || '').trim();
+    const planStr = String(rawPlan || '').trim();
+    if (/mining/i.test(modeStr) || /mining/i.test(planStr)) return 'Mining';
+    if (/^nic$/i.test(modeStr) || /\bnic\b/i.test(planStr)) return 'NIC';
+    return modeStr || 'NIC';
+  };
+
+  actDocs.forEach((reqItem) => {
+    const imKey = String(reqItem.imei || '').trim();
+    if (!imKey) return;
+    const prev = metaByImei.get(imKey) || {};
+    metaByImei.set(imKey, {
+      vehicleNo: prev.vehicleNo || reqItem.vehicleNo || '',
+      actCategory: prev.actCategory || resolveActCat(reqItem.activationMode, reqItem.plan),
+      date: prev.date || reqItem.installationDate || reqItem.dateTime || null,
+      customerName: prev.customerName || reqItem.customerName || '',
+    });
+  });
+
+  renDocs.forEach((renItem) => {
+    const imKey = String(renItem.imei || '').trim();
+    if (!imKey) return;
+    const prev = metaByImei.get(imKey) || {};
+    metaByImei.set(imKey, {
+      vehicleNo: prev.vehicleNo || renItem.vehicleNumber || '',
+      actCategory: prev.actCategory || resolveActCat(renItem.activationType, renItem.productDescription),
+      date: prev.date || renItem.renewalDate || renItem.createdAt || null,
+      customerName: prev.customerName || renItem.customerName || '',
+    });
+  });
+
+  devDocs.forEach((devItem) => {
+    const imKey = String(devItem.imei || '').trim();
+    if (!imKey) return;
+    const prev = metaByImei.get(imKey) || {};
+    metaByImei.set(imKey, {
+      vehicleNo: prev.vehicleNo || devItem.vehicleNo || '',
+      actCategory: prev.actCategory || resolveActCat(devItem.activationMode, devItem.deviceName),
+      date: prev.date || devItem.activationDate || devItem.createdAt || null,
+      customerName: prev.customerName || devItem.customerName || '',
+    });
+  });
+
+  const enrichSingleInvoice = (invDoc) => {
+    if (!invDoc || invDoc.invoiceType !== 'DealerConsolidated') return invDoc;
+    const inv = typeof invDoc.toObject === 'function' ? invDoc.toObject() : { ...invDoc };
+    if (Array.isArray(inv.items)) {
+      inv.items = inv.items.map((it) => ({
+        ...it,
+        imeis: Array.isArray(it.imeis)
+          ? it.imeis.map((im) => {
+              const isStr = typeof im === 'string';
+              const imeiStr = isStr ? im.trim() : String(im?.imei || im?.serialNo || '').trim();
+              const meta = metaByImei.get(imeiStr) || {};
+              if (isStr) {
+                return {
+                  imei: imeiStr,
+                  vehicleNo: meta.vehicleNo || '',
+                  actCategory: meta.actCategory || 'NIC',
+                  date: meta.date || inv.dateTime || null,
+                  customerName: meta.customerName || '',
+                };
+              }
+              const rawVeh = String(im.vehicleNo || im.vehicleNumber || '').trim();
+              const validVeh = (rawVeh && rawVeh !== 'Manual' && rawVeh !== 'Service/System' && rawVeh !== 'Charge') ? rawVeh : (meta.vehicleNo || '');
+              return {
+                ...im,
+                vehicleNo: validVeh,
+                actCategory: im.actCategory || im.activationMode || meta.actCategory || 'NIC',
+                date: im.date || meta.date || inv.dateTime || null,
+              };
+            })
+          : [],
+      }));
+    }
+    return inv;
+  };
+
+  return Array.isArray(invoicesList)
+    ? invoicesList.map(enrichSingleInvoice)
+    : enrichSingleInvoice(invoicesList);
+};
+
 router.get('/', async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
@@ -183,12 +293,14 @@ router.get('/', async (req, res) => {
     }
 
     const total = await Invoice.countDocuments(query);
-    const requests = await Invoice.find(query)
+    const rawRequests = await Invoice.find(query)
       .populate('userId')
       .populate('dealerId')
       .sort({ dateTime: -1 })
       .skip((page - 1) * limit)
       .limit(limit);
+
+    const requests = await enrichDealerConsolidatedInvoices(rawRequests);
 
     res.json({
       requests,
@@ -319,6 +431,54 @@ router.get('/dealer-billable-items', async (req, res) => {
       ...txDateQuery,
     }).sort({ date: -1 }).lean();
 
+    // Build IMEI -> Activation / Renewal details maps so every device/charge gets Vehicle No and Act. Category (NIC / Mining)
+    const allDeviceImeis = Array.from(new Set([
+      ...devices.map((d) => String(d.imei || d.imeiNumber || '').trim()),
+      ...txTopups.map((t) => String(t.imei || t.referenceNo || '').trim()),
+    ].filter((im) => im && im !== 'N/A')));
+
+    const [extraActReqs, extraRenReqs] = allDeviceImeis.length > 0
+      ? await Promise.all([
+          ActivationRequest.find({ imei: { $in: allDeviceImeis } }).sort({ dateTime: -1 }).lean(),
+          RenewalRequest.find({ imei: { $in: allDeviceImeis } }).sort({ renewalDate: -1 }).lean(),
+        ])
+      : [[], []];
+
+    const actInfoByImei = new Map();
+    [...activationRequests, ...extraActReqs].forEach((ar) => {
+      const im = String(ar.imei || '').trim();
+      if (!im) return;
+      const existing = actInfoByImei.get(im) || {};
+      actInfoByImei.set(im, {
+        vehicleNo: existing.vehicleNo || (ar.vehicleNo ? String(ar.vehicleNo).trim().toUpperCase() : ''),
+        activationMode: existing.activationMode || ar.activationMode || '',
+        customerName: existing.customerName || ar.customerName || '',
+        installationDate: existing.installationDate || ar.installationDate || ar.dateTime || null,
+        plan: existing.plan || ar.plan || '',
+      });
+    });
+
+    const renInfoByImei = new Map();
+    [...renewalRequests, ...extraRenReqs].forEach((rr) => {
+      const im = String(rr.imei || '').trim();
+      if (!im) return;
+      const existing = renInfoByImei.get(im) || {};
+      renInfoByImei.set(im, {
+        vehicleNo: existing.vehicleNo || (rr.vehicleNumber ? String(rr.vehicleNumber).trim().toUpperCase() : ''),
+        activationType: existing.activationType || rr.activationType || '',
+        customerName: existing.customerName || rr.customerName || '',
+        renewalDate: existing.renewalDate || rr.renewalDate || null,
+      });
+    });
+
+    const normalizeActCategory = (rawMode, rawPlan = '') => {
+      const combined = `${rawMode || ''} ${rawPlan || ''}`.toLowerCase();
+      if (combined.includes('mining')) return 'Mining';
+      if (combined.includes('nic')) return 'NIC';
+      const trimmed = String(rawMode || '').trim();
+      return trimmed || 'NIC';
+    };
+
     // Categorization logic
     const twoYearList = [];
     const oneYearList = [];
@@ -337,6 +497,16 @@ router.get('/dealer-billable-items', async (req, res) => {
     devices.forEach((dev) => {
       const imei = String(dev.imei || dev.imeiNumber || '').trim();
       if (!imei) return;
+
+      const actInfo = actInfoByImei.get(imei) || {};
+      const renInfo = renInfoByImei.get(imei) || {};
+      const resolvedVehicleNo = actInfo.vehicleNo || renInfo.vehicleNo || (dev.vehicleNo ? String(dev.vehicleNo).trim().toUpperCase() : '');
+      const resolvedCustomerName = actInfo.customerName || renInfo.customerName || dealer.displayName || '';
+      const resolvedActCategory = normalizeActCategory(
+        actInfo.activationMode || renInfo.activationType || dev.activationMode || dev.activationType,
+        actInfo.plan || dev.validity
+      );
+      const resolvedDate = dev.presentDate || dev.activationDate || actInfo.installationDate || dev.createdAt;
 
       const validityStr = String(dev.validity || '').toLowerCase();
       const statusStr = String(dev.status || '').toLowerCase();
@@ -358,9 +528,13 @@ router.get('/dealer-billable-items', async (req, res) => {
         iccid: dev.iccid || dev.iccidNumber || '',
         deviceName: dev.deviceName || 'VLTD Device',
         validity: dev.validity || '1 Year',
+        customerName: resolvedCustomerName,
+        vehicleNo: resolvedVehicleNo,
+        actCategory: resolvedActCategory,
+        activationMode: resolvedActCategory,
         billAmount: activationAmt,
         amount: activationAmt,
-        date: dev.presentDate || dev.createdAt,
+        date: resolvedDate,
         type: 'Device',
       };
 
@@ -381,9 +555,13 @@ router.get('/dealer-billable-items', async (req, res) => {
               deviceName: dev.deviceName || 'VLTD 2-Year Top-up / Recharge',
               validity: '2 Year Top-up',
               plan: '2-Year Top-up / Recharge Plan',
+              customerName: resolvedCustomerName,
+              vehicleNo: resolvedVehicleNo,
+              actCategory: resolvedActCategory,
+              activationMode: resolvedActCategory,
               billAmount: topUpAmt,
               amount: topUpAmt,
-              date: dev.presentDate || dev.createdAt,
+              date: resolvedDate,
               type: 'DeviceTwoYearTopUp',
             });
             seenTwoYearTopupImeis.add(imei);
@@ -398,9 +576,13 @@ router.get('/dealer-billable-items', async (req, res) => {
               deviceName: dev.deviceName || 'VLTD 1-Year Top-up / Recharge',
               validity: '1 Year Top-up',
               plan: '1-Year Top-up / Recharge Plan',
+              customerName: resolvedCustomerName,
+              vehicleNo: resolvedVehicleNo,
+              actCategory: resolvedActCategory,
+              activationMode: resolvedActCategory,
               billAmount: topUpAmt,
               amount: topUpAmt,
-              date: dev.presentDate || dev.createdAt,
+              date: resolvedDate,
               type: 'DeviceTopUp',
             });
             seenTopupImeis.add(imei);
@@ -419,9 +601,13 @@ router.get('/dealer-billable-items', async (req, res) => {
             deviceName: dev.deviceName || 'CLA / Sy Charges',
             validity: 'Service/System',
             plan: 'CLA/Sy Charges',
+            customerName: resolvedCustomerName,
+            vehicleNo: resolvedVehicleNo,
+            actCategory: resolvedActCategory,
+            activationMode: resolvedActCategory,
             billAmount: claSyAmt,
             amount: claSyAmt,
-            date: dev.presentDate || dev.createdAt,
+            date: resolvedDate,
             type: 'DeviceClaSy',
           });
           seenClaSyImeis.add(imei);
@@ -462,6 +648,12 @@ router.get('/dealer-billable-items', async (req, res) => {
       const isTwoYear = amt >= 1000 || rem.includes('2 year') || rem.includes('2yr') || rem.includes('24 month') || rem.includes('second year');
 
       if (imei && imei !== 'N/A' && amt > 0) {
+        const actInfo = actInfoByImei.get(imei) || {};
+        const renInfo = renInfoByImei.get(imei) || {};
+        const resolvedVehicleNo = actInfo.vehicleNo || renInfo.vehicleNo || '-';
+        const resolvedCustomerName = actInfo.customerName || renInfo.customerName || dealer.displayName || 'Customer';
+        const resolvedActCategory = normalizeActCategory(actInfo.activationMode || renInfo.activationType, actInfo.plan || rem);
+
         if (isTwoYear) {
           if (!seenTwoYearTopupImeis.has(imei)) {
             twoYearTopupList.push({
@@ -471,8 +663,10 @@ router.get('/dealer-billable-items', async (req, res) => {
               serialNo: tx.serialNo || '',
               iccid: tx.iccid || '',
               deviceName: tx.deviceName || '2-Year Top Up / Recharge',
-              customerName: dealer.displayName || 'Customer',
-              vehicleNo: '-',
+              customerName: resolvedCustomerName,
+              vehicleNo: resolvedVehicleNo,
+              actCategory: resolvedActCategory,
+              activationMode: resolvedActCategory,
               plan: '2-Year Top-up / Recharge Plan',
               billAmount: amt,
               amount: amt,
@@ -489,8 +683,10 @@ router.get('/dealer-billable-items', async (req, res) => {
             serialNo: tx.serialNo || '',
             iccid: tx.iccid || '',
             deviceName: tx.deviceName || 'Top Up / Recharge',
-            customerName: dealer.displayName || 'Customer',
-            vehicleNo: '-',
+            customerName: resolvedCustomerName,
+            vehicleNo: resolvedVehicleNo,
+            actCategory: resolvedActCategory,
+            activationMode: resolvedActCategory,
             plan: 'Data / SIM Top-up',
             billAmount: amt,
             amount: amt,
@@ -507,17 +703,21 @@ router.get('/dealer-billable-items', async (req, res) => {
       const imei = String(reqItem.imei || '').trim();
       const planStr = String(reqItem.plan || '').toLowerCase();
       const reqTypeStr = String(reqItem.requestType || '').toLowerCase();
+      const actInfo = actInfoByImei.get(imei) || {};
+      const resolvedActCategory = normalizeActCategory(reqItem.activationMode || actInfo.activationMode, reqItem.plan);
 
       const item = {
         id: reqItem._id,
         requestId: reqItem.requestId,
         imei: imei || 'N/A',
-        customerName: reqItem.customerName || 'Customer',
-        vehicleNo: reqItem.vehicleNo || '',
+        customerName: reqItem.customerName || actInfo.customerName || 'Customer',
+        vehicleNo: reqItem.vehicleNo || actInfo.vehicleNo || '',
+        actCategory: resolvedActCategory,
+        activationMode: resolvedActCategory,
         plan: reqItem.plan || reqItem.requestType || '',
         billAmount: Number(reqItem.amount) || 0,
         amount: Number(reqItem.amount) || 0,
-        date: reqItem.dateTime,
+        date: reqItem.installationDate || reqItem.dateTime,
         type: 'ActivationRequest',
       };
 
@@ -571,12 +771,16 @@ router.get('/dealer-billable-items', async (req, res) => {
     renewalRequests.forEach((renItem) => {
       const imei = String(renItem.imei || '').trim();
       if (!imei || !seenRenewalImeis.has(imei)) {
+        const actInfo = actInfoByImei.get(imei) || {};
+        const resolvedActCategory = normalizeActCategory(renItem.activationType || actInfo.activationMode, renItem.productDescription);
         renewalList.push({
           id: renItem._id,
           requestId: renItem.requestId,
           imei: imei || 'N/A',
-          customerName: renItem.customerName || 'Customer',
-          vehicleNo: renItem.vehicleNumber || '',
+          customerName: renItem.customerName || actInfo.customerName || 'Customer',
+          vehicleNo: renItem.vehicleNumber || actInfo.vehicleNo || '',
+          actCategory: resolvedActCategory,
+          activationMode: resolvedActCategory,
           validity: renItem.validity || '1 Year',
           amount: renItem.billAmount || 0,
           date: renItem.renewalDate || renItem.createdAt,
@@ -758,7 +962,8 @@ router.post('/generate-dealer-bill', async (req, res) => {
       await invoice.populate('dealerId');
     }
 
-    res.status(201).json(invoice);
+    const enrichedInvoice = await enrichDealerConsolidatedInvoices(invoice);
+    res.status(201).json(enrichedInvoice);
   } catch (error) {
     console.error('Generate dealer bill error:', error.message);
     res.status(500).json({ message: 'Server error' });
@@ -780,7 +985,8 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ message: 'Invoice not found' });
     }
 
-    res.json(invoice);
+    const enrichedInvoice = await enrichDealerConsolidatedInvoices(invoice);
+    res.json(enrichedInvoice);
   } catch (error) {
     console.error('Get invoice error:', error.message);
     res.status(500).json({ message: 'Server error' });

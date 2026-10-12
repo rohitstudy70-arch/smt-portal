@@ -25,7 +25,9 @@ import {
   toNumber, 
   roundCurrency, 
   formatCurrency, 
-  numberToWords 
+  numberToWords,
+  formatDotDate,
+  normalizeActCategoryLabel,
 } from '../../utils/dealerBillTemplate';
 import './DealerBillGenerator.css';
 
@@ -134,6 +136,16 @@ const DealerBillGenerator = ({ onBillSaved }) => {
     twoYearTopup: '',
     claSy: '',
     renewal: '',
+  });
+
+  // Manual Act. Category (NIC / Mining) input per category
+  const [manualActCategoryInputs, setManualActCategoryInputs] = useState({
+    twoYear: 'NIC',
+    oneYear: 'NIC',
+    topup: 'NIC',
+    twoYearTopup: 'NIC',
+    claSy: 'NIC',
+    renewal: 'NIC',
   });
 
   // Invoice Meta
@@ -325,23 +337,67 @@ const DealerBillGenerator = ({ onBillSaved }) => {
     });
   };
 
-  // Update Vehicle No inline for any item
-  const handleUpdateItemVehicle = (catKey, itemKey, newVehicleNo) => {
-    setCategoryItems(prev => ({
-      ...prev,
-      [catKey]: (prev[catKey] || []).map((it, idx) => {
-        if (getItemKey(it, idx) === itemKey) {
-          return { ...it, vehicleNo: newVehicleNo ? newVehicleNo.toUpperCase() : '' };
-        }
-        return it;
-      })
-    }));
+  // Helper to find existing metadata for an IMEI across all categories
+  const findExistingImeiMeta = (imeiStr) => {
+    const clean = String(imeiStr || '').trim();
+    if (!clean || clean === 'N/A') return {};
+    for (const k of Object.keys(categoryItems)) {
+      const list = categoryItems[k] || [];
+      const found = list.find(it => String(it.imei || '').trim() === clean);
+      if (found) {
+        const v = String(found.vehicleNo || '').trim();
+        const validV = (v && v !== 'Manual' && v !== 'Service/System' && v !== 'Charge' && v !== '-') ? v : '';
+        return {
+          vehicleNo: validV,
+          actCategory: found.actCategory || found.activationMode || 'NIC',
+          customerName: found.customerName || '',
+          date: found.date || null,
+        };
+      }
+    }
+    return {};
   };
 
-  // Add manual IMEI / Item to a category (with Vehicle No support)
+  // Update Vehicle No inline for any item (and sync across same IMEI in other categories)
+  const handleUpdateItemVehicle = (catKey, itemKey, newVehicleNo, imeiVal = '') => {
+    const upperVeh = newVehicleNo ? newVehicleNo.toUpperCase() : '';
+    const cleanImei = String(imeiVal || '').trim();
+    setCategoryItems(prev => {
+      const updated = { ...prev };
+      Object.keys(updated).forEach(k => {
+        updated[k] = (updated[k] || []).map((it, idx) => {
+          if ((k === catKey && getItemKey(it, idx) === itemKey) || (cleanImei && cleanImei !== 'N/A' && String(it.imei || '').trim() === cleanImei)) {
+            return { ...it, vehicleNo: upperVeh };
+          }
+          return it;
+        });
+      });
+      return updated;
+    });
+  };
+
+  // Update Act. Category (NIC / Mining) inline for any item (and sync across same IMEI in other categories)
+  const handleUpdateItemActCategory = (catKey, itemKey, newActCategory, imeiVal = '') => {
+    const cleanImei = String(imeiVal || '').trim();
+    setCategoryItems(prev => {
+      const updated = { ...prev };
+      Object.keys(updated).forEach(k => {
+        updated[k] = (updated[k] || []).map((it, idx) => {
+          if ((k === catKey && getItemKey(it, idx) === itemKey) || (cleanImei && cleanImei !== 'N/A' && String(it.imei || '').trim() === cleanImei)) {
+            return { ...it, actCategory: newActCategory, activationMode: newActCategory };
+          }
+          return it;
+        });
+      });
+      return updated;
+    });
+  };
+
+  // Add manual IMEI / Item to a category (with Vehicle No & Act. Category support)
   const handleAddManualImei = (catKey) => {
     const rawVal = String(manualInputs[catKey] || '').trim();
     const rawVeh = String(manualVehicleInputs[catKey] || '').trim();
+    const selectedActCat = manualActCategoryInputs[catKey] || 'NIC';
     if (!rawVal && !rawVeh) return;
 
     // Support comma or newline separated entries
@@ -366,14 +422,18 @@ const DealerBillGenerator = ({ onBillSaved }) => {
       // If user typed e.g. "358250331072179, DL01AB1234" in single IMEI input and vehicle input is empty
       if (subEntries.length === 2 && !rawVeh && !/^\d{15}$/.test(subEntries[1])) {
         const imeiPart = subEntries[0];
-        const vehPart = subEntries[1].toUpperCase();
+        const existingMeta = findExistingImeiMeta(imeiPart);
+        const vehPart = subEntries[1].toUpperCase() || existingMeta.vehicleNo || '';
+        const actCatPart = existingMeta.actCategory || selectedActCat;
         newItems.push({
           id: `manual-${Date.now()}-${lineIdx}-${Math.random().toString(36).substr(2, 5)}`,
           imei: imeiPart,
           deviceName: defaultDevName,
-          customerName: selectedDealer?.displayName || 'Dealer Customer',
+          customerName: existingMeta.customerName || selectedDealer?.displayName || 'Dealer Customer',
           vehicleNo: vehPart,
-          date: new Date().toISOString(),
+          actCategory: actCatPart,
+          activationMode: actCatPart,
+          date: existingMeta.date || new Date().toISOString(),
           isManual: true,
         });
       } else {
@@ -390,17 +450,21 @@ const DealerBillGenerator = ({ onBillSaved }) => {
             }
           }
 
+          const existingMeta = findExistingImeiMeta(imeiPart);
           if (!vehPart) {
-            vehPart = catKey === 'claSy' ? 'Service/System' : 'Manual';
+            vehPart = existingMeta.vehicleNo || (catKey === 'claSy' ? 'Service/System' : 'Manual');
           }
+          const actCatPart = existingMeta.actCategory || selectedActCat;
 
           newItems.push({
             id: `manual-${Date.now()}-${lineIdx}-${idx}-${Math.random().toString(36).substr(2, 5)}`,
             imei: imeiPart,
             deviceName: defaultDevName,
-            customerName: selectedDealer?.displayName || 'Dealer Customer',
+            customerName: existingMeta.customerName || selectedDealer?.displayName || 'Dealer Customer',
             vehicleNo: vehPart,
-            date: new Date().toISOString(),
+            actCategory: actCatPart,
+            activationMode: actCatPart,
+            date: existingMeta.date || new Date().toISOString(),
             isManual: true,
           });
         });
@@ -448,6 +512,8 @@ const DealerBillGenerator = ({ onBillSaved }) => {
       deviceName: catKey === 'claSy' ? 'CLA / Sy Charges' : (catState[catKey]?.description || 'Service Charge'),
       customerName: selectedDealer?.displayName || 'Dealer Customer',
       vehicleNo: 'Charge',
+      actCategory: manualActCategoryInputs[catKey] || 'NIC',
+      activationMode: manualActCategoryInputs[catKey] || 'NIC',
       date: new Date().toISOString(),
       isManual: true,
     }));
@@ -467,6 +533,21 @@ const DealerBillGenerator = ({ onBillSaved }) => {
     });
   };
 
+  const parseImportedDate = (rawDate) => {
+    if (!rawDate) return null;
+    const str = String(rawDate).trim();
+    const dmy = str.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+    if (dmy) {
+      const dd = dmy[1].padStart(2, '0');
+      const mm = dmy[2].padStart(2, '0');
+      const yyyy = dmy[3];
+      return `${yyyy}-${mm}-${dd}T00:00:00.000Z`;
+    }
+    const parsed = new Date(str);
+    if (!Number.isNaN(parsed.getTime())) return parsed.toISOString();
+    return str;
+  };
+
   // Bulk Excel Import handler for any category
   const handleExcelImport = (e, catKey) => {
     const file = e.target.files?.[0];
@@ -481,7 +562,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
         const worksheet = workbook.Sheets[sheetName];
 
         // Parse sheet to array of rows
-        const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+        const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '', raw: false });
         if (!rawRows || rawRows.length === 0) {
           alert('Excel sheet is empty or contains no readable data.');
           return;
@@ -489,13 +570,15 @@ const DealerBillGenerator = ({ onBillSaved }) => {
 
         let startIndex = 0;
         let colIndexImei = 0;
+        let colIndexDate = -1;
         let colIndexVeh = -1;
+        let colIndexActCat = -1;
         let colIndexCust = -1;
 
         // Check if row 0 contains header names
         const firstRow = rawRows[0].map(c => String(c).trim().toLowerCase());
         const hasHeader = firstRow.some(cell => 
-          cell.includes('imei') || cell.includes('serial') || cell.includes('veh') || cell.includes('device') || cell.includes('cust')
+          cell.includes('imei') || cell.includes('serial') || cell.includes('veh') || cell.includes('device') || cell.includes('date') || cell.includes('act')
         );
 
         if (hasHeader) {
@@ -503,17 +586,21 @@ const DealerBillGenerator = ({ onBillSaved }) => {
           firstRow.forEach((header, idx) => {
             if (header.includes('imei') || header.includes('serial') || header.includes('device')) {
               colIndexImei = idx;
+            } else if (header.includes('date')) {
+              colIndexDate = idx;
             } else if (header.includes('veh') || header.includes('reg') || header.includes('plate') || header.includes('truck') || header.includes('car')) {
               colIndexVeh = idx;
+            } else if (header.includes('act.') || header.includes('catigary') || header.includes('act ') || header.includes('mode') || header.includes('type') || (header.includes('category') && !header.includes('plan'))) {
+              colIndexActCat = idx;
             } else if (header.includes('cust') || header.includes('client') || header.includes('party') || header.includes('name')) {
               colIndexCust = idx;
             }
           });
         } else {
-          // If no header, assume Col 0 = IMEI, Col 1 = Vehicle No (if available), Col 2 = Customer
+          // If no header, assume Col 0 = IMEI, Col 1 = Vehicle No (if available), Col 2 = Act. Category
           colIndexImei = 0;
           if (rawRows[0].length >= 2) colIndexVeh = 1;
-          if (rawRows[0].length >= 3) colIndexCust = 2;
+          if (rawRows[0].length >= 3) colIndexActCat = 2;
         }
 
         const newItems = [];
@@ -528,14 +615,18 @@ const DealerBillGenerator = ({ onBillSaved }) => {
           let rawImei = String(row[colIndexImei] ?? '').trim();
           if (!rawImei) continue;
 
+          const existingMeta = findExistingImeiMeta(rawImei);
+          let rawDateVal = colIndexDate !== -1 ? parseImportedDate(row[colIndexDate]) : null;
           let rawVeh = colIndexVeh !== -1 ? String(row[colIndexVeh] ?? '').trim().toUpperCase() : '';
+          let rawActCat = colIndexActCat !== -1 ? String(row[colIndexActCat] ?? '').trim() : '';
           let rawCust = colIndexCust !== -1 ? String(row[colIndexCust] ?? '').trim() : '';
 
           if (!rawVeh) {
-            rawVeh = catKey === 'claSy' ? 'Service/System' : 'Manual';
+            rawVeh = existingMeta.vehicleNo || (catKey === 'claSy' ? 'Service/System' : 'Manual');
           }
+          const finalActCat = normalizeActCategoryLabel(rawActCat || existingMeta.actCategory || manualActCategoryInputs[catKey] || 'NIC');
           if (!rawCust) {
-            rawCust = selectedDealer?.displayName || 'Dealer Customer';
+            rawCust = existingMeta.customerName || selectedDealer?.displayName || 'Dealer Customer';
           }
 
           newItems.push({
@@ -544,7 +635,9 @@ const DealerBillGenerator = ({ onBillSaved }) => {
             deviceName: defaultDevName,
             customerName: rawCust,
             vehicleNo: rawVeh,
-            date: new Date().toISOString(),
+            actCategory: finalActCat,
+            activationMode: finalActCat,
+            date: rawDateVal || existingMeta.date || new Date().toISOString(),
             isManual: true,
           });
         }
@@ -581,24 +674,45 @@ const DealerBillGenerator = ({ onBillSaved }) => {
     reader.readAsBinaryString(file);
   };
 
-  // Helper to download sample Excel template
+  // Helper to download sample Excel template matching the exact Dealer Consolidated Bill format
   const handleDownloadSampleExcel = (catKey) => {
+    const planLabel = catKey === 'twoYear'
+      ? '2-Year Activation'
+      : catKey === 'oneYear'
+      ? '1-Year Activation'
+      : catKey === 'topup'
+      ? 'One Year Top-up Plan'
+      : catKey === 'twoYearTopup'
+      ? 'Second Year Top-up Plan'
+      : catKey === 'claSy'
+      ? 'CLA/Sy Charges'
+      : 'Renewal';
+
     const sampleData = [
       {
-        'IMEI Number': '868204051234561',
-        'Vehicle Number': 'BR01AB1234',
-        'Customer Name': selectedDealer?.displayName || 'Arshi Logistics'
+        '#': 1,
+        'Activation Date': '02.10.2026',
+        'imei NO': '358250331516664',
+        'Category / Plan': planLabel,
+        'Vehicle No': 'UP15AC2536',
+        'Act. Category': 'NIC',
       },
       {
-        'IMEI Number': '868204051234562',
-        'Vehicle Number': 'BR01CD5678',
-        'Customer Name': selectedDealer?.displayName || 'Patna Cargo'
+        '#': 2,
+        'Activation Date': '03.10.2026',
+        'imei NO': '358250331552632',
+        'Category / Plan': planLabel,
+        'Vehicle No': 'UP78CJ2631',
+        'Act. Category': 'NIC',
       },
       {
-        'IMEI Number': '868204051234563',
-        'Vehicle Number': 'JH05EF9012',
-        'Customer Name': selectedDealer?.displayName || 'Shree Goods'
-      }
+        '#': 3,
+        'Activation Date': '05.10.2026',
+        'imei NO': '358250331002255',
+        'Category / Plan': planLabel,
+        'Vehicle No': 'UP63AA3321',
+        'Act. Category': 'Mining',
+      },
     ];
 
     const worksheet = XLSX.utils.json_to_sheet(sampleData);
@@ -842,11 +956,68 @@ const DealerBillGenerator = ({ onBillSaved }) => {
     }
   };
 
+  // Export Consolidated Bill Annexure to Excel (.xlsx) in exact format
+  const handleExportConsolidatedExcel = () => {
+    if (!compiledBill || compiledBill.items.length === 0) {
+      alert('Please select at least one item to export.');
+      return;
+    }
+
+    const rows = [];
+    let rowIndex = 1;
+    compiledBill.items.forEach((catItem) => {
+      const catLabel = catItem.category || catItem.description || '';
+      if (Array.isArray(catItem.imeis)) {
+        catItem.imeis.forEach((im) => {
+          const imeiStr = typeof im === 'string' ? im : (im.imei || im.serialNo || 'N/A');
+          const shared = findExistingImeiMeta(imeiStr) || {};
+          const rawVeh = typeof im === 'object' ? (im.vehicleNo || im.vehicleNumber || shared.vehicleNo || '') : (shared.vehicleNo || '');
+          const cleanVeh = (!rawVeh || rawVeh === 'Manual' || rawVeh === 'Service/System' || rawVeh === 'Charge') ? '-' : rawVeh;
+          const rawAct = typeof im === 'object' ? (im.actCategory || im.activationMode || shared.actCategory || 'NIC') : (shared.actCategory || 'NIC');
+          const rawDate = typeof im === 'object' ? (im.date || shared.date || new Date()) : (shared.date || new Date());
+
+          rows.push({
+            '#': rowIndex++,
+            'Activation Date': formatDotDate(rawDate),
+            'imei NO': imeiStr,
+            'Category / Plan': catLabel,
+            'Vehicle No': cleanVeh,
+            'Act. Category': normalizeActCategoryLabel(rawAct),
+          });
+        });
+      }
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [
+      { wch: 6 },
+      { wch: 16 },
+      { wch: 22 },
+      { wch: 24 },
+      { wch: 18 },
+      { wch: 15 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Consolidated Bill');
+    const dealerLabel = (selectedDealer?.displayName || selectedDealer?.companyName || 'Dealer').replace(/[^a-zA-Z0-9_-]/g, '_');
+    XLSX.writeFile(wb, `Consolidated_Bill_${dealerLabel}_${invoiceNo || piNo || 'Draft'}.xlsx`);
+  };
+
   // Render individual category block with search, selection, and manual adder
   const renderCategoryBlock = (catKey, catTitle, badgeClass) => {
     const allItems = categoryItems[catKey] || [];
     const selectedSet = selectedItemsByCat[catKey] || new Set();
     const searchTerm = (searchTermByCat[catKey] || '').toLowerCase().trim();
+
+    const categoryLabelByKey = {
+      twoYear: '2-Year Activation',
+      oneYear: '1-Year Activation',
+      topup: 'One Year Top-up Plan',
+      twoYearTopup: 'Second Year Top-up Plan',
+      claSy: 'CLA/Sy Charges',
+      renewal: 'Renewal',
+    };
+    const rowCatLabel = categoryLabelByKey[catKey] || catTitle;
 
     // Filter items according to search input
     const filteredItems = allItems.filter(it => {
@@ -855,8 +1026,9 @@ const DealerBillGenerator = ({ onBillSaved }) => {
       const dev = String(it.deviceName || '').toLowerCase();
       const cust = String(it.customerName || '').toLowerCase();
       const veh = String(it.vehicleNo || '').toLowerCase();
+      const actCat = String(it.actCategory || it.activationMode || '').toLowerCase();
       const iccid = String(it.iccid || '').toLowerCase();
-      return imei.includes(searchTerm) || dev.includes(searchTerm) || cust.includes(searchTerm) || veh.includes(searchTerm) || iccid.includes(searchTerm);
+      return imei.includes(searchTerm) || dev.includes(searchTerm) || cust.includes(searchTerm) || veh.includes(searchTerm) || actCat.includes(searchTerm) || iccid.includes(searchTerm);
     });
 
     const selectedCount = selectedSet.size;
@@ -916,26 +1088,27 @@ const DealerBillGenerator = ({ onBillSaved }) => {
                 <input 
                   type="text" 
                   className="cat-search-input"
-                  placeholder={`Search ${catTitle} by IMEI, Vehicle No, Customer...`}
+                  placeholder={`Search ${catTitle} by IMEI, Vehicle No, NIC/Mining...`}
                   value={searchTermByCat[catKey] || ''}
                   onChange={(e) => setSearchTermByCat(prev => ({ ...prev, [catKey]: e.target.value }))}
                 />
               </div>
             </div>
 
-            {/* Table of IMEIs */}
+            {/* Table of IMEIs matching Consolidated Bill Format */}
             {filteredItems.length > 0 ? (
               <div className="imei-table-wrapper">
-                <table className="imei-table">
+                <table className="imei-table annexure-style-table">
                   <thead>
                     <tr>
-                      <th style={{ width: '50px', textAlign: 'center' }}>Tick</th>
-                      <th style={{ width: '50px' }}>#</th>
-                      <th>IMEI Number</th>
-                      <th>Device / Details</th>
-                      <th style={{ minWidth: '120px' }}>Device Amount</th>
-                      <th>Customer / Vehicle</th>
-                      <th>Date</th>
+                      <th style={{ width: '46px', textAlign: 'center' }}>Tick</th>
+                      <th style={{ width: '46px', textAlign: 'center' }}>#</th>
+                      <th style={{ minWidth: '115px' }}>Activation Date</th>
+                      <th style={{ minWidth: '150px' }}>imei NO</th>
+                      <th style={{ minWidth: '155px' }}>Category / Plan</th>
+                      <th style={{ minWidth: '110px' }}>Device Amount</th>
+                      <th style={{ minWidth: '140px' }}>Vehicle No</th>
+                      <th style={{ minWidth: '110px' }}>Act. Category</th>
                       <th style={{ width: '40px' }}></th>
                     </tr>
                   </thead>
@@ -943,6 +1116,10 @@ const DealerBillGenerator = ({ onBillSaved }) => {
                     {filteredItems.map((it, idx) => {
                       const itemKey = getItemKey(it, idx);
                       const isSelected = selectedSet.has(itemKey);
+                      const cleanVehValue = (it.vehicleNo === 'Manual' || it.vehicleNo === 'Service/System' || it.vehicleNo === 'Charge')
+                        ? ''
+                        : (it.vehicleNo || '');
+                      const actCatValue = normalizeActCategoryLabel(it.actCategory || it.activationMode || 'NIC');
 
                       return (
                         <tr 
@@ -959,51 +1136,67 @@ const DealerBillGenerator = ({ onBillSaved }) => {
                               onChange={() => toggleItemSelection(catKey, itemKey)}
                             />
                           </td>
-                          <td>{idx + 1}</td>
-                          <td style={{ fontFamily: 'monospace', fontWeight: 'bold', color: '#0f172a' }}>
+                          <td style={{ textAlign: 'center', fontWeight: '600' }}>{idx + 1}</td>
+                          <td style={{ fontWeight: '500', color: '#0f172a' }}>
+                            {it.date ? formatDotDate(it.date) : '-'}
+                          </td>
+                          <td style={{ fontFamily: 'monospace', fontWeight: 'bold', color: '#0f172a', fontSize: '12.5px' }}>
                             {it.imei || 'N/A'}
                           </td>
-                          <td>{it.deviceName || it.plan || it.validity || 'VLTD Device'}</td>
+                          <td>
+                            <span className="table-cat-pill">{rowCatLabel}</span>
+                          </td>
                           <td>
                             {Number(it.billAmount || it.amount) > 0 ? (
                               <strong style={{ color: '#0f766e', fontSize: '13px' }}>
                                 ₹{formatCurrency(it.billAmount || it.amount)}
                               </strong>
                             ) : (
-                              <span style={{ color: '#94a3b8' }}>-</span>
+                              <span style={{ color: '#64748b' }}>₹{formatCurrency(catState[catKey].priceWithGst)}</span>
                             )}
                           </td>
-                          <td>
-                            {it.customerName ? <strong>{it.customerName}</strong> : ''}
-                            {it.isManual ? (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '6px' }}>
-                                <input
-                                  type="text"
-                                  value={it.vehicleNo === 'Manual' || it.vehicleNo === 'Service/System' ? '' : (it.vehicleNo || '')}
-                                  onChange={(e) => handleUpdateItemVehicle(catKey, itemKey, e.target.value)}
-                                  placeholder={it.vehicleNo === 'Manual' || it.vehicleNo === 'Service/System' ? `(${it.vehicleNo})` : 'Vehicle No'}
-                                  style={{
-                                    padding: '2px 6px',
-                                    fontSize: '11px',
-                                    fontWeight: '600',
-                                    color: '#0f766e',
-                                    background: '#f8fafc',
-                                    border: '1.5px solid #cbd5e1',
-                                    borderRadius: '4px',
-                                    width: '120px',
-                                    textTransform: 'uppercase',
-                                    outline: 'none',
-                                  }}
-                                  onClick={(e) => e.stopPropagation()}
-                                  title="Edit Vehicle Number"
-                                />
-                              </span>
-                            ) : (
-                              it.vehicleNo ? ` (${it.vehicleNo})` : ''
-                            )}
-                            {!it.customerName && !it.vehicleNo ? '-' : ''}
+                          <td onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="text"
+                              value={cleanVehValue}
+                              onChange={(e) => handleUpdateItemVehicle(catKey, itemKey, e.target.value)}
+                              placeholder="-"
+                              style={{
+                                padding: '3px 7px',
+                                fontSize: '12px',
+                                fontWeight: '600',
+                                color: '#0f172a',
+                                background: cleanVehValue ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.45)',
+                                border: '1px solid #93c47d',
+                                borderRadius: '4px',
+                                width: '125px',
+                                textTransform: 'uppercase',
+                                outline: 'none',
+                              }}
+                              title="Vehicle Number (Editable)"
+                            />
                           </td>
-                          <td>{it.date ? new Date(it.date).toLocaleDateString('en-GB') : '-'}</td>
+                          <td onClick={(e) => e.stopPropagation()}>
+                            <select
+                              value={actCatValue}
+                              onChange={(e) => handleUpdateItemActCategory(catKey, itemKey, e.target.value)}
+                              style={{
+                                padding: '3px 6px',
+                                fontSize: '12px',
+                                fontWeight: '600',
+                                color: '#0f172a',
+                                background: 'rgba(255,255,255,0.75)',
+                                border: '1px solid #93c47d',
+                                borderRadius: '4px',
+                                outline: 'none',
+                                cursor: 'pointer',
+                              }}
+                              title="Activation Category (NIC / Mining)"
+                            >
+                              <option value="NIC">NIC</option>
+                              <option value="Mining">Mining</option>
+                            </select>
+                          </td>
                           <td onClick={(e) => e.stopPropagation()}>
                             {it.isManual && (
                               <button 
@@ -1028,7 +1221,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
               </div>
             )}
 
-            {/* Manual IMEI / Item Adder with Vehicle No */}
+            {/* Manual IMEI / Item Adder with Vehicle No & Act. Category */}
             <div className="cat-manual-add-row">
               <input 
                 type="text" 
@@ -1048,7 +1241,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
               <input 
                 type="text" 
                 className="cat-manual-input-veh"
-                placeholder="Vehicle No (Optional)"
+                placeholder="Vehicle No (e.g. UP15AC2536)"
                 value={manualVehicleInputs[catKey] || ''}
                 onChange={(e) => setManualVehicleInputs(prev => ({ ...prev, [catKey]: e.target.value.toUpperCase() }))}
                 onKeyDown={(e) => {
@@ -1058,6 +1251,23 @@ const DealerBillGenerator = ({ onBillSaved }) => {
                   }
                 }}
               />
+              <select
+                value={manualActCategoryInputs[catKey] || 'NIC'}
+                onChange={(e) => setManualActCategoryInputs(prev => ({ ...prev, [catKey]: e.target.value }))}
+                style={{
+                  padding: '6px 10px',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  color: '#0f172a',
+                  background: '#ffffff',
+                }}
+                title="Activation Category (NIC / Mining)"
+              >
+                <option value="NIC">NIC</option>
+                <option value="Mining">Mining</option>
+              </select>
               <button 
                 type="button" 
                 className="btn-add-manual-imei"
@@ -1315,6 +1525,16 @@ const DealerBillGenerator = ({ onBillSaved }) => {
       {/* Action Bar */}
       {selectedDealer && (
         <div className="bill-action-bar">
+          <button 
+            type="button" 
+            className="btn-bill-preview"
+            onClick={handleExportConsolidatedExcel}
+            disabled={compiledBill.items.length === 0}
+            style={{ borderColor: '#16a34a', color: '#15803d' }}
+          >
+            <FaFileExcel /> Export Consolidated Excel ({compiledBill.totalUnits} Units)
+          </button>
+
           <button 
             type="button" 
             className="btn-bill-preview"

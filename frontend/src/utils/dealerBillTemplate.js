@@ -60,6 +60,32 @@ const formatDate = (dateValue) => {
   return d.toLocaleDateString('en-GB');
 };
 
+export const formatDotDate = (dateValue) => {
+  if (!dateValue) return '-';
+  const str = String(dateValue).trim();
+  const dmyMatch = str.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+  if (dmyMatch) {
+    const dd = dmyMatch[1].padStart(2, '0');
+    const mm = dmyMatch[2].padStart(2, '0');
+    const yyyy = dmyMatch[3];
+    return `${dd}.${mm}.${yyyy}`;
+  }
+  const d = new Date(dateValue);
+  if (Number.isNaN(d.getTime())) return str || '-';
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}.${mm}.${yyyy}`;
+};
+
+export const normalizeActCategoryLabel = (raw) => {
+  const val = String(raw || '').trim();
+  if (!val) return 'NIC';
+  if (/mining/i.test(val)) return 'Mining';
+  if (/^nic$/i.test(val)) return 'NIC';
+  return val;
+};
+
 export const renderDealerBillHtml = ({
   invoice = {},
   dealer = {},
@@ -136,6 +162,28 @@ export const renderDealerBillHtml = ({
     `;
   }).join('');
 
+  // Build shared metadata map by IMEI so charges (e.g. CLA/Sy, Top-up) inherit Vehicle No, Date, and Act. Category from activation rows
+  const imeiMetaMap = new Map();
+  items.forEach(item => {
+    if (Array.isArray(item.imeis)) {
+      item.imeis.forEach(im => {
+        if (typeof im === 'object' && im !== null) {
+          const imKey = String(im.imei || im.serialNo || '').trim();
+          if (!imKey) return;
+          const prev = imeiMetaMap.get(imKey) || {};
+          const rawV = String(im.vehicleNo || im.vehicleNumber || '').trim();
+          const validVeh = (rawV && rawV !== 'Manual' && rawV !== 'Service/System' && rawV !== 'Charge' && rawV !== '-') ? rawV : '';
+          const rawAc = String(im.actCategory || im.activationMode || im.activationType || '').trim();
+          imeiMetaMap.set(imKey, {
+            vehicleNo: prev.vehicleNo || validVeh,
+            actCategory: prev.actCategory || rawAc,
+            date: prev.date || im.date || null,
+          });
+        }
+      });
+    }
+  });
+
   // Annexure rows of IMEIs
   let allImeisList = [];
   items.forEach(item => {
@@ -149,30 +197,41 @@ export const renderDealerBillHtml = ({
         allImeisList.push({
           category: catTitle,
           imei: typeof im === 'string' ? im : (im.imei || im.serialNo || 'N/A'),
-          details: typeof im === 'object' ? im : {},
+          details: typeof im === 'object' && im !== null ? im : {},
         });
       });
     }
   });
 
   const annexureRows = allImeisList.map((entry, idx) => {
-    const imei = escapeHtml(entry.imei);
+    const rawImei = String(entry.imei || '').trim();
+    const imei = escapeHtml(rawImei || 'N/A');
+    const sharedMeta = imeiMetaMap.get(rawImei) || {};
+
     let cat = escapeHtml(entry.category);
     if (/monthly.*top-?up/i.test(cat) || /monthly.*recharge/i.test(cat)) {
       cat = 'One Year Top-up Plan';
     }
-    const veh = escapeHtml(entry.details.vehicleNo || '-');
-    const cust = escapeHtml(entry.details.customerName || '-');
-    const date = entry.details.date ? formatDate(entry.details.date) : '-';
+
+    const rawVeh = String(entry.details.vehicleNo || entry.details.vehicleNumber || sharedMeta.vehicleNo || '').trim();
+    const cleanVeh = (!rawVeh || rawVeh === 'Manual' || rawVeh === 'Service/System' || rawVeh === 'Charge')
+      ? '-'
+      : escapeHtml(rawVeh);
+
+    const rawActCat = entry.details.actCategory || entry.details.activationMode || entry.details.activationType || sharedMeta.actCategory || 'NIC';
+    const actCat = escapeHtml(normalizeActCategoryLabel(rawActCat));
+
+    const rawDate = entry.details.date || sharedMeta.date || invoice.dateTime;
+    const date = rawDate ? formatDotDate(rawDate) : '-';
 
     return `
       <tr>
         <td style="text-align: center;">${idx + 1}</td>
-        <td style="font-family: monospace; font-weight: 600; color: #1e293b;">${imei}</td>
+        <td>${date}</td>
+        <td style="font-family: monospace; font-weight: 600; color: #0f172a;">${imei}</td>
         <td><span class="badge-cat">${cat}</span></td>
-        <td>${veh}</td>
-        <td>${cust}</td>
-        <td style="text-align: center;">${date}</td>
+        <td>${cleanVeh}</td>
+        <td>${actCat}</td>
       </tr>
     `;
   }).join('');
@@ -334,12 +393,37 @@ export const renderDealerBillHtml = ({
       margin-bottom: 10px;
       text-transform: uppercase;
     }
+    .annexure-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 16px;
+      font-size: 12px;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .annexure-table th {
+      background: #0f766e;
+      color: #ffffff;
+      padding: 8px 10px;
+      font-weight: 700;
+      text-align: left;
+      font-size: 12px;
+      border: 1px solid #0d9488;
+      letter-spacing: 0.2px;
+    }
+    .annexure-table td {
+      background-color: #d9ead3;
+      padding: 7px 10px;
+      border: 1px solid #b6d7a8;
+      color: #0f172a;
+      font-size: 12px;
+    }
     .badge-cat {
       background: #e0f2fe;
       color: #0369a1;
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 700;
-      padding: 2px 6px;
+      padding: 2px 7px;
       border-radius: 4px;
       display: inline-block;
     }
@@ -356,6 +440,8 @@ export const renderDealerBillHtml = ({
     @media print {
       body {
         padding: 0;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
       }
       .invoice-container {
         border: none;
@@ -535,21 +621,23 @@ export const renderDealerBillHtml = ({
           <div style="font-size: 11px; border-top: 1px solid #cbd5e1; display: inline-block; padding-top: 4px; min-width: 140px; text-align: center;">
             Authorized Signatory
           </div>
-        </td>      
+        </td>
+      </tr>
+    </table>
 
     ${allImeisList.length > 0 ? `
       <!-- Detailed IMEI Annexure -->
       <div class="annexure-section">
         <div class="annexure-title">Annexure - A: Detailed IMEI Breakdown (${allImeisList.length} Units)</div>
-        <table class="items-table" style="font-size: 11px;">
+        <table class="annexure-table">
           <thead>
             <tr>
-              <th style="width: 5%; text-align: center;">#</th>
-              <th style="width: 25%;">IMEI Number</th>
-              <th style="width: 25%;">Category / Plan</th>
+              <th style="width: 6%; text-align: center;">#</th>
+              <th style="width: 16%;">Activation Date</th>
+              <th style="width: 24%;">imei NO</th>
+              <th style="width: 22%;">Category / Plan</th>
               <th style="width: 18%;">Vehicle No</th>
-              <th style="width: 17%;">Customer Name</th>
-              <th style="width: 10%; text-align: center;">Date</th>
+              <th style="width: 14%;">Act. Category</th>
             </tr>
           </thead>
           <tbody>
