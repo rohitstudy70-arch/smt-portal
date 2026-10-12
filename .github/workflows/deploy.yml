@@ -18,7 +18,8 @@ jobs:
           password: ${{ secrets.VPS_PASSWORD }}
           script: |
             cd /var/www/smt-portal
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
             cd backend && npm install --production
             cd ../frontend && npm install && npm run build
             pm2 restart all
