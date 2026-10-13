@@ -464,7 +464,7 @@
 .imei-table-wrapper {
   max-height: 280px;
   overflow-y: auto;
-  border: 1px solid #b6d7a8;
+  border: 1px solid #e2e8f0;
   border-radius: 6px;
 }
 
@@ -475,30 +475,30 @@
 }
 
 .imei-table th {
-  background: #0f766e;
+  background: #f8fafc;
   padding: 8px 10px;
   text-align: left;
   font-weight: 700;
-  color: #ffffff;
+  color: #334155;
   position: sticky;
   top: 0;
-  border: 1px solid #0d9488;
+  border-bottom: 2px solid #cbd5e1;
   z-index: 2;
 }
 
 .imei-table td {
   padding: 7px 10px;
-  border: 1px solid #b6d7a8;
-  background-color: #edf7e8;
+  border-bottom: 1px solid #e2e8f0;
+  background-color: #ffffff;
   color: #0f172a;
 }
 
 .imei-table tr.selected-row td {
-  background-color: #d9ead3 !important;
+  background-color: #f0fdf4 !important;
 }
 
 .imei-table tr:hover td {
-  background-color: #cfe6c8 !important;
+  background-color: #f8fafc !important;
 }
 
 .table-cat-pill {

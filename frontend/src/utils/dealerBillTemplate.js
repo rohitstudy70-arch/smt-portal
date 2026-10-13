@@ -407,16 +407,20 @@ export const renderDealerBillHtml = ({
       padding: 8px 10px;
       font-weight: 700;
       text-align: left;
-      font-size: 12px;
+      font-size: 11px;
       border: 1px solid #0d9488;
-      letter-spacing: 0.2px;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
     }
     .annexure-table td {
-      background-color: #d9ead3;
+      background-color: #ffffff;
       padding: 7px 10px;
-      border: 1px solid #b6d7a8;
-      color: #0f172a;
-      font-size: 12px;
+      border: 1px solid #e2e8f0;
+      color: #1e293b;
+      font-size: 11.5px;
+    }
+    .annexure-table tr:nth-child(even) td {
+      background-color: #f8fafc;
     }
     .badge-cat {
       background: #e0f2fe;
