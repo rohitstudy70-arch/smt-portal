@@ -925,10 +925,23 @@ router.post('/generate-dealer-bill', async (req, res) => {
     const targetState = dealerState || customerState || 'Bihar';
     const isIntraState = targetState && targetState.toLowerCase() === 'bihar';
 
+    const discount = roundCurrency(Math.max(0, toNumber(req.body.discount) || 0));
     const normalizedItems = normalizeInvoiceItems(items, isIntraState);
-    const calculatedPiValue = roundCurrency(
+    const grossTotal = roundCurrency(
       normalizedItems.reduce((sum, item) => sum + item.grossAmt, 0),
     );
+    const calculatedPiValue = Math.max(0, roundCurrency(grossTotal - discount));
+
+    const reqPaymentStatus = req.body.paymentStatus || 'Unpaid';
+    let paidAmt = 0;
+    let dueAmt = calculatedPiValue;
+    if (reqPaymentStatus === 'Paid') {
+      paidAmt = calculatedPiValue;
+      dueAmt = 0;
+    } else if (reqPaymentStatus === 'Partially Paid') {
+      paidAmt = Math.min(calculatedPiValue, roundCurrency(Math.max(0, toNumber(req.body.paidAmount) || 0)));
+      dueAmt = Math.max(0, roundCurrency(calculatedPiValue - paidAmt));
+    }
 
     const cleanAllImeis = Array.isArray(allImeis)
       ? allImeis.map((im) => {
@@ -947,6 +960,11 @@ router.post('/generate-dealer-bill', async (req, res) => {
       dealerState: dealerState || 'Bihar',
       piNo: finalPiNo,
       piValue: calculatedPiValue,
+      discount,
+      paymentStatus: reqPaymentStatus,
+      paidAmount: paidAmt,
+      dueAmount: dueAmt,
+      paymentRemarks: req.body.paymentRemarks || '',
       invoiceNo: finalInvoiceNo,
       status: 'Pending',
       endCustomerName: dealerName || 'Dealer',
@@ -1070,16 +1088,58 @@ router.put('/:id', requireRoles(...operationsRoles), async (req, res) => {
     if (notes !== undefined) invoice.notes = notes;
     if (imeiList !== undefined) invoice.imeiList = imeiList;
 
+    if (req.body.discount !== undefined) {
+      invoice.discount = roundCurrency(Math.max(0, toNumber(req.body.discount) || 0));
+    }
+
     if (items !== undefined && Array.isArray(items)) {
       const targetState = invoice.isSubDealer ? (invoice.dealerState || 'Bihar') : (invoice.customerState || 'Bihar');
       const isIntraState = targetState && targetState.toLowerCase() === 'bihar';
       const normalizedItems = normalizeInvoiceItems(items, isIntraState);
       invoice.items = normalizedItems;
-      invoice.piValue = roundCurrency(
+      const gross = roundCurrency(
         normalizedItems.reduce((sum, item) => sum + (toNumber(item.grossAmt) || 0), 0)
       );
+      invoice.piValue = Math.max(0, roundCurrency(gross - (invoice.discount || 0)));
     } else if (req.body.piValue !== undefined) {
       invoice.piValue = toNumber(req.body.piValue);
+    }
+
+    if (req.body.paymentStatus !== undefined || req.body.paidAmount !== undefined) {
+      const newStatus = req.body.paymentStatus || invoice.paymentStatus || 'Unpaid';
+      const totalVal = roundCurrency(toNumber(invoice.piValue) || 0);
+
+      if (newStatus === 'Paid') {
+        invoice.paymentStatus = 'Paid';
+        invoice.paidAmount = totalVal;
+        invoice.dueAmount = 0;
+      } else if (newStatus === 'Unpaid') {
+        invoice.paymentStatus = 'Unpaid';
+        invoice.paidAmount = 0;
+        invoice.dueAmount = totalVal;
+      } else if (newStatus === 'Partially Paid') {
+        const rawPaid = req.body.paidAmount !== undefined ? req.body.paidAmount : invoice.paidAmount;
+        const parsedPaid = roundCurrency(Math.max(0, toNumber(rawPaid) || 0));
+        if (parsedPaid >= totalVal && totalVal > 0) {
+          invoice.paymentStatus = 'Paid';
+          invoice.paidAmount = totalVal;
+          invoice.dueAmount = 0;
+        } else if (parsedPaid <= 0) {
+          invoice.paymentStatus = 'Unpaid';
+          invoice.paidAmount = 0;
+          invoice.dueAmount = totalVal;
+        } else {
+          invoice.paymentStatus = 'Partially Paid';
+          invoice.paidAmount = parsedPaid;
+          invoice.dueAmount = roundCurrency(Math.max(0, totalVal - parsedPaid));
+        }
+      } else {
+        invoice.paymentStatus = newStatus;
+      }
+    }
+
+    if (req.body.paymentRemarks !== undefined) {
+      invoice.paymentRemarks = String(req.body.paymentRemarks).trim();
     }
 
     await invoice.save();
@@ -1088,9 +1148,79 @@ router.put('/:id', requireRoles(...operationsRoles), async (req, res) => {
       await invoice.populate('dealerId');
     }
 
-    res.json(invoice);
+    const enrichedInvoice = await enrichDealerConsolidatedInvoices(invoice);
+    res.json(enrichedInvoice);
   } catch (error) {
     console.error('Update invoice error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   PATCH /api/invoices/:id/payment-status
+// @desc    Quick update payment status (Paid, Unpaid, Partially Paid) & paid amount
+// @access  Protected (Operations)
+router.patch('/:id/payment-status', requireRoles(...operationsRoles), async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid invoice ID' });
+    }
+
+    const invoice = await Invoice.findOne({
+      _id: req.params.id,
+      ...buildInvoiceScope(req.user, req.hierarchyScope),
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ message: 'Invoice not found' });
+    }
+
+    const { paymentStatus, paidAmount, paymentRemarks } = req.body;
+    const totalVal = roundCurrency(toNumber(invoice.piValue) || 0);
+
+    if (paymentStatus === 'Paid') {
+      invoice.paymentStatus = 'Paid';
+      invoice.paidAmount = totalVal;
+      invoice.dueAmount = 0;
+    } else if (paymentStatus === 'Unpaid') {
+      invoice.paymentStatus = 'Unpaid';
+      invoice.paidAmount = 0;
+      invoice.dueAmount = totalVal;
+    } else if (paymentStatus === 'Partially Paid') {
+      const parsedPaid = roundCurrency(Math.max(0, toNumber(paidAmount) || 0));
+      if (parsedPaid >= totalVal && totalVal > 0) {
+        invoice.paymentStatus = 'Paid';
+        invoice.paidAmount = totalVal;
+        invoice.dueAmount = 0;
+      } else if (parsedPaid <= 0) {
+        invoice.paymentStatus = 'Unpaid';
+        invoice.paidAmount = 0;
+        invoice.dueAmount = totalVal;
+      } else {
+        invoice.paymentStatus = 'Partially Paid';
+        invoice.paidAmount = parsedPaid;
+        invoice.dueAmount = roundCurrency(Math.max(0, totalVal - parsedPaid));
+      }
+    } else if (paymentStatus) {
+      invoice.paymentStatus = paymentStatus;
+    }
+
+    if (paymentRemarks !== undefined) {
+      invoice.paymentRemarks = String(paymentRemarks).trim();
+    }
+
+    await invoice.save();
+    await invoice.populate('userId');
+    if (invoice.dealerId) {
+      await invoice.populate('dealerId');
+    }
+
+    const enrichedInvoice = await enrichDealerConsolidatedInvoices(invoice);
+    res.json({
+      message: 'Payment status updated successfully',
+      invoice: enrichedInvoice,
+    });
+  } catch (error) {
+    console.error('Update payment status error:', error.message);
     res.status(500).json({ message: 'Server error' });
   }
 });

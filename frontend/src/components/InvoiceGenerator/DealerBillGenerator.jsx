@@ -151,6 +151,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
   // Invoice Meta
   const [piNo, setPiNo] = useState('');
   const [invoiceNo, setInvoiceNo] = useState('');
+  const [discount, setDiscount] = useState(0);
   const [notes, setNotes] = useState('');
   const [savingBill, setSavingBill] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(null);
@@ -882,11 +883,13 @@ const DealerBillGenerator = ({ onBillSaved }) => {
         dateTime: new Date(),
         dealerState: targetState,
         status: 'Pending',
+        discount: toNumber(discount) || 0,
       },
       dealer: selectedDealer,
       items: compiledBill.items,
       fromDate,
       toDate,
+      discount: toNumber(discount) || 0,
     });
   };
 
@@ -929,6 +932,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
         customerState: targetState,
         piNo,
         invoiceNo,
+        discount: toNumber(discount) || 0,
         items: compiledBill.items,
         notes,
         allImeis,
@@ -1510,12 +1514,44 @@ const DealerBillGenerator = ({ onBillSaved }) => {
                   <span>₹{formatCurrency(compiledBill.totalIgst)}</span>
                 </div>
               )}
-              <div className="calc-row grand-total">
-                <span>Grand Total:</span>
-                <span>₹{formatCurrency(compiledBill.grandTotal)}</span>
+              <div className="calc-row" style={{ borderTop: '1px dashed #475569', marginTop: '6px', paddingTop: '6px' }}>
+                <span>Gross Total (Incl. GST):</span>
+                <strong>₹{formatCurrency(compiledBill.grandTotal)}</strong>
+              </div>
+              <div className="calc-row" style={{ alignItems: 'center', background: 'rgba(245, 158, 11, 0.1)', padding: '6px 8px', borderRadius: '4px', margin: '6px 0' }}>
+                <span style={{ fontWeight: 600, color: '#f59e0b' }}>Discount (₹):</span>
+                <input 
+                  type="number"
+                  min="0"
+                  max={compiledBill.grandTotal}
+                  value={discount === 0 ? '' : discount}
+                  onChange={(e) => setDiscount(Math.max(0, Number(e.target.value) || 0))}
+                  placeholder="0"
+                  style={{
+                    width: '120px',
+                    textAlign: 'right',
+                    padding: '5px 8px',
+                    borderRadius: '4px',
+                    border: '1px solid #f59e0b',
+                    background: '#0f172a',
+                    color: '#fbbf24',
+                    fontWeight: 700,
+                    fontSize: '13px'
+                  }}
+                />
+              </div>
+              {toNumber(discount) > 0 && (
+                <div className="calc-row" style={{ color: '#ef4444', fontWeight: 600 }}>
+                  <span>Discount Applied:</span>
+                  <span>- ₹{formatCurrency(discount)}</span>
+                </div>
+              )}
+              <div className="calc-row grand-total" style={{ background: '#0f766e', color: '#fff', borderRadius: '4px', padding: '8px 10px', marginTop: '6px' }}>
+                <span>Net Payable / Grand Total:</span>
+                <span>₹{formatCurrency(Math.max(0, roundCurrency(compiledBill.grandTotal - (toNumber(discount) || 0))))}</span>
               </div>
               <div className="amount-in-words">
-                In words: {numberToWords(compiledBill.grandTotal)}
+                In words: {numberToWords(Math.max(0, roundCurrency(compiledBill.grandTotal - (toNumber(discount) || 0))))}
               </div>
             </div>
           </div>

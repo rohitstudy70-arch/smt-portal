@@ -92,10 +92,13 @@ export const renderDealerBillHtml = ({
   items = [],
   fromDate = '',
   toDate = '',
+  discount = 0,
 }) => {
   const sender = COMPANY_SENDER;
   const targetState = dealer.state || invoice.dealerState || 'Bihar';
   const isIntraState = targetState.toLowerCase() === 'bihar';
+
+  const discountAmount = roundCurrency(toNumber(invoice.discount !== undefined ? invoice.discount : discount));
 
   let totalTaxable = 0;
   let totalCgst = 0;
@@ -530,6 +533,15 @@ export const renderDealerBillHtml = ({
               <td style="padding: 2px 0; color: #475569;">Tax Type:</td>
               <td style="padding: 2px 0; font-weight: 600; text-align: right;">${isIntraState ? 'Intra-State (CGST + SGST)' : 'Inter-State (IGST)'}</td>
             </tr>
+            ${invoice.paymentStatus ? `
+            <tr>
+              <td style="padding: 2px 0; color: #475569;">Payment Status:</td>
+              <td style="padding: 2px 0; font-weight: 700; text-align: right; color: ${invoice.paymentStatus === 'Paid' ? '#16a34a' : invoice.paymentStatus === 'Partially Paid' ? '#d97706' : '#dc2626'};">
+                ${escapeHtml(invoice.paymentStatus.toUpperCase())}
+                ${invoice.paymentStatus === 'Partially Paid' ? `<br/><small style="font-size: 10px; color: #475569; font-weight: 600;">(Paid: ₹${formatCurrency(invoice.paidAmount || 0)} | Due: ₹${formatCurrency(invoice.dueAmount || 0)})</small>` : ''}
+              </td>
+            </tr>
+            ` : ''}
           </table>
         </td>
       </tr>
@@ -593,10 +605,25 @@ export const renderDealerBillHtml = ({
                 <td style="text-align: right; font-weight: 600;">₹${formatCurrency(totalIgst)}</td>
               </tr>
             `}
-            <tr class="grand-total-row">
-              <td><strong>Grand Total (Incl. GST):</strong></td>
-              <td style="text-align: right;">₹${formatCurrency(totalGross)}</td>
-            </tr>
+            ${discountAmount > 0 ? `
+              <tr style="border-top: 1px dashed #cbd5e1;">
+                <td style="color: #475569;">Gross Total (Incl. GST):</td>
+                <td style="text-align: right; font-weight: 600;">₹${formatCurrency(totalGross)}</td>
+              </tr>
+              <tr style="color: #dc2626; font-weight: 600;">
+                <td>Discount:</td>
+                <td style="text-align: right;">- ₹${formatCurrency(discountAmount)}</td>
+              </tr>
+              <tr class="grand-total-row">
+                <td><strong>Net Payable / Grand Total:</strong></td>
+                <td style="text-align: right;">₹${formatCurrency(Math.max(0, roundCurrency(totalGross - discountAmount)))}</td>
+              </tr>
+            ` : `
+              <tr class="grand-total-row">
+                <td><strong>Grand Total (Incl. GST):</strong></td>
+                <td style="text-align: right;">₹${formatCurrency(totalGross)}</td>
+              </tr>
+            `}
           </table>
         </td>
       </tr>
@@ -604,7 +631,7 @@ export const renderDealerBillHtml = ({
 
     <!-- In Words -->
     <div class="words-box">
-      <strong>Amount Chargeable in Words:</strong> <span style="font-style: italic; color: #0f766e; font-weight: 700;">${numberToWords(totalGross)}</span>
+      <strong>Amount Chargeable in Words:</strong> <span style="font-style: italic; color: #0f766e; font-weight: 700;">${numberToWords(Math.max(0, roundCurrency(totalGross - discountAmount)))}</span>
     </div>
 
     <!-- Terms & Signatures -->

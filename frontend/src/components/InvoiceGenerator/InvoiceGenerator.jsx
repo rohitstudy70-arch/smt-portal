@@ -10,7 +10,8 @@ import {
   FaPlus, 
   FaTimes, 
   FaPrint,
-  FaCheck 
+  FaCheck,
+  FaMoneyBillWave 
 } from 'react-icons/fa';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
@@ -474,9 +475,72 @@ const InvoiceGenerator = () => {
     rtoState: '',
     rtoNo: '',
     notes: '',
+    discount: 0,
+    paymentStatus: 'Unpaid',
+    paidAmount: 0,
+    paymentRemarks: '',
     items: [],
   });
   const [editSaving, setEditSaving] = useState(false);
+
+  // Quick Payment Status ("Ping") Modal State
+  const [paymentModalInvoice, setPaymentModalInvoice] = useState(null);
+  const [paymentStatusForm, setPaymentStatusForm] = useState({
+    paymentStatus: 'Unpaid',
+    paidAmount: 0,
+    paymentRemarks: '',
+  });
+  const [savingPaymentStatus, setSavingPaymentStatus] = useState(false);
+
+  const handleOpenPaymentStatusModal = (invoice) => {
+    setPaymentModalInvoice(invoice);
+    const currentStatus = invoice.paymentStatus || 'Unpaid';
+    const totalVal = roundCurrency(toNumber(invoice.piValue) || 0);
+    const currentPaid = invoice.paidAmount !== undefined
+      ? invoice.paidAmount
+      : (currentStatus === 'Paid' ? totalVal : 0);
+
+    setPaymentStatusForm({
+      paymentStatus: currentStatus,
+      paidAmount: currentPaid,
+      paymentRemarks: invoice.paymentRemarks || '',
+    });
+  };
+
+  const handleSavePaymentStatus = async (e) => {
+    if (e) e.preventDefault();
+    if (!paymentModalInvoice) return;
+
+    try {
+      setSavingPaymentStatus(true);
+      const totalVal = roundCurrency(toNumber(paymentModalInvoice.piValue) || 0);
+      let calculatedPaid = toNumber(paymentStatusForm.paidAmount);
+
+      if (paymentStatusForm.paymentStatus === 'Paid') {
+        calculatedPaid = totalVal;
+      } else if (paymentStatusForm.paymentStatus === 'Unpaid') {
+        calculatedPaid = 0;
+      }
+
+      const res = await api.patch(`/invoices/${paymentModalInvoice._id}/payment-status`, {
+        paymentStatus: paymentStatusForm.paymentStatus,
+        paidAmount: calculatedPaid,
+        paymentRemarks: paymentStatusForm.paymentRemarks,
+      });
+
+      const updatedInv = res.data.invoice || res.data;
+      setRequests((prev) =>
+        prev.map((r) => (r._id === paymentModalInvoice._id ? { ...r, ...updatedInv } : r))
+      );
+
+      setPaymentModalInvoice(null);
+    } catch (err) {
+      console.error('Error updating payment status:', err);
+      alert(err.response?.data?.message || 'Failed to update payment status');
+    } finally {
+      setSavingPaymentStatus(false);
+    }
+  };
 
   const handleOpenEdit = (req) => {
     setEditingInvoice(req);
@@ -503,6 +567,10 @@ const InvoiceGenerator = () => {
       rtoState: req.rtoState || '',
       rtoNo: req.rtoNo || '',
       notes: req.notes || '',
+      discount: req.discount || 0,
+      paymentStatus: req.paymentStatus || 'Unpaid',
+      paidAmount: req.paidAmount || 0,
+      paymentRemarks: req.paymentRemarks || '',
       items: Array.isArray(req.items) && req.items.length > 0
         ? req.items.map(it => {
             let desc = it.description || '';
@@ -1178,6 +1246,7 @@ const InvoiceGenerator = () => {
                   <th style={{ padding: '12px 10px', textAlign: 'left', fontWeight: '700' }}>RMN / Phone</th>
                   <th style={{ padding: '12px 10px', textAlign: 'left', fontWeight: '700' }}>GSTIN/POA</th>
                   <th style={{ padding: '12px 10px', textAlign: 'left', fontWeight: '700' }}>Total Value</th>
+                  <th style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '700', minWidth: '130px' }}>Payment Status</th>
                   <th style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '700', minWidth: '180px' }}>Actions</th>
                 </tr>
               </thead>
@@ -1198,7 +1267,36 @@ const InvoiceGenerator = () => {
                       </td>
                       <td style={{ padding: '10px' }}>{req.rmn || '--'}</td>
                       <td style={{ padding: '10px' }}>{req.poaNo || '--'}</td>
-                      <td style={{ padding: '10px', fontWeight: 'bold' }}>₹{req.piValue ? req.piValue.toFixed(2) : '0.00'}</td>
+                      <td style={{ padding: '10px', fontWeight: 'bold' }}>
+                        <div>₹{req.piValue ? req.piValue.toFixed(2) : '0.00'}</div>
+                        {toNumber(req.discount) > 0 && (
+                          <div style={{ fontSize: '10px', color: '#dc2626', fontWeight: 600 }}>
+                            Disc: -₹{toNumber(req.discount).toFixed(0)}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ padding: '10px', textAlign: 'center' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPaymentStatusModal(req)}
+                            className={`btn-payment-pill ${req.paymentStatus === 'Paid' ? 'paid' : req.paymentStatus === 'Partially Paid' ? 'partial' : 'unpaid'}`}
+                            title="Click to Ping / Update Payment Status"
+                          >
+                            <span className="payment-status-dot"></span>
+                            {req.paymentStatus === 'Paid' ? 'PAID' : req.paymentStatus === 'Partially Paid' ? 'PARTIAL' : 'UNPAID'}
+                          </button>
+                          {req.paymentStatus === 'Partially Paid' ? (
+                            <span style={{ fontSize: '10.5px', color: '#b45309', fontWeight: 600 }}>
+                              Paid: ₹{toNumber(req.paidAmount).toFixed(0)} | Due: ₹{toNumber(req.dueAmount !== undefined ? req.dueAmount : (req.piValue - (req.paidAmount || 0))).toFixed(0)}
+                            </span>
+                          ) : req.paymentStatus === 'Paid' ? (
+                            <span style={{ fontSize: '10px', color: '#15803d', fontWeight: 600 }}>Full Paid</span>
+                          ) : (
+                            <span style={{ fontSize: '10px', color: '#b91c1c' }}>Due: ₹{toNumber(req.piValue).toFixed(0)}</span>
+                          )}
+                        </div>
+                      </td>
                       <td style={{ padding: '10px', textAlign: 'center' }}>
                         <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', alignItems: 'center' }}>
                           <button 
@@ -1228,7 +1326,7 @@ const InvoiceGenerator = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="8" style={{ textAlign: 'center', padding: '20px', color: '#999', fontStyle: 'italic' }}>
+                    <td colSpan="9" style={{ textAlign: 'center', padding: '20px', color: '#999', fontStyle: 'italic' }}>
                       No invoices available
                     </td>
                   </tr>
@@ -1535,9 +1633,66 @@ const InvoiceGenerator = () => {
 
                 <div className="edit-total-summary">
                   <div className="edit-total-box">
-                    <span>Grand Total Amount:</span>
+                    <span>Gross Total Amount:</span>
                     <strong>
                       ₹{roundCurrency(editForm.items.reduce((sum, it) => sum + (toNumber(it.grossAmt) || 0), 0)).toFixed(2)}
+                    </strong>
+                  </div>
+                </div>
+
+                {/* Discount & Payment Status */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '12px' }}>
+                  <div className="form-field">
+                    <label>Discount (₹)</label>
+                    <input 
+                      type="number"
+                      min="0"
+                      value={editForm.discount}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, discount: Math.max(0, toNumber(e.target.value) || 0) }))}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>Payment Status</label>
+                    <select
+                      value={editForm.paymentStatus}
+                      onChange={(e) => {
+                        const newStatus = e.target.value;
+                        const gross = roundCurrency(editForm.items.reduce((sum, it) => sum + (toNumber(it.grossAmt) || 0), 0));
+                        const net = Math.max(0, roundCurrency(gross - (editForm.discount || 0)));
+                        setEditForm(prev => ({
+                          ...prev,
+                          paymentStatus: newStatus,
+                          paidAmount: newStatus === 'Paid' ? net : newStatus === 'Unpaid' ? 0 : prev.paidAmount,
+                        }));
+                      }}
+                    >
+                      <option value="Unpaid">Unpaid</option>
+                      <option value="Partially Paid">Partially Paid</option>
+                      <option value="Paid">Paid</option>
+                    </select>
+                  </div>
+                </div>
+
+                {editForm.paymentStatus === 'Partially Paid' && (
+                  <div className="form-field" style={{ marginTop: '10px' }}>
+                    <label>Paid Amount (₹)*</label>
+                    <input 
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={editForm.paidAmount}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, paidAmount: Math.max(0, toNumber(e.target.value) || 0) }))}
+                      placeholder="Kitna pay kiya hua hai"
+                    />
+                  </div>
+                )}
+
+                <div className="edit-total-summary" style={{ marginTop: '12px' }}>
+                  <div className="edit-total-box" style={{ background: '#f0fdf4', borderColor: '#bbf7d0', color: '#15803d' }}>
+                    <span>Net Payable / Total:</span>
+                    <strong style={{ color: '#16a34a' }}>
+                      ₹{Math.max(0, roundCurrency(editForm.items.reduce((sum, it) => sum + (toNumber(it.grossAmt) || 0), 0) - (editForm.discount || 0))).toFixed(2)}
                     </strong>
                   </div>
                 </div>
@@ -1637,6 +1792,152 @@ const InvoiceGenerator = () => {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Payment Status ("Ping") Modal */}
+      {paymentModalInvoice && (
+        <div className="payment-modal-overlay">
+          <div className="payment-modal-card">
+            <div className="payment-modal-header">
+              <h3>
+                <FaMoneyBillWave style={{ color: '#f59e0b' }} />
+                Update Payment Status
+              </h3>
+              <button 
+                type="button"
+                className="payment-modal-close" 
+                onClick={() => setPaymentModalInvoice(null)}
+              >
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleSavePaymentStatus}>
+              <div className="payment-modal-body">
+                <div className="payment-bill-info-box">
+                  <div><strong>Bill / PI No:</strong> {paymentModalInvoice.piNo || paymentModalInvoice.invoiceNo || 'N/A'}</div>
+                  <div><strong>Customer / Dealer:</strong> {paymentModalInvoice.endCustomerName || 'N/A'}</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', borderTop: '1px dashed #cbd5e1', paddingTop: '4px' }}>
+                    <span>Total Bill Value:</span>
+                    <strong style={{ color: '#0f766e', fontSize: '13px' }}>
+                      ₹{toNumber(paymentModalInvoice.piValue).toFixed(2)}
+                    </strong>
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '8px', textTransform: 'uppercase' }}>
+                    Select Status:
+                  </label>
+                  <div className="payment-status-options">
+                    <button
+                      type="button"
+                      className={`payment-status-btn ${paymentStatusForm.paymentStatus === 'Unpaid' ? 'selected-unpaid' : ''}`}
+                      onClick={() => setPaymentStatusForm(prev => ({ ...prev, paymentStatus: 'Unpaid', paidAmount: 0 }))}
+                    >
+                      🔴 Unpaid
+                    </button>
+                    <button
+                      type="button"
+                      className={`payment-status-btn ${paymentStatusForm.paymentStatus === 'Partially Paid' ? 'selected-partial' : ''}`}
+                      onClick={() => setPaymentStatusForm(prev => ({ 
+                        ...prev, 
+                        paymentStatus: 'Partially Paid', 
+                        paidAmount: prev.paidAmount > 0 && prev.paidAmount < toNumber(paymentModalInvoice.piValue) 
+                          ? prev.paidAmount 
+                          : Math.round(toNumber(paymentModalInvoice.piValue) / 2) 
+                      }))}
+                    >
+                      🟡 Partially Paid
+                    </button>
+                    <button
+                      type="button"
+                      className={`payment-status-btn ${paymentStatusForm.paymentStatus === 'Paid' ? 'selected-paid' : ''}`}
+                      onClick={() => setPaymentStatusForm(prev => ({ ...prev, paymentStatus: 'Paid', paidAmount: toNumber(paymentModalInvoice.piValue) }))}
+                    >
+                      🟢 Paid (Full)
+                    </button>
+                  </div>
+                </div>
+
+                {paymentStatusForm.paymentStatus === 'Partially Paid' && (
+                  <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '6px', padding: '12px' }}>
+                    <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#92400e', display: 'block', marginBottom: '6px' }}>
+                      Itna Pay Kiya Hua Hai (Paid Amount ₹)*
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max={paymentModalInvoice.piValue}
+                      step="0.01"
+                      required
+                      value={paymentStatusForm.paidAmount}
+                      onChange={(e) => setPaymentStatusForm(prev => ({ ...prev, paidAmount: e.target.value }))}
+                      placeholder="Kitna pay kiya hua hai"
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        border: '1.5px solid #f59e0b',
+                        borderRadius: '4px',
+                        fontSize: '14px',
+                        fontWeight: 700,
+                        color: '#0f172a',
+                        background: '#ffffff',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '11.5px' }}>
+                      <span style={{ color: '#16a34a', fontWeight: 600 }}>
+                        Paid Amount: ₹{toNumber(paymentStatusForm.paidAmount).toFixed(2)}
+                      </span>
+                      <span style={{ color: '#dc2626', fontWeight: 700 }}>
+                        Remaining Due: ₹{Math.max(0, toNumber(paymentModalInvoice.piValue) - toNumber(paymentStatusForm.paidAmount)).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '6px', textTransform: 'uppercase' }}>
+                    Payment Remarks / Notes (Optional):
+                  </label>
+                  <input
+                    type="text"
+                    value={paymentStatusForm.paymentRemarks}
+                    onChange={(e) => setPaymentStatusForm(prev => ({ ...prev, paymentRemarks: e.target.value }))}
+                    placeholder="e.g. Paid via PhonePe / Cash / UTR: 123456"
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="payment-modal-footer">
+                <button
+                  type="button"
+                  className="btn-modal-secondary"
+                  onClick={() => setPaymentModalInvoice(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-modal-save"
+                  disabled={savingPaymentStatus}
+                >
+                  {savingPaymentStatus ? <FaSpinner className="spin" /> : <FaCheck />}
+                  {savingPaymentStatus ? ' Saving...' : ' Save Payment Status'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

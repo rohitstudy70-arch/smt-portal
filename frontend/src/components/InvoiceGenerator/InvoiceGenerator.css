@@ -623,3 +623,180 @@
   }
 }
 
+/* Payment Status Pill & Ping Button */
+.btn-payment-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.btn-payment-pill:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+}
+
+.btn-payment-pill.paid {
+  background: #dcfce7;
+  color: #15803d;
+  border-color: #86efac;
+}
+
+.btn-payment-pill.partial {
+  background: #fef3c7;
+  color: #b45309;
+  border-color: #fcd34d;
+}
+
+.btn-payment-pill.unpaid {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+
+.payment-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.btn-payment-pill.paid .payment-status-dot {
+  background: #16a34a;
+}
+
+.btn-payment-pill.partial .payment-status-dot {
+  background: #d97706;
+}
+
+.btn-payment-pill.unpaid .payment-status-dot {
+  background: #dc2626;
+}
+
+/* Payment Status Modal */
+.payment-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+}
+
+.payment-modal-card {
+  background: #ffffff;
+  border-radius: 10px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+.payment-modal-header {
+  background: #0f172a;
+  color: #ffffff;
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #f59e0b;
+}
+
+.payment-modal-header h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.payment-modal-close {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 22px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.payment-modal-close:hover {
+  color: #ffffff;
+}
+
+.payment-modal-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.payment-bill-info-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.payment-status-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.payment-status-btn {
+  padding: 10px 8px;
+  border-radius: 6px;
+  border: 2px solid #e2e8f0;
+  background: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.payment-status-btn.selected-unpaid {
+  border-color: #ef4444;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.payment-status-btn.selected-partial {
+  border-color: #f59e0b;
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.payment-status-btn.selected-paid {
+  border-color: #10b981;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.payment-modal-footer {
+  padding: 14px 20px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
