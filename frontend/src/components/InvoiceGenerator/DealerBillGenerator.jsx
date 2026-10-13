@@ -1564,16 +1564,6 @@ const DealerBillGenerator = ({ onBillSaved }) => {
           <button 
             type="button" 
             className="btn-bill-preview"
-            onClick={handleExportConsolidatedExcel}
-            disabled={compiledBill.items.length === 0}
-            style={{ borderColor: '#16a34a', color: '#15803d' }}
-          >
-            <FaFileExcel /> Export Consolidated Excel ({compiledBill.totalUnits} Units)
-          </button>
-
-          <button 
-            type="button" 
-            className="btn-bill-preview"
             onClick={handlePrintPreview}
             disabled={compiledBill.items.length === 0}
           >
