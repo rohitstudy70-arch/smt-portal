@@ -193,7 +193,7 @@ const DeviceManagement = () => {
   };
 
   const canDeleteDevice = (device) => {
-    if (user?.role !== 'partner') {
+    if (role !== 'ADMIN' && user?.role !== 'partner' && user?.userType !== 'Administration') {
       return false;
     }
 

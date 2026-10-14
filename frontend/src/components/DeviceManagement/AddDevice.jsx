@@ -75,6 +75,7 @@ const createEmptyForm = (dealer, defaultVendor = '') => ({
 const AddDevice = () => {
   const { user } = useAuth();
   const role = getRole(user);
+  const isAdministration = role === 'ADMIN' || user?.role === 'partner' || user?.userType === 'Administration';
   const tableColSpan = 16 - (role === 'SUB_DEALER' ? 3 : 0);
   const [dealers, setDealers] = useState([]);
   const [subDealers, setSubDealers] = useState([]);
@@ -367,8 +368,8 @@ const AddDevice = () => {
       };
 
       if (editingDeviceId) {
-        if (user?.role !== 'partner') {
-          showToast('error', 'Access denied: Only the Admin ID is allowed to edit devices.');
+        if (!isAdministration) {
+          showToast('error', 'Access denied: Only Administration is allowed to edit devices.');
           setSubmitting(false);
           return;
         }
@@ -395,8 +396,8 @@ const AddDevice = () => {
   };
 
   const handleDeleteDevice = async (deviceId, imei) => {
-    if (user?.role !== 'partner') {
-      showToast('error', 'Access denied: Only the Admin ID is allowed to delete devices.');
+    if (!isAdministration) {
+      showToast('error', 'Access denied: Only Administration is allowed to delete devices.');
       return;
     }
     if (window.confirm(`Are you sure you want to permanently delete device with IMEI "${imei}"?`)) {
@@ -966,7 +967,7 @@ const AddDevice = () => {
                         >
                           <FaSync /> Top Up
                         </button>
-                        {user?.role === 'partner' && (
+                        {isAdministration && (
                           <>
                             <button
                               type="button"

@@ -993,8 +993,9 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
 // @desc    Update an existing device
 // @access  Protected
 router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
-  if (req.user.role !== 'partner') {
-    return res.status(403).json({ message: 'Access denied: Only the Admin ID is allowed to edit devices.' });
+  const userRole = getPortalRole(req.user);
+  if (userRole !== PORTAL_ROLES.ADMIN && req.user.role !== 'partner' && req.user.userType !== 'Administration') {
+    return res.status(403).json({ message: 'Access denied: Only Administration is allowed to edit devices.' });
   }
   try {
     const scopeQuery = buildDeviceScopeQuery(req.hierarchyScope);
@@ -1285,8 +1286,9 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
 // @desc    Permanently delete a device
 // @access  Protected
 router.delete('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
-  if (req.user.role !== 'partner') {
-    return res.status(403).json({ message: 'Access denied: Only the Admin ID is allowed to delete devices.' });
+  const userRole = getPortalRole(req.user);
+  if (userRole !== PORTAL_ROLES.ADMIN && req.user.role !== 'partner' && req.user.userType !== 'Administration') {
+    return res.status(403).json({ message: 'Access denied: Only Administration is allowed to delete devices.' });
   }
   try {
     const scopeQuery = buildDeviceScopeQuery(req.hierarchyScope);
