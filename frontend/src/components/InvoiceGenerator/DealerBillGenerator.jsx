@@ -44,10 +44,6 @@ const DealerBillGenerator = ({ onBillSaved }) => {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
 
-  // Billable Data from API
-  const [loadingBillables, setLoadingBillables] = useState(false);
-  const [billableData, setBillableData] = useState(null);
-
   // Category Configuration (prices & expanded state)
   const [catState, setCatState] = useState({
     twoYear: {
@@ -60,31 +56,31 @@ const DealerBillGenerator = ({ onBillSaved }) => {
       description: 'AIS-140 VLTD - 1 Year Activation Plan',
       unitPrice: 2008.47,
       priceWithGst: 2370,
-      expanded: false,
+      expanded: true,
     },
     topup: {
       description: 'AIS-140 VLTD - 1 Year Top-up / Recharge Plan',
       unitPrice: 500,
       priceWithGst: 590,
-      expanded: false,
+      expanded: true,
     },
     twoYearTopup: {
       description: 'AIS-140 VLTD - 2 Year Top-up / Recharge Plan',
       unitPrice: 1000,
       priceWithGst: 1180,
-      expanded: false,
+      expanded: true,
     },
     claSy: {
       description: 'CLA / Sy Charges',
       unitPrice: 500,
       priceWithGst: 590,
-      expanded: false,
+      expanded: true,
     },
     renewal: {
       description: 'VLTD Annual Renewal Plan',
       unitPrice: 1500,
       priceWithGst: 1770,
-      expanded: false,
+      expanded: true,
     },
   });
 
@@ -197,107 +193,17 @@ const DealerBillGenerator = ({ onBillSaved }) => {
     return String(item.id || item._id || item.imei || `item-${index}`).trim();
   };
 
-  // Fetch billable items when dealer is selected
-  const fetchDealerBillableItems = async (dealerId = selectedDealerId) => {
-    if (!dealerId) return;
-
-    try {
-      setLoadingBillables(true);
-      setErrorMessage('');
-      setSaveSuccess(null);
-
-      const params = new URLSearchParams({ dealerId });
-      if (fromDate) params.append('fromDate', fromDate);
-      if (toDate) params.append('toDate', toDate);
-
-      const res = await api.get(`/invoices/dealer-billable-items?${params.toString()}`);
-      const data = res.data;
-      setBillableData(data);
-      setSelectedDealer(data.dealer);
-
-      const twoYrList = data.categories?.twoYearActivations?.items || [];
-      const oneYrList = data.categories?.oneYearActivations?.items || [];
-      const topList = data.categories?.topupPlans?.items || [];
-      const twoYrTopList = data.categories?.twoYearTopupPlans?.items || [];
-      const claSyList = data.categories?.claSyCharges?.items || [];
-      const renList = data.categories?.renewalPlans?.items || [];
-
-      setCategoryItems({
-        twoYear: twoYrList,
-        oneYear: oneYrList,
-        topup: topList,
-        twoYearTopup: twoYrTopList,
-        claSy: claSyList,
-        renewal: renList,
-      });
-
-      // Start with empty selection so user can single-tick select desired items
-      setSelectedItemsByCat({
-        twoYear: new Set(),
-        oneYear: new Set(),
-        topup: new Set(),
-        twoYearTopup: new Set(),
-        claSy: new Set(),
-        renewal: new Set(),
-      });
-
-      // Auto-update standard prices & expand categories that contain items
-      if (data.categories) {
-        setCatState(prev => ({
-          ...prev,
-          twoYear: {
-            ...prev.twoYear,
-            expanded: twoYrList.length > 0,
-            priceWithGst: data.categories.twoYearActivations?.suggestedPriceWithGst || 4200,
-            unitPrice: roundCurrency((data.categories.twoYearActivations?.suggestedPriceWithGst || 4200) / 1.18),
-          },
-          oneYear: {
-            ...prev.oneYear,
-            expanded: oneYrList.length > 0,
-            priceWithGst: data.categories.oneYearActivations?.suggestedPriceWithGst || 2370,
-            unitPrice: roundCurrency((data.categories.oneYearActivations?.suggestedPriceWithGst || 2370) / 1.18),
-          },
-          topup: {
-            ...prev.topup,
-            expanded: topList.length > 0,
-            priceWithGst: data.categories.topupPlans?.suggestedPriceWithGst || 590,
-            unitPrice: roundCurrency((data.categories.topupPlans?.suggestedPriceWithGst || 590) / 1.18),
-          },
-          twoYearTopup: {
-            ...prev.twoYearTopup,
-            expanded: twoYrTopList.length > 0,
-            priceWithGst: data.categories.twoYearTopupPlans?.suggestedPriceWithGst || 1180,
-            unitPrice: roundCurrency((data.categories.twoYearTopupPlans?.suggestedPriceWithGst || 1180) / 1.18),
-          },
-          claSy: {
-            ...prev.claSy,
-            expanded: claSyList.length > 0,
-            priceWithGst: data.categories.claSyCharges?.suggestedPriceWithGst || 590,
-            unitPrice: roundCurrency((data.categories.claSyCharges?.suggestedPriceWithGst || 590) / 1.18),
-          },
-          renewal: {
-            ...prev.renewal,
-            expanded: renList.length > 0,
-            priceWithGst: data.categories.renewalPlans?.suggestedPriceWithGst || 1770,
-            unitPrice: roundCurrency((data.categories.renewalPlans?.suggestedPriceWithGst || 1770) / 1.18),
-          },
-        }));
-      }
-    } catch (err) {
-      console.error('Failed to load dealer billables:', err);
-      setErrorMessage(err.response?.data?.message || 'Failed to fetch billable items for selected dealer.');
-    } finally {
-      setLoadingBillables(false);
-    }
-  };
-
+  // Handle dealer selection change (purely manual, no autofetch)
   const handleDealerChange = (e) => {
-    const id = e.target.value;
+    const id = e?.target?.value !== undefined ? e.target.value : e;
     setSelectedDealerId(id);
+    setErrorMessage('');
+    setSaveSuccess(null);
+
     if (id) {
-      fetchDealerBillableItems(id);
+      const d = dealers.find(item => item._id === id);
+      setSelectedDealer(d || null);
     } else {
-      setBillableData(null);
       setSelectedDealer(null);
       setCategoryItems({ twoYear: [], oneYear: [], topup: [], twoYearTopup: [], claSy: [], renewal: [] });
       setSelectedItemsByCat({ twoYear: new Set(), oneYear: new Set(), topup: new Set(), twoYearTopup: new Set(), claSy: new Set(), renewal: new Set() });
@@ -499,20 +405,42 @@ const DealerBillGenerator = ({ onBillSaved }) => {
     }));
   };
 
-  // Quick add units helper (especially handy for CLA/Sy Charges)
+  // Quick add units helper (supports all 6 categories)
   const handleQuickAddUnits = (catKey, count = 1) => {
     const num = parseInt(count, 10);
     if (!num || num <= 0) return;
 
     const currentLen = (categoryItems[catKey] || []).length;
-    const labelPrefix = catKey === 'claSy' ? 'CLA/Sy Charge' : 'Unit';
+    const labelPrefix = catKey === 'claSy'
+      ? 'CLA/Sy Charge'
+      : catKey === 'twoYear'
+      ? '2-Yr Device'
+      : catKey === 'oneYear'
+      ? '1-Yr Device'
+      : catKey === 'twoYearTopup'
+      ? '2-Yr Topup'
+      : catKey === 'topup'
+      ? '1-Yr Topup'
+      : 'Renewal Device';
+
+    const defaultDevName = catKey === 'claSy' 
+      ? 'CLA / Sy Charges' 
+      : catKey === 'twoYearTopup'
+      ? 'Second Year Top-up Plan'
+      : catKey === 'topup' 
+      ? 'One Year Top-up Plan' 
+      : catKey === 'twoYear'
+      ? 'AIS-140 VLTD - 2 Year Activation Plan'
+      : catKey === 'oneYear'
+      ? 'AIS-140 VLTD - 1 Year Activation Plan'
+      : 'VLTD Annual Renewal Plan';
 
     const newItems = Array.from({ length: num }, (_, idx) => ({
       id: `quick-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 5)}`,
       imei: `${labelPrefix} #${currentLen + idx + 1}`,
-      deviceName: catKey === 'claSy' ? 'CLA / Sy Charges' : (catState[catKey]?.description || 'Service Charge'),
+      deviceName: defaultDevName,
       customerName: selectedDealer?.displayName || 'Dealer Customer',
-      vehicleNo: 'Charge',
+      vehicleNo: catKey === 'claSy' ? 'Charge' : 'Manual',
       actCategory: manualActCategoryInputs[catKey] || 'NIC',
       activationMode: manualActCategoryInputs[catKey] || 'NIC',
       date: new Date().toISOString(),
@@ -780,7 +708,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
   const isIntraState = targetState.toLowerCase() === 'bihar';
 
   const compiledBill = useMemo(() => {
-    if (!billableData) return { items: [], totalTaxable: 0, totalCgst: 0, totalSgst: 0, totalIgst: 0, grandTotal: 0, totalUnits: 0 };
+    if (!selectedDealer) return { items: [], totalTaxable: 0, totalCgst: 0, totalSgst: 0, totalIgst: 0, grandTotal: 0, totalUnits: 0 };
 
     const items = [];
 
@@ -867,7 +795,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
       grandTotal,
       totalUnits,
     };
-  }, [billableData, catState, categoryItems, selectedItemsByCat, isIntraState]);
+  }, [selectedDealer, catState, categoryItems, selectedItemsByCat, isIntraState]);
 
   // Handle PDF Preview & Print
   const handlePrintPreview = () => {
@@ -1221,7 +1149,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
               </div>
             ) : (
               <div style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '13px', padding: '12px 0' }}>
-                {allItems.length === 0 ? `No ${catTitle} records found for this dealer.` : 'No matching items found for search query.'}
+                {allItems.length === 0 ? `No items in ${catTitle} yet. Type/paste IMEIs below, Import Excel, or click +Units to add.` : 'No matching items found for search query.'}
               </div>
             )}
 
@@ -1232,7 +1160,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
                 className="cat-manual-input"
                 placeholder={catKey === 'claSy' 
                   ? "Type or paste IMEI / Ref / Note for CLA/Sy..." 
-                  : `Type or paste additional IMEI to add in ${catTitle}...`}
+                  : `Type or paste IMEIs to add in ${catTitle}...`}
                 value={manualInputs[catKey] || ''}
                 onChange={(e) => setManualInputs(prev => ({ ...prev, [catKey]: e.target.value }))}
                 onKeyDown={(e) => {
@@ -1304,34 +1232,32 @@ const DealerBillGenerator = ({ onBillSaved }) => {
                 <FaDownload /> Sample Excel
               </button>
 
-              {catKey === 'claSy' && (
-                <div style={{ display: 'flex', gap: '6px', marginLeft: 'auto' }}>
-                  <button
-                    type="button"
-                    className="btn-quick-unit"
-                    onClick={() => handleQuickAddUnits('claSy', 1)}
-                    title="Add 1 CLA/Sy Charge unit"
-                  >
-                    + 1 Unit
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-quick-unit"
-                    onClick={() => handleQuickAddUnits('claSy', 5)}
-                    title="Add 5 CLA/Sy Charge units"
-                  >
-                    + 5 Units
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-quick-unit"
-                    onClick={() => handleQuickAddUnits('claSy', 10)}
-                    title="Add 10 CLA/Sy Charge units"
-                  >
-                    + 10 Units
-                  </button>
-                </div>
-              )}
+              <div style={{ display: 'flex', gap: '6px', marginLeft: 'auto' }}>
+                <button
+                  type="button"
+                  className="btn-quick-unit"
+                  onClick={() => handleQuickAddUnits(catKey, 1)}
+                  title={`Add 1 unit to ${catTitle}`}
+                >
+                  + 1 Unit
+                </button>
+                <button
+                  type="button"
+                  className="btn-quick-unit"
+                  onClick={() => handleQuickAddUnits(catKey, 5)}
+                  title={`Add 5 units to ${catTitle}`}
+                >
+                  + 5 Units
+                </button>
+                <button
+                  type="button"
+                  className="btn-quick-unit"
+                  onClick={() => handleQuickAddUnits(catKey, 10)}
+                  title={`Add 10 units to ${catTitle}`}
+                >
+                  + 10 Units
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -1352,8 +1278,8 @@ const DealerBillGenerator = ({ onBillSaved }) => {
         </div>
       </div>
 
-      {/* Selector & Filters */}
-      <div className="dealer-selector-grid">
+      {/* Selector & Filters (Manual Entry - No Autofetch) */}
+      <div className="dealer-selector-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
         <div className="dealer-form-group">
           <label><FaUserTie style={{ marginRight: '6px' }} /> Select Dealer / Sub-Dealer *</label>
           <select value={selectedDealerId} onChange={handleDealerChange}>
@@ -1367,7 +1293,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
         </div>
 
         <div className="dealer-form-group">
-          <label><FaCalendarAlt style={{ marginRight: '6px' }} /> From Date</label>
+          <label><FaCalendarAlt style={{ marginRight: '6px' }} /> From Date (Optional)</label>
           <input 
             type="date" 
             value={fromDate} 
@@ -1376,23 +1302,12 @@ const DealerBillGenerator = ({ onBillSaved }) => {
         </div>
 
         <div className="dealer-form-group">
-          <label><FaCalendarAlt style={{ marginRight: '6px' }} /> To Date</label>
+          <label><FaCalendarAlt style={{ marginRight: '6px' }} /> To Date (Optional)</label>
           <input 
             type="date" 
             value={toDate} 
             onChange={(e) => setToDate(e.target.value)} 
           />
-        </div>
-
-        <div>
-          <button 
-            type="button" 
-            className="btn-fetch-billables"
-            onClick={() => fetchDealerBillableItems()}
-            disabled={!selectedDealerId || loadingBillables}
-          >
-            {loadingBillables ? <><FaSpinner className="fa-spin" /> Loading...</> : 'Fetch Billables'}
-          </button>
         </div>
       </div>
 
@@ -1439,7 +1354,7 @@ const DealerBillGenerator = ({ onBillSaved }) => {
       )}
 
       {/* 6 Categorized Sections with Full Search & Multi-Selection */}
-      {billableData && (
+      {selectedDealer && (
         <div className="categories-container">
           {renderCategoryBlock('twoYear', '2-Year Activations', 'cat-badge-2yr')}
           {renderCategoryBlock('oneYear', '1-Year Activations', 'cat-badge-1yr')}
