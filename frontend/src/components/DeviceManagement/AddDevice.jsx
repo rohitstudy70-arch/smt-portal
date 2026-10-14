@@ -20,9 +20,10 @@ import BulkUploadDevices from './BulkUploadDevices';
 import './AddDevice.css';
 
 const getRole = (user) => {
-  if (user?.role === 'partner') return 'ADMIN';
-  if (user?.userType === 'Administration') return 'ADMIN';
-  if (user?.userType === 'Sub Dealer') return 'SUB_DEALER';
+  const role = String(user?.role || '').toLowerCase().trim();
+  const userType = String(user?.userType || '').toLowerCase().trim();
+  if (role === 'partner' || role === 'admin' || role === 'administration' || userType === 'administration' || userType === 'admin') return 'ADMIN';
+  if (userType === 'sub dealer' || userType === 'subdealer' || role === 'subdealer') return 'SUB_DEALER';
   return 'DEALER';
 };
 
@@ -368,11 +369,6 @@ const AddDevice = () => {
       };
 
       if (editingDeviceId) {
-        if (!isAdministration) {
-          showToast('error', 'Access denied: Only Administration is allowed to edit devices.');
-          setSubmitting(false);
-          return;
-        }
         await api.put(`/devices/${editingDeviceId}`, payload);
         showToast('success', 'Device updated successfully!');
       } else {
@@ -396,10 +392,6 @@ const AddDevice = () => {
   };
 
   const handleDeleteDevice = async (deviceId, imei) => {
-    if (!isAdministration) {
-      showToast('error', 'Access denied: Only Administration is allowed to delete devices.');
-      return;
-    }
     if (window.confirm(`Are you sure you want to permanently delete device with IMEI "${imei}"?`)) {
       try {
         const res = await api.delete(`/devices/${deviceId}`);
@@ -967,26 +959,22 @@ const AddDevice = () => {
                         >
                           <FaSync /> Top Up
                         </button>
-                        {isAdministration && (
-                          <>
-                            <button
-                              type="button"
-                              className="btn-action-edit"
-                              onClick={() => handleEditStart(device)}
-                              title="Edit Device"
-                            >
-                              <FaEdit /> Edit
-                            </button>
-                            <button
-                              type="button"
-                              className="btn-action-delete"
-                              onClick={() => handleDeleteDevice(device._id, device.imei)}
-                              title="Delete Device"
-                            >
-                              <FaTrash /> Delete
-                            </button>
-                          </>
-                        )}
+                        <button
+                          type="button"
+                          className="btn-action-edit"
+                          onClick={() => handleEditStart(device)}
+                          title="Edit Device"
+                        >
+                          <FaEdit /> Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-action-delete"
+                          onClick={() => handleDeleteDevice(device._id, device.imei)}
+                          title="Delete Device"
+                        >
+                          <FaTrash /> Delete
+                        </button>
                       </div>
                     </td>
                   </tr>

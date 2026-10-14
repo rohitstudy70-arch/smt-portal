@@ -8,9 +8,10 @@ import './DeviceManagement.css';
 const DeviceManagement = () => {
   const { user } = useAuth();
   const getRole = (u) => {
-    if (u?.role === 'partner') return 'ADMIN';
-    if (u?.userType === 'Administration') return 'ADMIN';
-    if (u?.userType === 'Sub Dealer') return 'SUB_DEALER';
+    const role = String(u?.role || '').toLowerCase().trim();
+    const userType = String(u?.userType || '').toLowerCase().trim();
+    if (role === 'partner' || role === 'admin' || role === 'administration' || userType === 'administration' || userType === 'admin') return 'ADMIN';
+    if (userType === 'sub dealer' || userType === 'subdealer' || role === 'subdealer') return 'SUB_DEALER';
     return 'DEALER';
   };
   const role = getRole(user);

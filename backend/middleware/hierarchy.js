@@ -8,9 +8,15 @@ const PORTAL_ROLES = {
 
 const getPortalRole = (user) => {
   if (!user) return null;
-  if (user.role === 'partner') return PORTAL_ROLES.ADMIN;
-  if (user.userType === 'Administration') return PORTAL_ROLES.ADMIN;
-  if (user.userType === 'Sub Dealer') return PORTAL_ROLES.SUB_DEALER;
+  const role = String(user.role || '').toLowerCase().trim();
+  const userType = String(user.userType || '').toLowerCase().trim();
+
+  if (role === 'partner' || role === 'admin' || role === 'administration' || userType === 'administration' || userType === 'admin') {
+    return PORTAL_ROLES.ADMIN;
+  }
+  if (userType === 'sub dealer' || userType === 'subdealer' || role === 'subdealer') {
+    return PORTAL_ROLES.SUB_DEALER;
+  }
   return PORTAL_ROLES.DEALER;
 };
 

@@ -992,16 +992,22 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
 // @route   PUT /api/devices/:id
 // @desc    Update an existing device
 // @access  Protected
-router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
+router.put('/:id', async (req, res) => {
   const userRole = getPortalRole(req.user);
-  if (userRole !== PORTAL_ROLES.ADMIN && req.user.role !== 'partner' && req.user.userType !== 'Administration') {
-    return res.status(403).json({ message: 'Access denied: Only Administration is allowed to edit devices.' });
+  const isAdministration = userRole === PORTAL_ROLES.ADMIN || 
+    ['partner', 'admin', 'administration'].includes(String(req.user?.role || '').toLowerCase()) || 
+    ['administration', 'admin'].includes(String(req.user?.userType || '').toLowerCase());
+
+  if (!isAdministration && userRole !== PORTAL_ROLES.DEALER) {
+    return res.status(403).json({ message: 'Access denied: You do not have permission to edit devices.' });
   }
   try {
     const scopeQuery = buildDeviceScopeQuery(req.hierarchyScope);
-    const device = await Device.findOne(combineQueries(scopeQuery, { _id: req.params.id }));
+    const device = isAdministration
+      ? await Device.findById(req.params.id)
+      : await Device.findOne(combineQueries(scopeQuery, { _id: req.params.id }));
     if (!device) {
-      return res.status(404).json({ message: 'Device not found or access denied.' });
+      return res.status(404).json({ message: 'Device not found.' });
     }
 
     const originalImei = device.imei;
@@ -1285,16 +1291,22 @@ router.put('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
 // @route   DELETE /api/devices/:id
 // @desc    Permanently delete a device
 // @access  Protected
-router.delete('/:id', requireRoles(...deviceCreateRoles), async (req, res) => {
+router.delete('/:id', async (req, res) => {
   const userRole = getPortalRole(req.user);
-  if (userRole !== PORTAL_ROLES.ADMIN && req.user.role !== 'partner' && req.user.userType !== 'Administration') {
+  const isAdministration = userRole === PORTAL_ROLES.ADMIN || 
+    ['partner', 'admin', 'administration'].includes(String(req.user?.role || '').toLowerCase()) || 
+    ['administration', 'admin'].includes(String(req.user?.userType || '').toLowerCase());
+
+  if (!isAdministration) {
     return res.status(403).json({ message: 'Access denied: Only Administration is allowed to delete devices.' });
   }
   try {
     const scopeQuery = buildDeviceScopeQuery(req.hierarchyScope);
-    const device = await Device.findOne(combineQueries(scopeQuery, { _id: req.params.id }));
+    const device = isAdministration
+      ? await Device.findById(req.params.id)
+      : await Device.findOne(combineQueries(scopeQuery, { _id: req.params.id }));
     if (!device) {
-      return res.status(404).json({ message: 'Device not found or access denied.' });
+      return res.status(404).json({ message: 'Device not found.' });
     }
 
     const dueOwnerIds = getDueOwnerIdsFromDevice(device);

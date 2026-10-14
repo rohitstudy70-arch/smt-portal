@@ -20,9 +20,10 @@ import RenewalDueManagement from './components/RenewalDueManagement/RenewalDueMa
 import LedgerBook from './components/LedgerBook/LedgerBook';
 
 const getRole = (user) => {
-  if (user?.role === 'partner') return 'ADMIN';
-  if (user?.userType === 'Administration') return 'ADMIN';
-  if (user?.userType === 'Sub Dealer') return 'SUB_DEALER';
+  const role = String(user?.role || '').toLowerCase().trim();
+  const userType = String(user?.userType || '').toLowerCase().trim();
+  if (role === 'partner' || role === 'admin' || role === 'administration' || userType === 'administration' || userType === 'admin') return 'ADMIN';
+  if (userType === 'sub dealer' || userType === 'subdealer' || role === 'subdealer') return 'SUB_DEALER';
   return 'DEALER';
 };
 
