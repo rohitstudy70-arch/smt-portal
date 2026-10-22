@@ -378,11 +378,12 @@ const AddDevice = () => {
         ...formData,
         serialNo: formData.serialNo ? formData.serialNo.trim() : '',
         iccid: formData.iccid ? formData.iccid.trim() : '',
+        status: isEditingStock ? 'Processing' : (formData.status || 'Processing'),
       };
 
       if (editingDeviceId) {
         await api.put(`/devices/${editingDeviceId}`, payload);
-        showToast('success', 'Device updated successfully!');
+        showToast('success', isEditingStock ? 'Stock device details saved (Status: Processing)!' : 'Device updated successfully!');
       } else {
         await api.post('/devices', payload);
         showToast('success', 'Device added successfully!');
@@ -570,7 +571,7 @@ const AddDevice = () => {
               }}>
                 <FaMobileAlt style={{ fontSize: '18px', color: '#0284c7' }} />
                 <span>
-                  This device was moved from Stock for <strong>{formData.dealerName}</strong>. Please enter the ICCID, Serial Number, SIM / MSISDN, and other details below to activate it for the first time.
+                  This device was moved from Stock for <strong>{formData.dealerName}</strong>. Please enter the ICCID, Serial Number, SIM / MSISDN, and other details below. Once saved, its status will be <strong>Processing</strong>.
                 </span>
               </div>
             )}
@@ -841,7 +842,7 @@ const AddDevice = () => {
                 </button>
               )}
               <button type="submit" className="btn-save" disabled={submitting}>
-                <FaSave /> {submitting ? 'Saving...' : isEditingStock ? 'Save & Activate Device' : editingDeviceId ? 'Update Device' : (role === 'SUB_DEALER' ? 'Assign Device' : 'Save Device')}
+                <FaSave /> {submitting ? 'Saving...' : isEditingStock ? 'Save Device' : editingDeviceId ? 'Update Device' : (role === 'SUB_DEALER' ? 'Assign Device' : 'Save Device')}
               </button>
               {(role === 'ADMIN' || role === 'DEALER') && (
                 <button

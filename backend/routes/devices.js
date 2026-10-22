@@ -854,6 +854,12 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
           duplicate.assignedTo = ownership.subDealer._id;
         }
 
+        if (String(duplicate.status || '').toLowerCase() === 'stock') {
+          duplicate.status = 'Processing';
+          duplicate.deviceStatus = 'inactive';
+          duplicate.activationRequestStatus = 'processing';
+        }
+
         const bAmt = Number(input.billAmount) || 0;
         const topAmt = Number(input.topUpAmount) || 0;
         const claAmt = Number(input.claSyAmount || input.claSyCharges) || 0;
@@ -1293,7 +1299,11 @@ router.put('/:id', async (req, res) => {
       device.software = input.software;
       device.presentDate = presentDate;
       device.expiryDate = expiryDate;
-      if (device.status === 'Stock' || device.status === 'stock' || input.status === 'Active') {
+      if (device.status === 'Stock' || device.status === 'stock' || input.status === 'Processing') {
+        device.status = 'Processing';
+        device.deviceStatus = 'inactive';
+        device.activationRequestStatus = 'processing';
+      } else if (input.status === 'Active') {
         device.status = 'Active';
         device.deviceStatus = 'active';
       } else if (input.status) {
