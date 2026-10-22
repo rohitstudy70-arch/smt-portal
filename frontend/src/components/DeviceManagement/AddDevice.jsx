@@ -547,18 +547,7 @@ const AddDevice = () => {
         </div>
       )}
       {role !== 'SUB_DEALER' && (
-        isAdministrationOnly && !isEditingStock ? (
-          <div className="add-device-card" style={{ padding: '24px 20px', textAlign: 'center', background: '#f8fafc', border: '1.5px dashed #94a3b8', borderRadius: '10px' }}>
-            <FaMobileAlt style={{ fontSize: '32px', color: '#0284c7', marginBottom: '8px' }} />
-            <h3 style={{ margin: '0 0 6px 0', fontSize: '15.5px', fontWeight: '700', color: '#1e293b' }}>
-              Administration Stock Device Activation
-            </h3>
-            <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
-              Naye device ko activate karne ke liye neeche table me se <strong>Stock</strong> device ke samne <strong>&ldquo;Fill Details&rdquo;</strong> button par click karein.
-            </p>
-          </div>
-        ) : (
-          <div className="add-device-card">
+        <div className="add-device-card">
           <div className="add-device-header">
             <FaMobileAlt className="header-icon" />
             <span>{isEditingStock ? `FILL DETAILS & ACTIVATE STOCK DEVICE (${formData.imei})` : (editingDeviceId ? 'EDIT DEVICE' : (role === 'SUB_DEALER' ? 'ASSIGN DEVICE' : 'ADD NEW DEVICE'))}</span>
@@ -866,7 +855,6 @@ const AddDevice = () => {
             </div>
           </form>
         </div>
-        )
       )}
 
       <div className="add-device-card device-list-card">
