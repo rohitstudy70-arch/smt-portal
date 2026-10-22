@@ -858,6 +858,8 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
           duplicate.status = 'Processing';
           duplicate.deviceStatus = 'inactive';
           duplicate.activationRequestStatus = 'processing';
+          duplicate.createdBy = req.user._id;
+          duplicate.createdByRole = req.portalRole;
         }
 
         const bAmt = Number(input.billAmount) || 0;
@@ -1303,6 +1305,8 @@ router.put('/:id', async (req, res) => {
         device.status = 'Processing';
         device.deviceStatus = 'inactive';
         device.activationRequestStatus = 'processing';
+        device.createdBy = req.user._id;
+        device.createdByRole = req.portalRole;
       } else if (input.status === 'Active') {
         device.status = 'Active';
         device.deviceStatus = 'active';
