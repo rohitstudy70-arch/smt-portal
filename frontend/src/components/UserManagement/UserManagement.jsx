@@ -87,6 +87,7 @@ const UserManagement = () => {
 
   // Form State
   const [userType, setUserType] = useState(allowedUserTypes[0] || 'Sub Dealer');
+  const [companyName, setCompanyName] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [mobileNo, setMobileNo] = useState('');
   const [email, setEmail] = useState('');
@@ -270,8 +271,11 @@ const UserManagement = () => {
     setError('');
     setSuccess('');
 
-    if (!displayName.trim() || !username.trim() || (!isEditMode && !password.trim())) {
-      setError('Display Name, Username and Password are required.');
+    const finalCompanyName = (companyName || displayName || '').trim();
+    const finalDisplayName = (displayName || companyName || '').trim();
+
+    if (!finalCompanyName || !username.trim() || (!isEditMode && !password.trim())) {
+      setError('Company / Display Name, Username and Password are required.');
       return;
     }
 
@@ -284,7 +288,8 @@ const UserManagement = () => {
       if (isEditMode) {
         const payload = { 
           userType, 
-          displayName, 
+          companyName: finalCompanyName,
+          displayName: finalDisplayName, 
           mobileNo, 
           email, 
           username,
@@ -305,7 +310,8 @@ const UserManagement = () => {
       } else {
         const payload = { 
           userType, 
-          displayName, 
+          companyName: finalCompanyName,
+          displayName: finalDisplayName, 
           mobileNo, 
           email, 
           username, 
@@ -333,7 +339,8 @@ const UserManagement = () => {
     setIsEditMode(true);
     setEditingUserId(targetUser._id);
     setUserType(targetUser.userType || 'Dealer');
-    setDisplayName(targetUser.displayName || '');
+    setCompanyName(targetUser.companyName || targetUser.displayName || '');
+    setDisplayName(targetUser.displayName || targetUser.companyName || '');
     setMobileNo(targetUser.mobileNo || '');
     setEmail(targetUser.email || '');
     setUsername(targetUser.username || '');
@@ -398,6 +405,7 @@ const UserManagement = () => {
     setIsEditMode(false);
     setEditingUserId(null);
     setUserType(allowedUserTypes[0] || 'Sub Dealer');
+    setCompanyName('');
     setDisplayName('');
     setMobileNo('');
     setEmail('');
@@ -529,7 +537,7 @@ const UserManagement = () => {
             <div className="panel-header-right">
               {isEditMode ? (
                 <div className="edit-indicator-badge">
-                  <span>Editing: <strong>{displayName || username}</strong></span>
+                  <span>Editing: <strong>{companyName || displayName || username}</strong></span>
                   <button type="button" className="edit-cancel-link" onClick={resetForm}>Cancel Edit</button>
                 </div>
               ) : (
@@ -578,17 +586,38 @@ const UserManagement = () => {
                   </div>
                 )}
 
-                {/* Display Name */}
+                {/* Company Name */}
+                <div className="form-field-group">
+                  <label htmlFor="companyName">
+                    Company / Firm Name <span className="field-required">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="companyName"
+                    value={companyName}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setCompanyName(val);
+                      if (!displayName || displayName === companyName) {
+                        setDisplayName(val);
+                      }
+                    }}
+                    placeholder="e.g. Rohit Enterprises"
+                    required
+                  />
+                </div>
+
+                {/* Display Name / Contact Person */}
                 <div className="form-field-group">
                   <label htmlFor="displayName">
-                    Display Name / Company <span className="field-required">*</span>
+                    Display Name / Contact Person <span className="field-required">*</span>
                   </label>
                   <input
                     type="text"
                     id="displayName"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="e.g. Ramesh Enterprises"
+                    placeholder="e.g. Rohit Kumar"
                     required
                   />
                 </div>
@@ -885,7 +914,14 @@ const UserManagement = () => {
                                 {userInitial}
                               </div>
                               <div className="user-names">
-                                <span className="user-display-name">{targetUser.displayName || targetUser.username}</span>
+                                <span className="user-display-name">
+                                  {targetUser.companyName || targetUser.displayName || targetUser.username}
+                                </span>
+                                {targetUser.companyName && targetUser.displayName && targetUser.companyName !== targetUser.displayName && (
+                                  <span style={{ fontSize: '11px', color: '#64748b' }}>
+                                    Contact: {targetUser.displayName}
+                                  </span>
+                                )}
                                 {targetUser.email && (
                                   <span className="user-sub-email">{targetUser.email}</span>
                                 )}

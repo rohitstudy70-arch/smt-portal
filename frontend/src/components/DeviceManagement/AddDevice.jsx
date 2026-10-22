@@ -29,9 +29,17 @@ const getRole = (user) => {
 
 const getName = (item) => item?.displayName || item?.companyName || item?.username || 'N/A';
 
-const getLinkedName = (item, fallback = '-') => (
-  item ? getName(item) : (fallback || '-')
-);
+const getLinkedName = (item, fallback = '-') => {
+  if (item && typeof item === 'object') {
+    const isItemAdmin = item.role === 'partner' || item.userType === 'Administration' || item.username === 'admin';
+    if (isItemAdmin && fallback && fallback.toLowerCase().includes('admin stock')) {
+      return fallback;
+    }
+    const name = item.displayName || item.companyName || item.username;
+    if (name) return name;
+  }
+  return fallback || (typeof item === 'string' && item.length < 24 ? item : '-');
+};
 
 const formatDate = (value) => {
   if (!value) return '-';
@@ -76,6 +84,9 @@ const createEmptyForm = (dealer, defaultVendor = '') => ({
 const AddDevice = () => {
   const { user } = useAuth();
   const role = getRole(user);
+  const isSuperAdmin = user?.role === 'partner' ||
+    ['admin', 'arshienterprises'].includes(String(user?.username || '').toLowerCase());
+  const isAdministrationOnly = String(user?.userType || '').toLowerCase() === 'administration' && !isSuperAdmin;
   const isAdministration = role === 'ADMIN' || user?.role === 'partner' || user?.userType === 'Administration';
   const tableColSpan = 16 - (role === 'SUB_DEALER' ? 3 : 0);
   const [dealers, setDealers] = useState([]);
@@ -85,6 +96,7 @@ const AddDevice = () => {
   const [devicesLoading, setDevicesLoading] = useState(true);
   const [formData, setFormData] = useState(createEmptyForm());
   const [editingDeviceId, setEditingDeviceId] = useState(null);
+  const [isEditingStock, setIsEditingStock] = useState(false);
   const [errors, setErrors] = useState({});
   const [toast, setToast] = useState({ show: false, type: '', message: '' });
   const [submitting, setSubmitting] = useState(false);
@@ -415,10 +427,13 @@ const AddDevice = () => {
     setDealerSearch('');
     setSubDealerSearch('');
     setEditingDeviceId(null);
+    setIsEditingStock(false);
   };
 
   const handleEditStart = (device) => {
     setEditingDeviceId(device._id);
+    const isStockDevice = String(device.status || '').toLowerCase() === 'stock';
+    setIsEditingStock(isStockDevice);
     setFormData({
       dealerId: device.dealerId?._id || device.dealerId || '',
       dealerName: getLinkedName(device.dealerId, device.dealerName),
@@ -437,7 +452,7 @@ const AddDevice = () => {
       topUpAmount: device.renewalAmount || '',
       claSyAmount: device.claSyAmount || device.claSyCharges || '',
       validity: device.validity || '1 Year',
-      status: device.status || 'Active',
+      status: (String(device.status || '').toLowerCase() === 'stock') ? 'Active' : (device.status || 'Active'),
       presentDate: device.presentDate ? getLocalDateString(device.presentDate) : getLocalDateString(),
     });
     setDealerSearch(getLinkedName(device.dealerId, device.dealerName));
@@ -532,13 +547,44 @@ const AddDevice = () => {
         </div>
       )}
       {role !== 'SUB_DEALER' && (
-        <div className="add-device-card">
+        isAdministrationOnly && !isEditingStock ? (
+          <div className="add-device-card" style={{ padding: '24px 20px', textAlign: 'center', background: '#f8fafc', border: '1.5px dashed #94a3b8', borderRadius: '10px' }}>
+            <FaMobileAlt style={{ fontSize: '32px', color: '#0284c7', marginBottom: '8px' }} />
+            <h3 style={{ margin: '0 0 6px 0', fontSize: '15.5px', fontWeight: '700', color: '#1e293b' }}>
+              Administration Stock Device Activation
+            </h3>
+            <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
+              Naye device ko activate karne ke liye neeche table me se <strong>Stock</strong> device ke samne <strong>&ldquo;Fill Details&rdquo;</strong> button par click karein.
+            </p>
+          </div>
+        ) : (
+          <div className="add-device-card">
           <div className="add-device-header">
             <FaMobileAlt className="header-icon" />
-            <span>{editingDeviceId ? 'EDIT DEVICE' : (role === 'SUB_DEALER' ? 'ASSIGN DEVICE' : 'ADD NEW DEVICE')}</span>
+            <span>{isEditingStock ? `FILL DETAILS & ACTIVATE STOCK DEVICE (${formData.imei})` : (editingDeviceId ? 'EDIT DEVICE' : (role === 'SUB_DEALER' ? 'ASSIGN DEVICE' : 'ADD NEW DEVICE'))}</span>
           </div>
 
           <form className="add-device-form" onSubmit={handleSubmit}>
+            {isEditingStock && (
+              <div style={{
+                background: '#e0f2fe',
+                border: '1.5px solid #0284c7',
+                color: '#0369a1',
+                padding: '12px 16px',
+                borderRadius: '8px',
+                marginBottom: '18px',
+                fontSize: '13px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                fontWeight: '600'
+              }}>
+                <FaMobileAlt style={{ fontSize: '18px', color: '#0284c7' }} />
+                <span>
+                  This device was moved from Stock for <strong>{formData.dealerName}</strong>. Please enter the ICCID, Serial Number, SIM / MSISDN, and other details below to activate it for the first time.
+                </span>
+              </div>
+            )}
             <div className="form-grid">
               {role === 'ADMIN' && (
                 <div className={`form-group ${errors.dealerId ? 'has-error' : ''}`}>
@@ -806,9 +852,9 @@ const AddDevice = () => {
                 </button>
               )}
               <button type="submit" className="btn-save" disabled={submitting}>
-                <FaSave /> {submitting ? 'Saving...' : editingDeviceId ? 'Update Device' : (role === 'SUB_DEALER' ? 'Assign Device' : 'Save Device')}
+                <FaSave /> {submitting ? 'Saving...' : isEditingStock ? 'Save & Activate Device' : editingDeviceId ? 'Update Device' : (role === 'SUB_DEALER' ? 'Assign Device' : 'Save Device')}
               </button>
-              {(role === 'ADMIN' || role === 'DEALER') && (
+              {!isAdministrationOnly && (role === 'ADMIN' || role === 'DEALER') && (
                 <button
                   type="button"
                   className="btn-bulk-upload"
@@ -820,6 +866,7 @@ const AddDevice = () => {
             </div>
           </form>
         </div>
+        )
       )}
 
       <div className="add-device-card device-list-card">
@@ -951,30 +998,63 @@ const AddDevice = () => {
                     <td><span className={`device-status status-${String(device.status || 'active').toLowerCase()}`}>{device.status || 'Active'}</span></td>
                     <td>
                       <div className="action-buttons-cell">
-                        <button
-                          type="button"
-                          className="btn-action-topup"
-                          onClick={() => handleTopUpOpen(device)}
-                          title="Top Up / Recharge"
-                        >
-                          <FaSync /> Top Up
-                        </button>
-                        <button
-                          type="button"
-                          className="btn-action-edit"
-                          onClick={() => handleEditStart(device)}
-                          title="Edit Device"
-                        >
-                          <FaEdit /> Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="btn-action-delete"
-                          onClick={() => handleDeleteDevice(device._id, device.imei)}
-                          title="Delete Device"
-                        >
-                          <FaTrash /> Delete
-                        </button>
+                        {!isAdministrationOnly && (
+                          <button
+                            type="button"
+                            className="btn-action-topup"
+                            onClick={() => handleTopUpOpen(device)}
+                            title="Top Up / Recharge"
+                          >
+                            <FaSync /> Top Up
+                          </button>
+                        )}
+
+                        {String(device.status || '').toLowerCase() === 'stock' ? (
+                          <button
+                            type="button"
+                            className="btn-action-edit"
+                            onClick={() => handleEditStart(device)}
+                            title="Fill details & Activate Stock Device"
+                            style={{
+                              background: '#0284c7',
+                              color: '#ffffff',
+                              borderColor: '#0284c7',
+                              fontWeight: '600',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            <FaEdit /> Fill Details
+                          </button>
+                        ) : (
+                          !isAdministrationOnly && (
+                            <button
+                              type="button"
+                              className="btn-action-edit"
+                              onClick={() => handleEditStart(device)}
+                              title="Edit Device"
+                            >
+                              <FaEdit /> Edit
+                            </button>
+                          )
+                        )}
+
+                        {!isAdministrationOnly && (
+                          <button
+                            type="button"
+                            className="btn-action-delete"
+                            onClick={() => handleDeleteDevice(device._id, device.imei)}
+                            title="Delete Device"
+                          >
+                            <FaTrash /> Delete
+                          </button>
+                        )}
+
+                        {isAdministrationOnly && String(device.status || '').toLowerCase() !== 'stock' && (
+                          <span style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic', padding: '4px 6px' }}>-</span>
+                        )}
                       </div>
                     </td>
                   </tr>

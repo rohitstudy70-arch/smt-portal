@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
+  FaBoxes,
   FaChevronRight,
   FaClipboardList,
   FaCog,
@@ -22,15 +23,19 @@ import { useAuth } from '../../context/AuthContext';
 import './Sidebar.css';
 
 const getRole = (user) => {
-  if (user?.role === 'partner') return 'ADMIN';
-  if (user?.userType === 'Administration') return 'ADMIN';
-  if (user?.userType === 'Sub Dealer') return 'SUB_DEALER';
+  const role = String(user?.role || '').toLowerCase().trim();
+  const userType = String(user?.userType || '').toLowerCase().trim();
+  if (role === 'partner' || role === 'admin' || role === 'administration' || userType === 'administration' || userType === 'admin') return 'ADMIN';
+  if (userType === 'sub dealer' || userType === 'subdealer' || role === 'subdealer') return 'SUB_DEALER';
   return 'DEALER';
 };
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
   const { user } = useAuth();
   const location = useLocation();
+  const [stockInventoryOpen, setStockInventoryOpen] = useState(
+    location.pathname.startsWith('/stock-inventory')
+  );
   const [serviceRequestsOpen, setServiceRequestsOpen] = useState(
     location.pathname.startsWith('/service-requests')
   );
@@ -38,11 +43,14 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     location.pathname.startsWith('/account')
   );
   const role = getRole(user);
+  const isSuperAdmin = user?.role === 'partner' ||
+    ['admin', 'arshienterprises'].includes(String(user?.username || '').toLowerCase());
   const allRoles = ['ADMIN', 'DEALER', 'SUB_DEALER'];
   const operationsRoles = ['ADMIN', 'DEALER', 'SUB_DEALER'];
   const currentPortalView = new URLSearchParams(location.search).get('view') || 'dashboard';
 
   const canShow = (roles = allRoles) => roles.includes(role);
+  const isStockInventoryActive = location.pathname.startsWith('/stock-inventory');
   const isServiceRequestsActive = location.pathname.startsWith('/service-requests');
   const isAccountSettingsActive = location.pathname.startsWith('/account');
   const isDashboardActive = location.pathname === '/dashboard' && currentPortalView === 'dashboard';
@@ -192,6 +200,24 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
               <FaCalendarAlt className="menu-icon" />
               <span className="menu-text">Renewal Due Devices</span>
             </NavLink>
+          </li>
+        )}
+
+        {isSuperAdmin && (
+          <li className={`sidebar-menu-item ${isStockInventoryActive ? 'active' : ''}`}>
+            <div className="menu-link" onClick={() => setStockInventoryOpen(!stockInventoryOpen)}>
+              <FaBoxes className="menu-icon" />
+              <span className="menu-text">Stock Inventory</span>
+              <FaChevronRight className={`menu-arrow ${stockInventoryOpen || isStockInventoryActive ? 'open' : ''}`} />
+            </div>
+            <ul className={`sidebar-submenu ${stockInventoryOpen || isStockInventoryActive ? 'open' : ''}`}>
+              <li className={location.pathname === '/stock-inventory/add' || (location.pathname === '/stock-inventory' && !location.pathname.includes('/move')) ? 'active' : ''}>
+                <NavLink to="/stock-inventory/add">Add Stock</NavLink>
+              </li>
+              <li className={location.pathname === '/stock-inventory/move' ? 'active' : ''}>
+                <NavLink to="/stock-inventory/move">Move Stock</NavLink>
+              </li>
+            </ul>
           </li>
         )}
 

@@ -10,6 +10,7 @@ import EditProfile from './components/AccountSettings/EditProfile';
 import UserManagement from './components/UserManagement/UserManagement';
 import DeviceManagement from './components/DeviceManagement/DeviceManagement';
 import AddDevice from './components/DeviceManagement/AddDevice';
+import StockInventory from './components/StockInventory/StockInventory';
 import AddProduct from './components/ProductManagement/AddProduct';
 import Certificates from './components/Certificates/Certificates';
 import InvoiceGenerator from './components/InvoiceGenerator/InvoiceGenerator';
@@ -30,7 +31,7 @@ const getRole = (user) => {
 const operationsRoles = ['ADMIN', 'DEALER', 'SUB_DEALER'];
 
 // Protected Route wrapper component
-const ProtectedRoute = ({ children, allowedRoles }) => {
+const ProtectedRoute = ({ children, allowedRoles, requireSuperAdmin = false }) => {
   const { isAuthenticated, checkingAuth, user } = useAuth();
 
   if (checkingAuth) {
@@ -39,6 +40,13 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  const isSuperAdmin = user?.role === 'partner' ||
+    ['admin', 'arshienterprises'].includes(String(user?.username || '').toLowerCase());
+
+  if (requireSuperAdmin && !isSuperAdmin) {
+    return <Navigate to="/add-device" replace />;
   }
 
   if (allowedRoles && !allowedRoles.includes(getRole(user))) {
@@ -259,6 +267,47 @@ function App() {
               <ProtectedRoute allowedRoles={['ADMIN', 'DEALER']}>
                 <Layout>
                   <LedgerBook />
+                </Layout>
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/stock-inventory" 
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']} requireSuperAdmin={true}>
+                <Layout>
+                  <StockInventory initialTab="add" />
+                </Layout>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/stock-inventory/add" 
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']} requireSuperAdmin={true}>
+                <Layout>
+                  <StockInventory initialTab="add" />
+                </Layout>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/stock-inventory/move" 
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']} requireSuperAdmin={true}>
+                <Layout>
+                  <StockInventory initialTab="move" />
+                </Layout>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/stock-inventory/overview" 
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']} requireSuperAdmin={true}>
+                <Layout>
+                  <StockInventory initialTab="overview" />
                 </Layout>
               </ProtectedRoute>
             } 

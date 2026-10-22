@@ -351,7 +351,16 @@ const buildCommercialAssignmentUpdate = async (targetUser) => {
 // @access  Protected
 router.get('/stats', async (req, res) => {
   try {
-    const query = buildDeviceScopeQuery(req.hierarchyScope);
+    const scopeQuery = buildDeviceScopeQuery(req.hierarchyScope);
+    const hideAdminStockQuery = {
+      $nor: [
+        {
+          status: { $regex: /^stock$/i },
+          dealerName: { $regex: /Admin Stock/i }
+        }
+      ]
+    };
+    const query = combineQueries(scopeQuery, hideAdminStockQuery);
     const totalDevices = await Device.countDocuments(query);
     const activeDevices = await Device.countDocuments({ ...query, status: { $in: ['Active', 'Activated'] } });
 
@@ -427,7 +436,15 @@ router.get('/', async (req, res) => {
     const scopeQuery = buildDeviceScopeQuery(req.hierarchyScope);
     const filterQuery = buildDeviceFilterQuery(req.query, req.portalRole, req.user._id);
     const assigneeQuery = assignedTo ? { assignedTo } : {};
-    const query = combineQueries(scopeQuery, filterQuery, assigneeQuery);
+    const hideAdminStockQuery = {
+      $nor: [
+        {
+          status: { $regex: /^stock$/i },
+          dealerName: { $regex: /Admin Stock/i }
+        }
+      ]
+    };
+    const query = combineQueries(scopeQuery, filterQuery, assigneeQuery, hideAdminStockQuery);
 
     const isUnlimited = limit === 'all' || limit === 'unlimited';
     const parsedLimit = isUnlimited ? 10000000 : Math.min(parseInt(limit, 10) || 10, 10000000);
@@ -756,7 +773,14 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
       return res.status(ownership.error.status).json({ message: ownership.error.message });
     }
 
+    const isSuperAdmin = req.user?.role === 'partner' ||
+      ['admin', 'arshienterprises'].includes(String(req.user?.username || '').toLowerCase());
+    const isAdministrationStaff = String(req.user?.userType || '').toLowerCase() === 'administration' && !isSuperAdmin;
+
     const duplicate = await findDuplicateDevice(input);
+    if (isAdministrationStaff && (!duplicate || String(duplicate.status || '').toLowerCase() !== 'stock')) {
+      return res.status(403).json({ message: 'Access denied: Administration staff can only fill details for existing Stock devices.' });
+    }
     if (duplicate) {
       if (req.portalRole === PORTAL_ROLES.DEALER && ownership.subDealer) {
         const isCurrentlyDealerDevice = 
@@ -809,6 +833,56 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
             device: duplicate,
           });
         }
+      }
+
+      // Check if duplicate is a stock device belonging to this dealer / admin
+      const isOwner = req.portalRole === PORTAL_ROLES.ADMIN ||
+        (duplicate.dealerId && duplicate.dealerId.toString() === req.user._id.toString()) ||
+        (duplicate.userId && duplicate.userId.toString() === req.user._id.toString()) ||
+        (ownership.ownerId && duplicate.dealerId && duplicate.dealerId.toString() === ownership.ownerId.toString());
+
+      if (isOwner) {
+        if (input.vendor) duplicate.vendor = input.vendor;
+        if (input.iccid) duplicate.iccid = input.iccid;
+        if (input.serialNo) duplicate.serialNo = input.serialNo;
+        if (input.msisdn1) duplicate.msisdn1 = input.msisdn1;
+        if (input.msisdn2) duplicate.msisdn2 = input.msisdn2;
+        if (input.itrNo) duplicate.itrNo = input.itrNo;
+        if (input.validity) duplicate.validity = input.validity;
+        if (input.presentDate) duplicate.presentDate = input.presentDate;
+        if (input.expiryDate) duplicate.expiryDate = input.expiryDate;
+        if (ownership.subDealer) {
+          duplicate.subDealerId = ownership.subDealer._id;
+          duplicate.subDealerName = labelForUser(ownership.subDealer);
+          duplicate.assignedTo = ownership.subDealer._id;
+        }
+
+        const bAmt = Number(input.billAmount) || 0;
+        const topAmt = Number(input.topUpAmount) || 0;
+        const claAmt = Number(input.claSyAmount || input.claSyCharges) || 0;
+        if (bAmt > 0 || topAmt > 0 || claAmt > 0) {
+          duplicate.billAmount = bAmt + topAmt + claAmt;
+        }
+        if (topAmt > 0) duplicate.renewalAmount = topAmt;
+        if (claAmt > 0) {
+          duplicate.claSyAmount = claAmt;
+          duplicate.claSyCharges = claAmt;
+        }
+
+        duplicate.assignmentHistory.push({
+          fromUser: req.user._id,
+          toUser: duplicate.assignedTo || duplicate.dealerId,
+          action: 'Assigned',
+          note: 'Device details entered via Add Device form',
+          changedBy: req.user._id,
+          changedAt: new Date(),
+        });
+
+        await duplicate.save();
+        return res.json({
+          message: 'Device details saved successfully!',
+          device: duplicate,
+        });
       }
 
       if (duplicate.imei === input.imei || duplicate.imeiNumber === input.imei) {
@@ -1008,6 +1082,15 @@ router.put('/:id', async (req, res) => {
       : await Device.findOne(combineQueries(scopeQuery, { _id: req.params.id }));
     if (!device) {
       return res.status(404).json({ message: 'Device not found.' });
+    }
+
+    const isSuperAdmin = req.user?.role === 'partner' ||
+      ['admin', 'arshienterprises'].includes(String(req.user?.username || '').toLowerCase());
+    const isAdministrationStaff = String(req.user?.userType || '').toLowerCase() === 'administration' && !isSuperAdmin;
+
+    // Administration staff can ONLY fill details for Stock devices
+    if (isAdministrationStaff && String(device.status || '').toLowerCase() !== 'stock') {
+      return res.status(403).json({ message: 'Access denied: Administration staff can only fill details for Stock devices. Editing active devices is restricted to Admin.' });
     }
 
     const originalImei = device.imei;
@@ -1213,7 +1296,12 @@ router.put('/:id', async (req, res) => {
       device.software = input.software;
       device.presentDate = presentDate;
       device.expiryDate = expiryDate;
-      device.status = input.status;
+      if (device.status === 'Stock' || device.status === 'stock' || input.status === 'Active') {
+        device.status = 'Active';
+        device.deviceStatus = 'active';
+      } else if (input.status) {
+        device.status = input.status;
+      }
       device.hasSim = Boolean(input.msisdn1 || input.msisdn2 || input.iccid);
       device.updatedAt = new Date();
 
@@ -1292,14 +1380,13 @@ router.put('/:id', async (req, res) => {
 // @desc    Permanently delete a device
 // @access  Protected
 router.delete('/:id', async (req, res) => {
-  const userRole = getPortalRole(req.user);
-  const isAdministration = userRole === PORTAL_ROLES.ADMIN || 
-    ['partner', 'admin', 'administration'].includes(String(req.user?.role || '').toLowerCase()) || 
-    ['administration', 'admin'].includes(String(req.user?.userType || '').toLowerCase());
+  const isSuperAdmin = req.user?.role === 'partner' ||
+    ['admin', 'arshienterprises'].includes(String(req.user?.username || '').toLowerCase());
 
-  if (!isAdministration) {
-    return res.status(403).json({ message: 'Access denied: Only Administration is allowed to delete devices.' });
+  if (!isSuperAdmin) {
+    return res.status(403).json({ message: 'Access denied: Only Admin can delete devices. Administration staff cannot delete devices.' });
   }
+  const isAdministration = true;
   try {
     const scopeQuery = buildDeviceScopeQuery(req.hierarchyScope);
     const device = isAdministration

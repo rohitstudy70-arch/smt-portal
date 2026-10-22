@@ -204,7 +204,7 @@ router.post('/sub-user', protect, async (req, res) => {
       role: 'customer',
       parentId: finalParentId,
       userType,
-      displayName,
+      displayName: displayName || companyName || '',
       companyName: companyName || displayName || '',
       mobileNo: mobileNo || '',
       email: email || '',
@@ -292,6 +292,7 @@ router.put('/sub-user/:id', protect, async (req, res) => {
 
     if (displayName !== undefined) subUser.displayName = displayName;
     if (companyName !== undefined) subUser.companyName = companyName;
+    else if (displayName !== undefined && !subUser.companyName) subUser.companyName = displayName;
     if (mobileNo !== undefined) subUser.mobileNo = mobileNo;
     if (email !== undefined) subUser.email = email;
     if (state !== undefined) subUser.state = state;
@@ -338,6 +339,31 @@ router.put('/sub-user/:id', protect, async (req, res) => {
     }
 
     const updatedUser = await subUser.save();
+
+    // Sync updated dealer / company name to Device & Product collections
+    try {
+      const effectiveName = updatedUser.companyName || updatedUser.displayName || updatedUser.username;
+      await Device.updateMany(
+        { dealerId: updatedUser._id },
+        { $set: { dealerName: effectiveName } }
+      );
+      await Device.updateMany(
+        { subDealerId: updatedUser._id },
+        { $set: { subDealerName: effectiveName } }
+      );
+      const Product = require('../models/Product');
+      await Product.updateMany(
+        { dealerId: updatedUser._id },
+        { $set: { dealerName: effectiveName } }
+      );
+      await Product.updateMany(
+        { subDealerId: updatedUser._id },
+        { $set: { subDealerName: effectiveName } }
+      );
+    } catch (syncErr) {
+      console.warn('Sync dealer name warning:', syncErr.message);
+    }
+
     res.json(updatedUser);
   } catch (error) {
     console.error('Update sub user error:', error.message);

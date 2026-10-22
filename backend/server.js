@@ -175,6 +175,7 @@ app.use('/api/dealers', require('./routes/subUsers'));
 app.use('/api/devices', require('./routes/devices'));
 app.use('/api/devices', require('./routes/deviceDocuments'));
 app.use('/api/products', require('./routes/products'));
+app.use('/api/stock', require('./routes/stock'));
 app.use('/api/portal', require('./routes/portal'));
 app.use('/api/due-dashboard', require('./routes/dueDashboard'));
 app.use('/api/payment-verification-requests', require('./routes/paymentVerificationRequests'));
