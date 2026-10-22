@@ -843,7 +843,7 @@ const AddDevice = () => {
               <button type="submit" className="btn-save" disabled={submitting}>
                 <FaSave /> {submitting ? 'Saving...' : isEditingStock ? 'Save & Activate Device' : editingDeviceId ? 'Update Device' : (role === 'SUB_DEALER' ? 'Assign Device' : 'Save Device')}
               </button>
-              {!isAdministrationOnly && (role === 'ADMIN' || role === 'DEALER') && (
+              {(role === 'ADMIN' || role === 'DEALER') && (
                 <button
                   type="button"
                   className="btn-bulk-upload"
