@@ -778,9 +778,6 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
     const isAdministrationStaff = String(req.user?.userType || '').toLowerCase() === 'administration' && !isSuperAdmin;
 
     const duplicate = await findDuplicateDevice(input);
-    if (isAdministrationStaff && (!duplicate || String(duplicate.status || '').toLowerCase() !== 'stock')) {
-      return res.status(403).json({ message: 'Access denied: Administration staff can only fill details for existing Stock devices.' });
-    }
     if (duplicate) {
       if (req.portalRole === PORTAL_ROLES.DEALER && ownership.subDealer) {
         const isCurrentlyDealerDevice = 
