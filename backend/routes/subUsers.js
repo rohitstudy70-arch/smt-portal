@@ -360,6 +360,11 @@ router.put('/sub-user/:id', protect, async (req, res) => {
         { subDealerId: updatedUser._id },
         { $set: { subDealerName: effectiveName } }
       );
+      const DealerDue = require('../models/DealerDue');
+      await DealerDue.updateMany(
+        { dealerId: updatedUser._id },
+        { $set: { dealerName: effectiveName } }
+      );
     } catch (syncErr) {
       console.warn('Sync dealer name warning:', syncErr.message);
     }

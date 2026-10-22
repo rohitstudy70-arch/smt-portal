@@ -114,6 +114,36 @@ connectDB().then(async () => {
     } catch (migErr) {
       console.error('Invoice topup migration error:', migErr.message);
     }
+
+    // Auto-fix Tekshan Indicom company name if it was previously saved as 'Rohit Enterprises'
+    try {
+      const tekshanUsers = await User.find({
+        $or: [
+          { displayName: { $regex: /Tekshan/i } },
+          { username: { $regex: /Tekshan/i } },
+          { mobileNo: '7282884422' }
+        ]
+      });
+
+      for (const u of tekshanUsers) {
+        if (u.companyName !== 'Tekshan Indicom Private Limited') {
+          u.companyName = 'Tekshan Indicom Private Limited';
+          if (!u.displayName) u.displayName = 'Tekshan Indicom Private Limited';
+          await u.save();
+          console.log(`✅ Auto-updated companyName to 'Tekshan Indicom Private Limited' for user: ${u.username} (${u.mobileNo})`);
+
+          // Sync to Device, Product, DealerDue
+          const Device = require('./models/Device');
+          const Product = require('./models/Product');
+          const DealerDue = require('./models/DealerDue');
+          await Device.updateMany({ dealerId: u._id }, { $set: { dealerName: 'Tekshan Indicom Private Limited' } });
+          await Product.updateMany({ dealerId: u._id }, { $set: { dealerName: 'Tekshan Indicom Private Limited' } });
+          await DealerDue.updateMany({ dealerId: u._id }, { $set: { dealerName: 'Tekshan Indicom Private Limited' } });
+        }
+      }
+    } catch (tekshanErr) {
+      console.warn('Tekshan companyName auto-fix error:', tekshanErr.message);
+    }
   } catch (err) {
     console.error('Error ensuring default admin or syncing indexes:', err.message);
   }

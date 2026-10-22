@@ -1773,7 +1773,7 @@ const DueDashboard = () => {
                       {getFilteredVerificationRequests().map((req) => (
                         <tr key={req._id}>
                           <td>{req.userId?.displayName || req.userId?.username || '—'}</td>
-                          <td>{req.userId?.companyName || '—'}</td>
+                          <td>{req.userId?.companyName || req.userId?.displayName || '—'}</td>
                           <td>{req.userId?.mobileNo || '—'}</td>
                           <td className="amount">₹{(req.amount || 0).toLocaleString()}</td>
                           <td>{req.paymentMode}</td>
