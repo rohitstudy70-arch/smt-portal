@@ -193,7 +193,7 @@ const deviceSchema = new mongoose.Schema({
   },
   deviceStatus: {
     type: String,
-    enum: ['inactive', 'active'],
+    enum: ['inactive', 'active', 'stock'],
     default: 'inactive',
   },
   activationDate: {

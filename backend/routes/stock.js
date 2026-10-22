@@ -286,7 +286,7 @@ router.post('/add', async (req, res) => {
       expiryDate,
       assignedTo: dealer._id,
       status: 'Stock',
-      deviceStatus: 'stock',
+      deviceStatus: 'inactive',
       activationRequestStatus: 'none',
       createdBy: req.user._id,
       createdByRole: req.portalRole || 'ADMIN',
@@ -481,7 +481,7 @@ router.post('/move', async (req, res) => {
           subDealerName: newSubDealerName,
           assignedTo: toDealer._id,
           status: 'Stock',
-          deviceStatus: 'stock',
+          deviceStatus: 'inactive',
           updatedAt: now,
         },
         $push: {
