@@ -912,18 +912,37 @@ const StockInventory = ({ initialTab = 'add' }) => {
                   ) : (
                     <>
                       <div className="device-selection-toolbar">
-                        <div className="stock-device-search-box">
-                          <FaSearch className="search-icon" />
-                          <input
-                            type="text"
-                            placeholder="Search by IMEI or Model..."
-                            value={deviceSearch}
-                            onChange={(e) => setDeviceSearch(e.target.value)}
-                            className="search-input"
-                          />
-                          {deviceSearch && (
-                            <FaTimesCircle className="search-clear" onClick={() => setDeviceSearch('')} />
-                          )}
+                        <div className="stock-search-btn-group">
+                          <div className="stock-device-search-box">
+                            <FaSearch className="search-icon" />
+                            <input
+                              type="text"
+                              placeholder="Search by IMEI or Model..."
+                              value={deviceSearch}
+                              onChange={(e) => setDeviceSearch(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  fetchDealerStockDevices(moveForm.fromDealerId, moveForm.modelFilter, deviceSearch);
+                                }
+                              }}
+                              className="search-input"
+                            />
+                            {deviceSearch && (
+                              <FaTimesCircle className="search-clear" onClick={() => {
+                                setDeviceSearch('');
+                                fetchDealerStockDevices(moveForm.fromDealerId, moveForm.modelFilter, '');
+                              }} />
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            className="btn-stock-search-action"
+                            onClick={() => fetchDealerStockDevices(moveForm.fromDealerId, moveForm.modelFilter, deviceSearch)}
+                            title="Search Devices"
+                          >
+                            <FaSearch /> Search
+                          </button>
                         </div>
 
                         <div className="selection-actions">
@@ -1279,19 +1298,28 @@ const StockInventory = ({ initialTab = 'add' }) => {
                     </div>
                   </div>
                   <div className="header-search-wrap">
-                    <div className="stock-search-input">
-                      <FaSearch />
-                      <input
-                        type="text"
-                        placeholder="Search by Dealer, Note, or specific IMEI..."
-                        value={transferSearchQuery}
-                        onChange={(e) => setTransferSearchQuery(e.target.value)}
-                      />
-                      {transferSearchQuery && (
-                        <button type="button" className="clear-search-btn" onClick={() => setTransferSearchQuery('')}>
-                          <FaTimes />
-                        </button>
-                      )}
+                    <div className="stock-search-btn-group">
+                      <div className="stock-search-input">
+                        <FaSearch />
+                        <input
+                          type="text"
+                          placeholder="Search by Dealer, Note, or specific IMEI..."
+                          value={transferSearchQuery}
+                          onChange={(e) => setTransferSearchQuery(e.target.value)}
+                        />
+                        {transferSearchQuery && (
+                          <button type="button" className="clear-search-btn" onClick={() => setTransferSearchQuery('')}>
+                            <FaTimes />
+                          </button>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        className="btn-stock-search-action"
+                        title="Search Transfer Records"
+                      >
+                        <FaSearch /> Search
+                      </button>
                     </div>
                     <select
                       value={selectedTransferDealer}
