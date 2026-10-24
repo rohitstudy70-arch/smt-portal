@@ -246,7 +246,7 @@ const StockInventory = ({ initialTab = 'add' }) => {
   const [moveResult, setMoveResult] = useState(null);
 
   // Fetch devices when From Dealer changes
-  const fetchDealerStockDevices = useCallback(async (dealerId, vendor = 'all', search = '') => {
+  const fetchDealerStockDevices = useCallback(async (dealerId) => {
     if (!dealerId) {
       setDealerDevices([]);
       setSelectedImeis(new Set());
@@ -254,9 +254,7 @@ const StockInventory = ({ initialTab = 'add' }) => {
     }
     try {
       setLoadingDealerDevices(true);
-      const res = await api.get(`/stock/dealer-devices/${dealerId}`, {
-        params: { vendor, search }
-      });
+      const res = await api.get(`/stock/dealer-devices/${dealerId}`);
       setDealerDevices(res.data || []);
       setSelectedImeis(new Set());
     } catch (err) {
@@ -271,26 +269,28 @@ const StockInventory = ({ initialTab = 'add' }) => {
     const dId = e.target.value;
     setMoveForm(prev => ({ ...prev, fromDealerId: dId }));
     setMoveResult(null);
-    fetchDealerStockDevices(dId, moveForm.modelFilter, deviceSearch);
+    setDeviceSearch('');
+    fetchDealerStockDevices(dId);
   };
 
   const handleModelFilterChange = (e) => {
     const mod = e.target.value;
     setMoveForm(prev => ({ ...prev, modelFilter: mod }));
-    if (moveForm.fromDealerId) {
-      fetchDealerStockDevices(moveForm.fromDealerId, mod, deviceSearch);
-    }
   };
 
   const filteredDealerDevices = useMemo(() => {
-    if (!deviceSearch.trim()) return dealerDevices;
+    let list = dealerDevices;
+    if (moveForm.modelFilter && moveForm.modelFilter !== 'all') {
+      list = list.filter(d => String(d.vendor || '').toLowerCase() === moveForm.modelFilter.toLowerCase());
+    }
+    if (!deviceSearch.trim()) return list;
     const q = deviceSearch.toLowerCase().trim();
-    return dealerDevices.filter(d => 
+    return list.filter(d => 
       String(d.imei || '').toLowerCase().includes(q) ||
       String(d.vendor || '').toLowerCase().includes(q) ||
       String(d.vehicleNo || '').toLowerCase().includes(q)
     );
-  }, [dealerDevices, deviceSearch]);
+  }, [dealerDevices, deviceSearch, moveForm.modelFilter]);
 
   const toggleSelectImei = (imei) => {
     setSelectedImeis(prev => {
@@ -899,7 +899,7 @@ const StockInventory = ({ initialTab = 'add' }) => {
                     <div className="loading-state" style={{ padding: '30px', textAlign: 'center' }}>
                       <FaSpinner className="fa-spin" /> Loading stock devices for {sourceUserLabel}...
                     </div>
-                  ) : filteredDealerDevices.length === 0 ? (
+                  ) : dealerDevices.length === 0 ? (
                     <div style={{ padding: '30px', textAlign: 'center', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: '#64748b' }}>
                       <FaBoxes style={{ fontSize: '28px', color: '#94a3b8', marginBottom: '6px' }} />
                       <p style={{ margin: 0, fontSize: '13.5px', fontWeight: '600', color: '#334155' }}>
@@ -920,25 +920,15 @@ const StockInventory = ({ initialTab = 'add' }) => {
                               placeholder="Search by IMEI or Model..."
                               value={deviceSearch}
                               onChange={(e) => setDeviceSearch(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  fetchDealerStockDevices(moveForm.fromDealerId, moveForm.modelFilter, deviceSearch);
-                                }
-                              }}
                               className="search-input"
                             />
                             {deviceSearch && (
-                              <FaTimesCircle className="search-clear" onClick={() => {
-                                setDeviceSearch('');
-                                fetchDealerStockDevices(moveForm.fromDealerId, moveForm.modelFilter, '');
-                              }} />
+                              <FaTimesCircle className="search-clear" onClick={() => setDeviceSearch('')} />
                             )}
                           </div>
                           <button
                             type="button"
                             className="btn-stock-search-action"
-                            onClick={() => fetchDealerStockDevices(moveForm.fromDealerId, moveForm.modelFilter, deviceSearch)}
                             title="Search Devices"
                           >
                             <FaSearch /> Search
@@ -1010,52 +1000,74 @@ const StockInventory = ({ initialTab = 'add' }) => {
                             </tr>
                           </thead>
                           <tbody>
-                            {filteredDealerDevices.map((dev, idx) => {
-                              const isPicked = selectedImeis.has(dev.imei);
-                              return (
-                                <tr
-                                  key={dev._id || dev.imei}
-                                  className={isPicked ? 'row-picked' : ''}
-                                  onClick={() => toggleSelectImei(dev.imei)}
-                                  style={{ cursor: 'pointer' }}
-                                >
-                                  <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
-                                    <input
-                                      type="checkbox"
-                                      checked={isPicked}
-                                      onChange={() => toggleSelectImei(dev.imei)}
-                                      className="stock-checkbox"
-                                    />
-                                  </td>
-                                  <td style={{ color: '#64748b' }}>{idx + 1}</td>
-                                  <td>
-                                    <code style={{ fontWeight: '700', fontSize: '13px', color: '#0f172a', letterSpacing: '0.5px' }}>
-                                      {dev.imei}
-                                    </code>
-                                  </td>
-                                  <td>
-                                    <span className="model-badge">{dev.vendor || 'Unknown'}</span>
-                                  </td>
-                                  <td>{dev.validity || '1 Year'}</td>
-                                  <td>
-                                    <span className="status-pill active">{dev.status || 'Active'}</span>
-                                  </td>
-                                  <td style={{ color: '#64748b', fontSize: '11.5px' }}>
-                                    {dev.presentDate ? new Date(dev.presentDate).toLocaleDateString('en-GB') : '-'}
-                                  </td>
-                                  <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
-                                    <button
-                                      type="button"
-                                      className="btn-stock-row-delete"
-                                      onClick={() => handleDeleteSingleDevice(dev)}
-                                      title={`Delete IMEI ${dev.imei} from inventory`}
-                                    >
-                                      <FaTrash /> Delete
-                                    </button>
-                                  </td>
-                                </tr>
-                              );
-                            })}
+                            {filteredDealerDevices.length === 0 ? (
+                              <tr>
+                                <td colSpan="8" style={{ textAlign: 'center', padding: '36px 20px', color: '#64748b' }}>
+                                  <FaSearch style={{ fontSize: '24px', color: '#94a3b8', marginBottom: '8px' }} />
+                                  <p style={{ margin: '0 0 6px 0', fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>
+                                    No stock devices found matching &ldquo;{deviceSearch}&rdquo;
+                                  </p>
+                                  <p style={{ margin: '0 0 14px 0', fontSize: '12.5px', color: '#64748b' }}>
+                                    Please check the IMEI number or click below to view all {dealerDevices.length} available stock devices.
+                                  </p>
+                                  <button
+                                    type="button"
+                                    className="btn-stock-search-action"
+                                    style={{ padding: '6px 14px', fontSize: '12.5px' }}
+                                    onClick={() => setDeviceSearch('')}
+                                  >
+                                    Reset Search ({dealerDevices.length} Available)
+                                  </button>
+                                </td>
+                              </tr>
+                            ) : (
+                              filteredDealerDevices.map((dev, idx) => {
+                                const isPicked = selectedImeis.has(dev.imei);
+                                return (
+                                  <tr
+                                    key={dev._id || dev.imei}
+                                    className={isPicked ? 'row-picked' : ''}
+                                    onClick={() => toggleSelectImei(dev.imei)}
+                                    style={{ cursor: 'pointer' }}
+                                  >
+                                    <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                                      <input
+                                        type="checkbox"
+                                        checked={isPicked}
+                                        onChange={() => toggleSelectImei(dev.imei)}
+                                        className="stock-checkbox"
+                                      />
+                                    </td>
+                                    <td style={{ color: '#64748b' }}>{idx + 1}</td>
+                                    <td>
+                                      <code style={{ fontWeight: '700', fontSize: '13px', color: '#0f172a', letterSpacing: '0.5px' }}>
+                                        {dev.imei}
+                                      </code>
+                                    </td>
+                                    <td>
+                                      <span className="model-badge">{dev.vendor || 'Unknown'}</span>
+                                    </td>
+                                    <td>{dev.validity || '1 Year'}</td>
+                                    <td>
+                                      <span className="status-pill active">{dev.status || 'Active'}</span>
+                                    </td>
+                                    <td style={{ color: '#64748b', fontSize: '11.5px' }}>
+                                      {dev.presentDate ? new Date(dev.presentDate).toLocaleDateString('en-GB') : '-'}
+                                    </td>
+                                    <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
+                                      <button
+                                        type="button"
+                                        className="btn-stock-row-delete"
+                                        onClick={() => handleDeleteSingleDevice(dev)}
+                                        title={`Delete IMEI ${dev.imei} from inventory`}
+                                      >
+                                        <FaTrash /> Delete
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                            )}
                           </tbody>
                         </table>
                       </div>
