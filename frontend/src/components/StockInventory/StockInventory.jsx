@@ -15,6 +15,13 @@ import {
   FaSquare,
   FaListAlt,
   FaBuilding,
+  FaCopy,
+  FaDownload,
+  FaHistory,
+  FaWarehouse,
+  FaArrowRight,
+  FaCheck,
+  FaTimes,
 } from 'react-icons/fa';
 import api from '../../utils/api';
 import './StockInventory.css';
@@ -406,6 +413,108 @@ const StockInventory = ({ initialTab = 'add' }) => {
       fetchOverview();
     }
   }, [activeTab, fetchOverview]);
+
+  // Overview Tab Search & Modal State
+  const [transferSearchQuery, setTransferSearchQuery] = useState('');
+  const [selectedTransferDealer, setSelectedTransferDealer] = useState('all');
+  const [imeiModal, setImeiModal] = useState({
+    isOpen: false,
+    title: '',
+    subtitle: '',
+    imeis: [],
+  });
+  const [modalSearch, setModalSearch] = useState('');
+  const [copiedImeis, setCopiedImeis] = useState(false);
+
+  const openImeiModal = (title, subtitle, imeis = []) => {
+    setImeiModal({
+      isOpen: true,
+      title,
+      subtitle,
+      imeis,
+    });
+    setModalSearch('');
+    setCopiedImeis(false);
+  };
+
+  const closeImeiModal = () => {
+    setImeiModal({ isOpen: false, title: '', subtitle: '', imeis: [] });
+    setModalSearch('');
+    setCopiedImeis(false);
+  };
+
+  const handleCopyImeis = (imeis = []) => {
+    if (!imeis || imeis.length === 0) return;
+    const text = imeis.join('\n');
+    navigator.clipboard.writeText(text);
+    setCopiedImeis(true);
+    showToast('success', `Copied ${imeis.length} IMEIs to clipboard!`);
+    setTimeout(() => setCopiedImeis(false), 3000);
+  };
+
+  const handleDownloadImeis = (title, imeis = []) => {
+    if (!imeis || imeis.length === 0) return;
+    const text = imeis.join('\n');
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const safeTitle = (title || 'transferred_imeis').replace(/[^a-zA-Z0-9_-]/g, '_');
+    link.download = `${safeTitle}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast('success', `Downloaded ${imeis.length} IMEIs as .txt file!`);
+  };
+
+  const filteredModalImeis = useMemo(() => {
+    if (!modalSearch.trim()) return imeiModal.imeis || [];
+    const q = modalSearch.trim().toLowerCase();
+    return (imeiModal.imeis || []).filter(im => String(im).toLowerCase().includes(q));
+  }, [imeiModal.imeis, modalSearch]);
+
+  const filteredTransfers = useMemo(() => {
+    if (!overview?.recentTransfers) return [];
+    let list = overview.recentTransfers;
+
+    if (selectedTransferDealer !== 'all') {
+      list = list.filter(t => 
+        String(t.toUserName || '').toLowerCase().includes(selectedTransferDealer.toLowerCase()) ||
+        String(t.toUserId || '') === selectedTransferDealer
+      );
+    }
+
+    if (transferSearchQuery.trim()) {
+      const q = transferSearchQuery.toLowerCase().trim();
+      list = list.filter(t =>
+        String(t.toUserName || '').toLowerCase().includes(q) ||
+        String(t.fromUserName || '').toLowerCase().includes(q) ||
+        String(t.notes || '').toLowerCase().includes(q) ||
+        String(t.transferId || '').toLowerCase().includes(q) ||
+        (Array.isArray(t.imeis) && t.imeis.some(im => String(im).includes(q)))
+      );
+    }
+
+    return list;
+  }, [overview?.recentTransfers, selectedTransferDealer, transferSearchQuery]);
+
+  const formatDateTime = (d) => {
+    if (!d) return '—';
+    try {
+      const date = new Date(d);
+      return date.toLocaleString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
+    } catch (e) {
+      return String(d);
+    }
+  };
 
   return (
     <div className="stock-inventory-container">
@@ -984,32 +1093,229 @@ const StockInventory = ({ initialTab = 'add' }) => {
             <>
               {/* Summary Metrics */}
               <div className="overview-stats-cards">
+                {/* 1. Admin Available Stock */}
+                <div className="overview-card highlight-admin">
+                  <div className="card-icon indigo"><FaWarehouse /></div>
+                  <div className="card-info">
+                    <span className="val">{overview.adminStockCount ?? 0}</span>
+                    <span className="lbl">Admin Available Stock (Unmoved)</span>
+                  </div>
+                </div>
+
+                {/* 2. Stock Transferred to Dealers */}
+                <div className="overview-card highlight-transferred">
+                  <div className="card-icon amber"><FaExchangeAlt /></div>
+                  <div className="card-info">
+                    <span className="val">{overview.dealerStockCount ?? 0}</span>
+                    <span className="lbl">Stock Transferred to Dealers</span>
+                  </div>
+                </div>
+
+                {/* 3. Total Stock in Inventory */}
                 <div className="overview-card">
                   <div className="card-icon blue"><FaBoxes /></div>
                   <div className="card-info">
-                    <span className="val">{overview.totalCount || 0}</span>
-                    <span className="lbl">Total Devices in Inventory</span>
+                    <span className="val">{overview.totalStockCount ?? 0}</span>
+                    <span className="lbl">Total Stock Devices</span>
                   </div>
                 </div>
 
+                {/* 4. Target Receiver Dealers */}
                 <div className="overview-card">
-                  <div className="card-icon green"><FaMobileAlt /></div>
+                  <div className="card-icon green"><FaUserTie /></div>
                   <div className="card-info">
-                    <span className="val">{overview.modelStats?.length || 0}</span>
-                    <span className="lbl">Active Models / Vendors</span>
-                  </div>
-                </div>
-
-                <div className="overview-card">
-                  <div className="card-icon amber"><FaBuilding /></div>
-                  <div className="card-info">
-                    <span className="val">{overview.dealerStats?.length || 0}</span>
-                    <span className="lbl">Dealers with Allocated Stock</span>
+                    <span className="val">{(overview.receiverDealerStats || []).length}</span>
+                    <span className="lbl">Target Receiver Dealers</span>
                   </div>
                 </div>
               </div>
 
-              {/* Models Breakdown */}
+              {/* 1. Target Receiver Dealers Table */}
+              <div className="stock-box full-width" style={{ marginBottom: '22px' }}>
+                <div className="stock-box-header">
+                  <div className="header-left">
+                    <FaUserTie className="box-icon" />
+                    <div>
+                      <h3>Target Receiver Dealers — Stock Allocation & Quantity</h3>
+                      <p className="subtext">Admin ne kis-kis targeted dealer ko kitna kitna stock bheja hai</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="stock-table-responsive">
+                  <table className="stock-table">
+                    <thead>
+                      <tr>
+                        <th>Target Receiver Dealer</th>
+                        <th>Model / Vendor</th>
+                        <th style={{ textAlign: 'center' }}>Total Devices Transferred</th>
+                        <th>Last Allocation Date</th>
+                        <th>Transferred IMEIs</th>
+                        <th style={{ textAlign: 'right' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(overview.receiverDealerStats || []).map((d) => (
+                        <tr key={d.dealerName || d.dealerId}>
+                          <td>
+                            <strong>{d.dealerName}</strong>
+                          </td>
+                          <td>
+                            <span className="model-tag">{d.vendor || 'iTriangle'}</span>
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <span className="count-pill">{d.stockCount} Devices</span>
+                          </td>
+                          <td>{formatDateTime(d.lastTransferDate)}</td>
+                          <td>
+                            <div className="imei-preview-list">
+                              {(d.sampleImeis || []).map((im) => (
+                                <span key={im} className="imei-mini-pill">{im}</span>
+                              ))}
+                              {d.totalImeisCount > (d.sampleImeis || []).length && (
+                                <span className="imei-more-pill">+{d.totalImeisCount - d.sampleImeis.length} more</span>
+                              )}
+                            </div>
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <button
+                              type="button"
+                              className="btn-view-imeis"
+                              onClick={() => openImeiModal(
+                                `Transferred IMEIs — ${d.dealerName}`,
+                                `Total ${d.stockCount} devices allocated to ${d.dealerName} (Model: ${d.vendor || 'iTriangle'})`,
+                                d.imeis || d.sampleImeis || []
+                              )}
+                            >
+                              <FaListAlt /> View All ({d.stockCount}) IMEIs
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {(!overview.receiverDealerStats || overview.receiverDealerStats.length === 0) && (
+                        <tr>
+                          <td colSpan="6" style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+                            Abhi tak kisi bhi dealer ko stock transfer nahi hua hai.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* 2. Full Transfer & Movement Log (IMEI Record) */}
+              <div className="stock-box full-width" style={{ marginBottom: '22px' }}>
+                <div className="stock-box-header">
+                  <div className="header-left">
+                    <FaHistory className="box-icon" />
+                    <div>
+                      <h3>Stock Transfer & Allocation Record (Kon Kon IMEI Kis Dealer Ko Gya)</h3>
+                      <p className="subtext">Admin dwara kiye gaye saare transfers ka poora audit log aur IMEIs ki list</p>
+                    </div>
+                  </div>
+                  <div className="header-search-wrap">
+                    <div className="stock-search-input">
+                      <FaSearch />
+                      <input
+                        type="text"
+                        placeholder="Search by Dealer, Note, or specific IMEI..."
+                        value={transferSearchQuery}
+                        onChange={(e) => setTransferSearchQuery(e.target.value)}
+                      />
+                      {transferSearchQuery && (
+                        <button type="button" className="clear-search-btn" onClick={() => setTransferSearchQuery('')}>
+                          <FaTimes />
+                        </button>
+                      )}
+                    </div>
+                    <select
+                      value={selectedTransferDealer}
+                      onChange={(e) => setSelectedTransferDealer(e.target.value)}
+                      className="stock-dealer-filter-select"
+                    >
+                      <option value="all">All Target Dealers</option>
+                      {(overview.receiverDealerStats || []).map((d) => (
+                        <option key={d.dealerName} value={d.dealerName}>{d.dealerName}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="stock-table-responsive">
+                  <table className="stock-table">
+                    <thead>
+                      <tr>
+                        <th>Date & Time</th>
+                        <th>From (Source)</th>
+                        <th>Target Receiver User</th>
+                        <th style={{ textAlign: 'center' }}>Quantity</th>
+                        <th>Model</th>
+                        <th>Transferred IMEIs</th>
+                        <th>Transferred By</th>
+                        <th>Notes / Action</th>
+                        <th style={{ textAlign: 'right' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredTransfers.map((item) => (
+                        <tr key={item._id || item.transferId}>
+                          <td style={{ whiteSpace: 'nowrap' }}>{formatDateTime(item.createdAt)}</td>
+                          <td>
+                            <span className="source-tag">{item.fromUserName || 'Admin Stock'}</span>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <FaArrowRight style={{ color: '#0284c7', fontSize: '11px' }} />
+                              <strong>{item.toUserName}</strong>
+                            </div>
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <span className="count-pill">{item.count} Devices</span>
+                          </td>
+                          <td>
+                            <span className="model-tag">{item.vendor || 'iTriangle'}</span>
+                          </td>
+                          <td>
+                            <div className="imei-preview-list">
+                              {(item.imeis || []).slice(0, 3).map((im) => (
+                                <span key={im} className="imei-mini-pill">{im}</span>
+                              ))}
+                              {(item.imeis || []).length > 3 && (
+                                <span className="imei-more-pill">+{(item.imeis || []).length - 3} more</span>
+                              )}
+                            </div>
+                          </td>
+                          <td>{item.transferredByName || 'Admin'}</td>
+                          <td style={{ fontSize: '12px', color: '#64748b' }}>{item.notes || 'Stock Transferred'}</td>
+                          <td style={{ textAlign: 'right' }}>
+                            <button
+                              type="button"
+                              className="btn-view-imeis"
+                              onClick={() => openImeiModal(
+                                `Transferred IMEIs — ${item.toUserName}`,
+                                `${item.count} devices transferred on ${formatDateTime(item.createdAt)} (${item.notes || 'Stock Transfer'})`,
+                                item.imeis || []
+                              )}
+                            >
+                              <FaListAlt /> View All ({item.count}) IMEIs
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {filteredTransfers.length === 0 && (
+                        <tr>
+                          <td colSpan="9" style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+                            No transfer records match your search criteria.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Models Breakdown & Dealers Breakdown */}
               <div className="stock-split-section">
                 <div className="stock-box">
                   <h3>Stock Breakdown by Model</h3>
@@ -1031,7 +1337,6 @@ const StockInventory = ({ initialTab = 'add' }) => {
                   </table>
                 </div>
 
-                {/* Dealers Breakdown */}
                 <div className="stock-box">
                   <h3>Stock Breakdown by Dealer</h3>
                   <table className="stock-table">
@@ -1042,18 +1347,94 @@ const StockInventory = ({ initialTab = 'add' }) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {(overview.dealerStats || []).map(d => (
-                        <tr key={d.dealerId || 'other'}>
+                      {(overview.receiverDealerStats || []).map(d => (
+                        <tr key={d.dealerId || d.dealerName}>
                           <td><strong>{d.dealerName}</strong></td>
-                          <td style={{ textAlign: 'right', fontWeight: 'bold', color: '#2563eb' }}>{d.count}</td>
+                          <td style={{ textAlign: 'right', fontWeight: 'bold', color: '#2563eb' }}>{d.stockCount}</td>
                         </tr>
                       ))}
+                      {overview.adminStockCount > 0 && (
+                        <tr>
+                          <td><strong>Admin Stock (Arshi Enterprises)</strong></td>
+                          <td style={{ textAlign: 'right', fontWeight: 'bold', color: '#4f46e5' }}>{overview.adminStockCount}</td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
               </div>
             </>
           ) : null}
+
+          {/* ========================================================= */}
+          {/* TRANSFERRED IMEIS POPUP MODAL                             */}
+          {/* ========================================================= */}
+          {imeiModal.isOpen && (
+            <div className="stock-modal-overlay" onClick={closeImeiModal}>
+              <div className="stock-modal-card" onClick={(e) => e.stopPropagation()}>
+                <div className="stock-modal-header">
+                  <div>
+                    <h3>{imeiModal.title}</h3>
+                    <p>{imeiModal.subtitle}</p>
+                  </div>
+                  <button type="button" className="stock-modal-close" onClick={closeImeiModal}>
+                    <FaTimes />
+                  </button>
+                </div>
+
+                <div className="stock-modal-toolbar">
+                  <div className="stock-modal-search">
+                    <FaSearch />
+                    <input
+                      type="text"
+                      placeholder="Search within these IMEIs..."
+                      value={modalSearch}
+                      onChange={(e) => setModalSearch(e.target.value)}
+                    />
+                    {modalSearch && (
+                      <button type="button" className="clear-search-btn" onClick={() => setModalSearch('')}>
+                        <FaTimes />
+                      </button>
+                    )}
+                  </div>
+                  <div className="stock-modal-actions">
+                    <button
+                      type="button"
+                      className="btn-modal-action copy"
+                      onClick={() => handleCopyImeis(imeiModal.imeis)}
+                    >
+                      {copiedImeis ? <FaCheck /> : <FaCopy />}
+                      <span>{copiedImeis ? 'Copied!' : `Copy All (${imeiModal.imeis.length})`}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-modal-action download"
+                      onClick={() => handleDownloadImeis(imeiModal.title, imeiModal.imeis)}
+                    >
+                      <FaDownload />
+                      <span>Download TXT</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="stock-modal-body">
+                  <div className="stock-imeis-grid">
+                    {filteredModalImeis.map((imei, idx) => (
+                      <div key={imei + idx} className="stock-imei-badge">
+                        <span className="badge-idx">{idx + 1}.</span>
+                        <span className="badge-val">{imei}</span>
+                      </div>
+                    ))}
+                    {filteredModalImeis.length === 0 && (
+                      <div className="stock-modal-empty">
+                        No IMEIs found matching "{modalSearch}"
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

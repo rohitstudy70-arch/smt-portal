@@ -4,6 +4,7 @@ const Device = require('../models/Device');
 const Product = require('../models/Product');
 const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
+const StockTransfer = require('../models/StockTransfer');
 const { protect } = require('../middleware/auth');
 const {
   PORTAL_ROLES,
@@ -39,6 +40,65 @@ const parseImeis = (textOrArray) => {
     .map(s => String(s || '').trim().replace(/[^0-9]/g, ''))
     .filter(s => s.length >= 10); // allow 10-18 digit IMEIs/identifiers, standard is 15
   return [...new Set(cleanList)];
+};
+
+
+// Helper to backfill StockTransfer records if collection is empty
+const ensureBackfilledStockTransfers = async () => {
+  try {
+    const existingCount = await StockTransfer.countDocuments();
+    if (existingCount > 0) return;
+
+    const devices = await Device.find({
+      status: { $regex: /^stock$/i },
+    }).lean();
+
+    if (devices.length === 0) return;
+
+    const grouped = {};
+    for (const d of devices) {
+      const dName = d.dealerName || 'Admin Stock (Arshi Enterprises)';
+      const isArshi = /admin\s*stock|arshi/i.test(dName);
+      const key = `${dName}__${d.vendor || 'iTriangle'}`;
+      if (!grouped[key]) {
+        grouped[key] = {
+          dealerId: d.dealerId,
+          dealerName: dName,
+          vendor: d.vendor || 'iTriangle',
+          isArshi,
+          imeis: [],
+          firstDate: d.createdAt || d.updatedAt || new Date(),
+        };
+      }
+      grouped[key].imeis.push(d.imei);
+    }
+
+    const docsToInsert = [];
+    for (const item of Object.values(grouped)) {
+      docsToInsert.push({
+        transferId: `STK-INIT-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
+        action: item.isArshi ? 'STOCK_ADDED' : 'STOCK_TRANSFERRED',
+        fromUserId: null,
+        fromUserName: item.isArshi ? 'Supplier / Factory Import' : 'Admin Stock (Arshi Enterprises)',
+        toUserId: item.dealerId,
+        toUserName: item.dealerName,
+        vendor: item.vendor,
+        count: item.imeis.length,
+        imeis: item.imeis,
+        notes: item.isArshi ? 'Initial Admin Stock Available' : `Stock transferred to ${item.dealerName}`,
+        transferredByName: 'Admin',
+        createdAt: item.firstDate,
+        updatedAt: item.firstDate,
+      });
+    }
+
+    if (docsToInsert.length > 0) {
+      await StockTransfer.insertMany(docsToInsert);
+      console.log(`✅ Backfilled ${docsToInsert.length} stock transfer history records!`);
+    }
+  } catch (err) {
+    console.warn('Backfill stock transfer warning:', err.message);
+  }
 };
 
 // @route   GET /api/stock/dealers
@@ -545,34 +605,157 @@ router.post('/move', async (req, res) => {
 });
 
 // @route   GET /api/stock/overview
-// @desc    Get aggregate stock counts by dealer and by model
+// @desc    Get aggregate stock counts by dealer and by model, plus admin stock and transfer logs
 // @access  Protected
 router.get('/overview', async (req, res) => {
   try {
-    const [modelStats, dealerStats, totalCount] = await Promise.all([
-      Device.aggregate([
-        { $group: { _id: '$vendor', count: { $sum: 1 } } },
-        { $sort: { count: -1 } }
-      ]),
-      Device.aggregate([
-        { $group: { _id: '$dealerId', dealerName: { $first: '$dealerName' }, count: { $sum: 1 } } },
-        { $sort: { count: -1 } }
-      ]),
-      Device.countDocuments()
+    await ensureBackfilledStockTransfers();
+
+    const adminUsers = await User.find({
+      $or: [
+        { role: 'partner' },
+        { userType: 'Administration' },
+        { username: { $in: ['admin', 'ArshiEnterprises', 'arshienterprises'] } }
+      ]
+    }).select('_id');
+    const adminIds = adminUsers.map(u => u._id);
+
+    // 1. Admin current stock
+    const adminStockCount = await Device.countDocuments({
+      status: { $regex: /^stock$/i },
+      $or: [
+        { dealerId: { $in: adminIds } },
+        { dealerName: { $regex: /admin\s*stock|arshi/i } }
+      ]
+    });
+
+    // 2. Dealer allocated stock
+    const dealerStockCount = await Device.countDocuments({
+      status: { $regex: /^stock$/i },
+      dealerId: { $nin: adminIds },
+      dealerName: { $not: { $regex: /admin\s*stock|arshi/i } }
+    });
+
+    // 3. Total stock
+    const totalStockCount = adminStockCount + dealerStockCount;
+
+    // 4. Total devices in entire system (including active/processing)
+    const totalDevicesCount = await Device.countDocuments();
+
+    // 5. Target Receiver Dealers Breakdown (who got stock and how much)
+    const receiverDealers = await Device.aggregate([
+      {
+        $match: {
+          status: { $regex: /^stock$/i },
+          dealerName: { $not: { $regex: /admin\s*stock|arshi/i } }
+        }
+      },
+      {
+        $group: {
+          _id: '$dealerName',
+          dealerId: { $first: '$dealerId' },
+          dealerName: { $first: '$dealerName' },
+          stockCount: { $sum: 1 },
+          vendor: { $first: '$vendor' },
+          lastTransferDate: { $max: '$updatedAt' },
+          imeis: { $push: '$imei' }
+        }
+      },
+      { $sort: { stockCount: -1 } }
     ]);
 
+    const receiverDealerStats = receiverDealers.map(d => ({
+      _id: d._id,
+      dealerId: d.dealerId,
+      dealerName: d.dealerName || 'Target Dealer',
+      stockCount: d.count || d.stockCount || 0,
+      vendor: d.vendor || 'iTriangle',
+      lastTransferDate: d.lastTransferDate,
+      sampleImeis: (d.imeis || []).slice(0, 5),
+      totalImeisCount: (d.imeis || []).length,
+      imeis: d.imeis || []
+    }));
+
+    // 6. Stock breakdown by Model
+    const modelStats = await Device.aggregate([
+      { $match: { status: { $regex: /^stock$/i } } },
+      { $group: { _id: '$vendor', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+
+    // 7. Recent Transfers (last 50 batches)
+    const recentTransfers = await StockTransfer.find({})
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+
     res.json({
-      totalCount,
+      adminStockCount,
+      dealerStockCount,
+      totalStockCount,
+      totalDevicesCount,
+      receiverDealerStats,
       modelStats,
-      dealerStats: dealerStats.map(d => ({
-        dealerId: d._id,
-        dealerName: d.dealerName || 'Unassigned / Direct',
-        count: d.count
-      }))
+      recentTransfers,
     });
   } catch (err) {
     console.error('Error fetching stock overview:', err);
     res.status(500).json({ message: 'Failed to fetch stock overview.' });
+  }
+});
+
+// @route   GET /api/stock/transfers
+// @desc    Get paginated and searchable stock transfers log
+// @access  Protected
+router.get('/transfers', async (req, res) => {
+  try {
+    const { page = 1, limit = 20, search = '', dealerId } = req.query;
+    const query = {};
+
+    if (search && search.trim()) {
+      const q = search.trim();
+      query.$or = [
+        { toUserName: { $regex: q, $options: 'i' } },
+        { fromUserName: { $regex: q, $options: 'i' } },
+        { notes: { $regex: q, $options: 'i' } },
+        { transferId: { $regex: q, $options: 'i' } },
+        { imeis: { $in: [q] } },
+        { imeis: { $regex: q, $options: 'i' } }
+      ];
+    }
+
+    if (dealerId && dealerId !== 'all') {
+      if (dealerId === 'admin') {
+        query.$or = [
+          { toUserName: { $regex: /admin|arshi/i } },
+          { fromUserName: { $regex: /admin|arshi/i } }
+        ];
+      } else if (mongoose.Types.ObjectId.isValid(dealerId)) {
+        query.$or = [
+          { toUserId: new mongoose.Types.ObjectId(dealerId) },
+          { fromUserId: new mongoose.Types.ObjectId(dealerId) }
+        ];
+      }
+    }
+
+    const pageNum = Math.max(1, parseInt(page, 10));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
+    const skip = (pageNum - 1) * limitNum;
+
+    const [transfers, total] = await Promise.all([
+      StockTransfer.find(query).sort({ createdAt: -1 }).skip(skip).limit(limitNum).lean(),
+      StockTransfer.countDocuments(query)
+    ]);
+
+    res.json({
+      transfers,
+      total,
+      page: pageNum,
+      totalPages: Math.ceil(total / limitNum) || 1
+    });
+  } catch (err) {
+    console.error('Error fetching stock transfers:', err);
+    res.status(500).json({ message: 'Failed to fetch stock transfers.' });
   }
 });
 

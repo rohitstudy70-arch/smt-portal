@@ -50,6 +50,7 @@ const Invoice = require('../models/Invoice');
 const DealerDue = require('../models/DealerDue');
 const AuditLog = require('../models/AuditLog');
 const PaymentVerificationRequest = require('../models/PaymentVerificationRequest');
+const StockTransfer = require('../models/StockTransfer');
 
 // Collections to backup
 const getCollectionsMap = () => ({
@@ -63,6 +64,7 @@ const getCollectionsMap = () => ({
   dealerdues: DealerDue,
   auditlogs: AuditLog,
   paymentverificationrequests: PaymentVerificationRequest,
+  stocktransfers: StockTransfer,
 });
 
 // Helper: Create a Gzip Compressed Backup
