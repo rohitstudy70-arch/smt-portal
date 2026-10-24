@@ -22,6 +22,7 @@ import {
   FaArrowRight,
   FaCheck,
   FaTimes,
+  FaTrash,
 } from 'react-icons/fa';
 import api from '../../utils/api';
 import './StockInventory.css';
@@ -387,6 +388,47 @@ const StockInventory = ({ initialTab = 'add' }) => {
       showToast('error', msg);
     } finally {
       setMovingStock(false);
+    }
+  };
+
+  // Delete Stock Devices Handlers
+  const handleDeleteSingleDevice = async (device) => {
+    if (!device) return;
+    const confirmMsg = `Are you sure you want to permanently delete stock device with IMEI "${device.imei}" from inventory?`;
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const res = await api.delete(`/stock/device/${device._id}`);
+      showToast('success', res.data.message || `Deleted IMEI ${device.imei} from stock.`);
+      fetchDealerStockDevices(moveForm.fromDealerId, moveForm.modelFilter, deviceSearch);
+      setSelectedImeis(prev => {
+        const next = new Set(prev);
+        next.delete(device.imei);
+        return next;
+      });
+      if (activeTab === 'overview') fetchOverview();
+    } catch (err) {
+      console.error('Error deleting stock device:', err);
+      showToast('error', err.response?.data?.message || 'Failed to delete stock device.');
+    }
+  };
+
+  const handleDeleteSelectedDevices = async () => {
+    if (selectedImeis.size === 0) return;
+    const count = selectedImeis.size;
+    const confirmMsg = `⚠️ CAUTION: Are you sure you want to permanently delete ${count} selected stock devices from inventory? This action cannot be undone.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const imeisArr = Array.from(selectedImeis);
+      const res = await api.post('/stock/delete-devices', { imeis: imeisArr });
+      showToast('success', res.data.message || `Deleted ${imeisArr.length} devices from stock.`);
+      setSelectedImeis(new Set());
+      fetchDealerStockDevices(moveForm.fromDealerId, moveForm.modelFilter, deviceSearch);
+      if (activeTab === 'overview') fetchOverview();
+    } catch (err) {
+      console.error('Error bulk deleting stock devices:', err);
+      showToast('error', err.response?.data?.message || 'Failed to delete selected devices.');
     }
   };
 
@@ -870,7 +912,7 @@ const StockInventory = ({ initialTab = 'add' }) => {
                   ) : (
                     <>
                       <div className="device-selection-toolbar">
-                        <div className="search-box">
+                        <div className="stock-device-search-box">
                           <FaSearch className="search-icon" />
                           <input
                             type="text"
@@ -909,6 +951,17 @@ const StockInventory = ({ initialTab = 'add' }) => {
                             )}
                           </button>
 
+                          {selectedImeis.size > 0 && (
+                            <button
+                              type="button"
+                              className="btn-stock-bulk-delete"
+                              onClick={handleDeleteSelectedDevices}
+                              title={`Permanently delete ${selectedImeis.size} selected IMEIs from inventory`}
+                            >
+                              <FaTrash /> Delete Selected ({selectedImeis.size})
+                            </button>
+                          )}
+
                           <span className="selected-tag">
                             Selected: <strong>{selectedImeis.size}</strong> of {filteredDealerDevices.length}
                           </span>
@@ -934,6 +987,7 @@ const StockInventory = ({ initialTab = 'add' }) => {
                               <th>Validity</th>
                               <th>Status</th>
                               <th>Assigned Date</th>
+                              <th style={{ textAlign: 'right', width: '90px' }}>Action</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -969,6 +1023,16 @@ const StockInventory = ({ initialTab = 'add' }) => {
                                   </td>
                                   <td style={{ color: '#64748b', fontSize: '11.5px' }}>
                                     {dev.presentDate ? new Date(dev.presentDate).toLocaleDateString('en-GB') : '-'}
+                                  </td>
+                                  <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
+                                    <button
+                                      type="button"
+                                      className="btn-stock-row-delete"
+                                      onClick={() => handleDeleteSingleDevice(dev)}
+                                      title={`Delete IMEI ${dev.imei} from inventory`}
+                                    >
+                                      <FaTrash /> Delete
+                                    </button>
                                   </td>
                                 </tr>
                               );

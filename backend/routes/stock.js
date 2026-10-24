@@ -604,6 +604,119 @@ router.post('/move', async (req, res) => {
   }
 });
 
+// @route   DELETE /api/stock/device/:id
+// @desc    Permanently delete a stock device from inventory
+// @access  Protected (Admin only)
+router.delete('/device/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const device = await Device.findById(id);
+    if (!device) {
+      return res.status(404).json({ message: 'Device not found.' });
+    }
+
+    if (!/^stock$/i.test(String(device.status || ''))) {
+      return res.status(400).json({ message: 'Only devices currently in Stock status can be deleted from Stock Inventory.' });
+    }
+
+    const imei = device.imei;
+    await Device.findByIdAndDelete(device._id);
+
+    // Sync to Product collection
+    try {
+      await Product.deleteMany({ imei });
+    } catch (pErr) {
+      console.warn('Product delete sync warning:', pErr.message);
+    }
+
+    // Audit log
+    await AuditLog.create({
+      userId: req.user._id,
+      action: 'STOCK_DELETED',
+      ipAddress: req.ip || '',
+      details: {
+        deviceId: device._id,
+        imei,
+        dealerName: device.dealerName,
+        count: 1,
+      }
+    }).catch(e => console.error('Audit log error:', e.message));
+
+    res.json({
+      success: true,
+      message: `Stock device (IMEI: ${imei}) deleted permanently from inventory.`,
+      deletedImei: imei,
+    });
+  } catch (err) {
+    console.error('Error deleting stock device:', err);
+    res.status(500).json({ message: err.message || 'Failed to delete stock device.' });
+  }
+});
+
+// @route   POST /api/stock/delete-devices
+// @desc    Bulk delete stock devices from inventory
+// @access  Protected (Admin only)
+router.post('/delete-devices', async (req, res) => {
+  try {
+    const { deviceIds = [], imeis = [] } = req.body;
+
+    const conditions = [];
+    if (Array.isArray(deviceIds) && deviceIds.length > 0) {
+      conditions.push({ _id: { $in: deviceIds.map(id => new mongoose.Types.ObjectId(id)) } });
+    }
+    if (Array.isArray(imeis) && imeis.length > 0) {
+      conditions.push({ imei: { $in: imeis } });
+    }
+
+    if (conditions.length === 0) {
+      return res.status(400).json({ message: 'Please provide deviceIds or imeis to delete.' });
+    }
+
+    const query = {
+      status: { $regex: /^stock$/i },
+      $or: conditions,
+    };
+
+    const devicesToDelete = await Device.find(query).select('_id imei dealerName');
+    if (devicesToDelete.length === 0) {
+      return res.status(404).json({ message: 'No matching stock devices found to delete.' });
+    }
+
+    const idsToDelete = devicesToDelete.map(d => d._id);
+    const imeisToDelete = devicesToDelete.map(d => d.imei);
+
+    await Device.deleteMany({ _id: { $in: idsToDelete } });
+
+    // Sync to Product collection
+    try {
+      await Product.deleteMany({ imei: { $in: imeisToDelete } });
+    } catch (pErr) {
+      console.warn('Product bulk delete sync warning:', pErr.message);
+    }
+
+    // Audit log
+    await AuditLog.create({
+      userId: req.user._id,
+      action: 'STOCK_DELETED',
+      ipAddress: req.ip || '',
+      details: {
+        count: idsToDelete.length,
+        imeis: imeisToDelete,
+      }
+    }).catch(e => console.error('Audit log error:', e.message));
+
+    res.json({
+      success: true,
+      message: `Successfully deleted ${idsToDelete.length} stock device(s) permanently from inventory!`,
+      deletedCount: idsToDelete.length,
+      deletedImeis: imeisToDelete,
+    });
+  } catch (err) {
+    console.error('Error bulk deleting stock devices:', err);
+    res.status(500).json({ message: err.message || 'Failed to bulk delete stock devices.' });
+  }
+});
+
 // @route   GET /api/stock/overview
 // @desc    Get aggregate stock counts by dealer and by model, plus admin stock and transfer logs
 // @access  Protected

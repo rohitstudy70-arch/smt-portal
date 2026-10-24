@@ -459,40 +459,66 @@
   margin-bottom: 12px;
 }
 
-.search-box {
+.device-selection-toolbar .search-box,
+.stock-device-search-box {
   position: relative;
   display: flex;
   align-items: center;
-  width: 280px;
+  width: 320px;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  transition: all 0.2s ease;
 }
 
-.search-box .search-icon {
-  position: absolute;
-  left: 10px;
-  color: #94a3b8;
-  font-size: 13px;
-}
-
-.search-box .search-input {
-  width: 100%;
-  padding: 7px 28px 7px 30px;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  font-size: 12.5px;
-  outline: none;
-  background: #f8fafc;
-}
-
-.search-box .search-input:focus {
+.device-selection-toolbar .search-box:focus-within,
+.stock-device-search-box:focus-within {
   border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
   background: #ffffff;
 }
 
-.search-box .search-clear {
+.device-selection-toolbar .search-box .search-icon,
+.stock-device-search-box .search-icon {
+  position: absolute;
+  left: 11px;
+  color: #64748b;
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.device-selection-toolbar .search-box .search-input,
+.stock-device-search-box .search-input {
+  width: 100%;
+  padding: 8px 30px 8px 34px !important;
+  border: none !important;
+  background: transparent !important;
+  font-size: 13px !important;
+  color: #0f172a !important;
+  outline: none !important;
+  line-height: normal;
+}
+
+.device-selection-toolbar .search-box .search-input::placeholder,
+.stock-device-search-box .search-input::placeholder {
+  color: #94a3b8 !important;
+  font-size: 13px !important;
+  opacity: 1 !important;
+}
+
+.device-selection-toolbar .search-box .search-clear,
+.stock-device-search-box .search-clear {
   position: absolute;
   right: 10px;
   color: #94a3b8;
   cursor: pointer;
+  font-size: 14px;
+  transition: color 0.15s;
+}
+
+.device-selection-toolbar .search-box .search-clear:hover,
+.stock-device-search-box .search-clear:hover {
+  color: #ef4444;
 }
 
 .selection-actions {
@@ -1096,6 +1122,51 @@
   padding: 30px;
   color: #94a3b8;
   font-size: 13px;
+}
+
+/* Stock Delete Buttons */
+.btn-stock-row-delete {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #fef2f2;
+  border: 1.5px solid #fecaca;
+  color: #dc2626;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-stock-row-delete:hover {
+  background: #dc2626;
+  color: #ffffff;
+  border-color: #dc2626;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.3);
+}
+
+.btn-stock-bulk-delete {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ef4444;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
+}
+
+.btn-stock-bulk-delete:hover {
+  background: #dc2626;
+  box-shadow: 0 3px 8px rgba(220, 38, 38, 0.4);
 }
 
 @keyframes fadeIn {
