@@ -7,7 +7,7 @@ const connectDB = require('./config/db');
 const { securityHeaders, nosqlSanitizer, authRateLimiter } = require('./middleware/security');
 
 // Load environment variables
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, '.env') });
 if (fs.existsSync(path.join(__dirname, '.env.local'))) {
   dotenv.config({ path: path.join(__dirname, '.env.local'), override: true });
 }

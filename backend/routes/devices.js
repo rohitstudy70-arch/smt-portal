@@ -186,6 +186,10 @@ const buildDeviceFilterQuery = (queryParams = {}, userRole = '', userId = null) 
         // For dealer/sub-dealer: "Unassigned" = not yet assigned further (null or assigned to self)
         conditions.push({ $or: [{ assignedTo: null }, { assignedTo: userId }] });
       }
+    } else if (status.toLowerCase() === 'stock') {
+      conditions.push({ status: { $regex: /^stock$/i } });
+    } else if (status.toLowerCase() === 'processing') {
+      conditions.push({ status: { $regex: /^processing$/i } });
     } else if (status.toLowerCase() === 'active') {
       conditions.push({ status: { $in: ['Active', 'Activated'] } });
     } else if (status.toLowerCase() === 'inactive') {
@@ -363,6 +367,8 @@ router.get('/stats', async (req, res) => {
     const query = combineQueries(scopeQuery, hideAdminStockQuery);
     const totalDevices = await Device.countDocuments(query);
     const activeDevices = await Device.countDocuments({ ...query, status: { $in: ['Active', 'Activated'] } });
+    const stockDevices = await Device.countDocuments({ ...query, status: { $regex: /^stock$/i } });
+    const processingDevices = await Device.countDocuments({ ...query, status: { $regex: /^processing$/i } });
 
     const now = new Date();
     const expiredDevices = await Device.countDocuments({ ...query, expiryDate: { $lt: now, $ne: null } });
@@ -373,9 +379,49 @@ router.get('/stats', async (req, res) => {
     todayEnd.setHours(23, 59, 59, 999);
     const devicesAddedToday = await Device.countDocuments({ ...query, presentDate: { $gte: todayStart, $lte: todayEnd } });
 
-    res.json({ totalDevices, activeDevices, expiredDevices, devicesAddedToday });
+    res.json({ totalDevices, activeDevices, expiredDevices, devicesAddedToday, stockDevices, processingDevices });
   } catch (error) {
     console.error('Device stats error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET /api/devices/lookup-stock/:imei
+// @desc    Check if an IMEI is a Stock device and return its dealer & model details
+// @access  Protected
+router.get('/lookup-stock/:imei', async (req, res) => {
+  try {
+    const imei = String(req.params.imei || '').trim();
+    if (!imei) {
+      return res.status(400).json({ message: 'IMEI is required' });
+    }
+    const device = await Device.findOne({
+      $or: [{ imei }, { imeiNumber: imei }],
+      status: { $regex: /^stock$/i }
+    }).populate('dealerId', 'displayName companyName username userType')
+      .populate('subDealerId', 'displayName companyName username userType');
+
+    if (!device) {
+      return res.json({ isStock: false });
+    }
+
+    res.json({
+      isStock: true,
+      device: {
+        _id: device._id,
+        imei: device.imei,
+        vendor: device.vendor,
+        dealerId: device.dealerId?._id || device.dealerId,
+        dealerName: device.dealerName || (device.dealerId ? labelForUser(device.dealerId) : ''),
+        subDealerId: device.subDealerId?._id || device.subDealerId,
+        subDealerName: device.subDealerName || (device.subDealerId ? labelForUser(device.subDealerId) : ''),
+        validity: device.validity || '1 Year',
+        billAmount: device.billAmount || 0,
+        presentDate: device.presentDate,
+      }
+    });
+  } catch (err) {
+    console.error('Error looking up stock IMEI:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -450,14 +496,16 @@ router.get('/', async (req, res) => {
     const parsedLimit = isUnlimited ? 10000000 : Math.min(parseInt(limit, 10) || 10, 10000000);
     const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
 
-    let deviceQuery = populateDevice(Device.find(query)).sort({ createdAt: -1 }).lean();
+    let deviceQuery = populateDevice(Device.find(query)).sort({ updatedAt: -1, createdAt: -1 }).lean();
     if (!isUnlimited) {
       deviceQuery = deviceQuery.skip((parsedPage - 1) * parsedLimit).limit(parsedLimit);
     }
 
-    const [devices, total] = await Promise.all([
+    const stockCountQuery = combineQueries(scopeQuery, hideAdminStockQuery, { status: { $regex: /^stock$/i } });
+    const [devices, total, stockCount] = await Promise.all([
       deviceQuery,
       Device.countDocuments(query),
+      Device.countDocuments(stockCountQuery),
     ]);
 
     const isSubDealer = req.portalRole === PORTAL_ROLES.SUB_DEALER;
@@ -475,6 +523,7 @@ router.get('/', async (req, res) => {
     res.json({
       devices: sanitizedDevices,
       total,
+      stockCount: stockCount || 0,
       pages: Math.ceil(total / parsedLimit),
       currentPage: parsedPage,
     });
@@ -833,34 +882,46 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
       }
 
       // Check if duplicate is a stock device belonging to this dealer / admin
+      const isStockDevice = String(duplicate.status || '').toLowerCase() === 'stock';
       const isOwner = req.portalRole === PORTAL_ROLES.ADMIN ||
         (duplicate.dealerId && duplicate.dealerId.toString() === req.user._id.toString()) ||
         (duplicate.userId && duplicate.userId.toString() === req.user._id.toString()) ||
         (ownership.ownerId && duplicate.dealerId && duplicate.dealerId.toString() === ownership.ownerId.toString());
 
-      if (isOwner) {
+      if (isStockDevice && isOwner) {
+        if (ownership.dealer) {
+          duplicate.dealerId = ownership.dealer._id;
+          duplicate.dealerName = labelForUser(ownership.dealer);
+          duplicate.userId = ownership.ownerId;
+        }
+        if (ownership.subDealer) {
+          duplicate.subDealerId = ownership.subDealer._id;
+          duplicate.subDealerName = labelForUser(ownership.subDealer);
+          duplicate.assignedTo = ownership.subDealer._id;
+        }
         if (input.vendor) duplicate.vendor = input.vendor;
-        if (input.iccid) duplicate.iccid = input.iccid;
-        if (input.serialNo) duplicate.serialNo = input.serialNo;
+        if (input.iccid) {
+          duplicate.iccid = input.iccid;
+          duplicate.iccidNumber = input.iccid;
+        }
+        if (input.serialNo) {
+          duplicate.serialNo = input.serialNo;
+          duplicate.serialNumber = input.serialNo;
+        }
         if (input.msisdn1) duplicate.msisdn1 = input.msisdn1;
         if (input.msisdn2) duplicate.msisdn2 = input.msisdn2;
         if (input.itrNo) duplicate.itrNo = input.itrNo;
         if (input.validity) duplicate.validity = input.validity;
         if (input.presentDate) duplicate.presentDate = input.presentDate;
         if (input.expiryDate) duplicate.expiryDate = input.expiryDate;
-        if (ownership.subDealer) {
-          duplicate.subDealerId = ownership.subDealer._id;
-          duplicate.subDealerName = labelForUser(ownership.subDealer);
-          duplicate.assignedTo = ownership.subDealer._id;
-        }
 
-        if (String(duplicate.status || '').toLowerCase() === 'stock') {
-          duplicate.status = 'Processing';
-          duplicate.deviceStatus = 'inactive';
-          duplicate.activationRequestStatus = 'processing';
-          duplicate.createdBy = req.user._id;
-          duplicate.createdByRole = req.portalRole;
-        }
+        duplicate.status = 'Processing';
+        duplicate.deviceStatus = 'inactive';
+        duplicate.activationRequestStatus = 'processing';
+        duplicate.hasSim = Boolean(input.msisdn1 || input.msisdn2 || input.iccid);
+        duplicate.createdBy = req.user._id;
+        duplicate.createdByRole = req.portalRole;
+        duplicate.updatedAt = new Date();
 
         const bAmt = Number(input.billAmount) || 0;
         const topAmt = Number(input.topUpAmount) || 0;
@@ -884,8 +945,31 @@ router.post('/', requireRoles(...deviceCreateRoles), async (req, res) => {
         });
 
         await duplicate.save();
+
+        // Sync Product collection
+        try {
+          const Product = require('../models/Product');
+          await Product.updateOne(
+            { imei: duplicate.imei },
+            {
+              $set: {
+                dealerId: duplicate.dealerId,
+                dealerName: duplicate.dealerName,
+                subDealerId: duplicate.subDealerId,
+                subDealerName: duplicate.subDealerName,
+                vendor: duplicate.vendor,
+                validity: duplicate.validity,
+                activationDate: duplicate.presentDate,
+                expiryDate: duplicate.expiryDate,
+                billAmount: duplicate.billAmount,
+                createdBy: req.user._id,
+              }
+            }
+          );
+        } catch (pe) {}
+
         return res.json({
-          message: 'Device details saved successfully!',
+          message: 'Stock device details saved (Status: Processing)!',
           device: duplicate,
         });
       }
@@ -1111,7 +1195,8 @@ router.put('/:id', async (req, res) => {
       return res.status(400).json({ message: 'Model (vendor) is required.' });
     }
 
-    if (req.portalRole !== PORTAL_ROLES.ADMIN && input.vendor === 'iTriangle') {
+    // Allow dealers to edit/fill details if the device already exists as iTriangle or was created as stock
+    if (req.portalRole !== PORTAL_ROLES.ADMIN && input.vendor === 'iTriangle' && String(device.status || '').toLowerCase() !== 'stock' && device.vendor !== 'iTriangle') {
       return res.status(400).json({ message: 'Selection of model iTriangle is restricted to admin only.' });
     }
 
